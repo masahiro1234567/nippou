@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>FP日報アプリ</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#f0f4ff;--card:#fff;--border:#c7d4f0;--text:#0a0f1e;--sub:#5a6a8a;
+  --primary:#2563eb;--pl:#eff4ff;--pd:#1d4ed8;
+  --grad:linear-gradient(135deg,#3b82f6,#2563eb);
+  --green:#059669;--red:#dc2626;--orange:#d97706;
+  --sh:0 3px 16px rgba(37,99,235,.13);--sh-sm:0 1px 6px rgba(37,99,235,.08);--r:14px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+.page{display:none;flex-direction:column;height:100%;overflow:hidden;position:absolute;inset:0;background:var(--bg);}
+.page.active{display:flex;}
+
+/* HEADER */
+.hdr{background:#fff;border-bottom:2px solid var(--primary);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex-shrink:0;box-shadow:0 2px 10px rgba(37,99,235,.12);z-index:50;}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-mark{width:32px;height:32px;background:var(--grad);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:.7rem;flex-shrink:0;text-align:center;line-height:1.3;}
+.logo h1{font-size:.88rem;font-weight:800;color:var(--text);}
+.hdr-right{display:flex;align-items:center;gap:5px;}
+.btn-back{background:var(--pl);border:1.5px solid var(--border);border-radius:7px;padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--pd);}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);border-radius:7px;padding:5px 9px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);}
+.btn-menu{width:38px;height:38px;background:var(--pl);border:1.5px solid var(--border);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;flex-shrink:0;}
+.btn-menu.active{background:var(--primary);border-color:var(--primary);}
+.btn-menu span{display:block;width:15px;height:2px;background:var(--primary);border-radius:2px;}
+.btn-menu.active span{background:#fff;}
+
+/* SIDEBAR */
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.4);z-index:90;}
+.sb-overlay.show{display:block;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;background:#fff;border-right:2px solid var(--border);z-index:100;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:4px 0 24px rgba(37,99,235,.13);}
+.sidebar.open{transform:translateX(0);}
+.sb-head{background:var(--grad);padding:20px 16px 16px;display:flex;align-items:center;gap:10px;}
+.sb-head-mark{width:34px;height:34px;background:rgba(255,255,255,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:.72rem;text-align:center;line-height:1.3;}
+.sb-head-name{color:#fff;font-size:.82rem;font-weight:700;}
+.sb-head-sub{color:rgba(255,255,255,.75);font-size:.68rem;margin-top:2px;}
+.sb-nav{padding:10px 0;}
+.sb-item{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;font-size:.86rem;font-weight:600;color:var(--sub);transition:background .15s;border:none;background:transparent;width:100%;font-family:inherit;text-align:left;}
+.sb-item:hover{background:var(--pl);}
+.sb-item.active{background:var(--pl);color:var(--primary);font-weight:800;}
+.sb-item-icon{font-size:1.1rem;flex-shrink:0;}
+.sb-divider{height:1px;background:var(--border);margin:6px 14px;}
+
+/* BODY */
+.body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 13px 32px;}
+
+/* CARD */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh-sm);border:1.5px solid var(--border);padding:14px;margin-bottom:12px;}
+.card-title{font-size:.68rem;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+.section-title{font-size:.95rem;font-weight:800;margin-bottom:12px;}
+
+/* FORM */
+.form-group{margin-bottom:11px;}
+.form-group label{display:block;font-size:.74rem;font-weight:700;margin-bottom:4px;}
+.req{color:var(--primary);}
+.inp{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:.88rem;font-family:inherit;background:#fff;color:var(--text);-webkit-appearance:none;}
+.inp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+textarea.inp{resize:vertical;min-height:70px;}
+.row-inputs{display:flex;align-items:center;gap:4px;margin-bottom:7px;}
+.row-label{font-size:.73rem;font-weight:600;flex:0 0 112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row-label-w{font-size:.73rem;font-weight:600;flex:0 0 132px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row-sep{font-size:.76rem;color:var(--sub);flex-shrink:0;}
+.unit{font-size:.72rem;color:var(--sub);flex-shrink:0;white-space:nowrap;}
+.inp-s{border:1.5px solid var(--border);border-radius:6px;padding:7px 4px;font-size:.85rem;font-family:inherit;background:#fff;text-align:right;width:100%;-webkit-appearance:none;min-width:0;}
+.inp-s:focus{outline:none;border-color:var(--primary);}
+.inp-s.auto-filled{background:#eff4ff;border-color:var(--primary);color:var(--pd);font-weight:700;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+
+/* BUTTONS */
+.btn{width:100%;padding:13px;border-radius:11px;border:none;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;}
+.btn:active{transform:scale(.98);}
+.btn-p{background:var(--grad);color:#fff;box-shadow:0 3px 10px rgba(37,99,235,.3);}
+.btn-outline{background:transparent;border:2px solid var(--primary);color:var(--primary);}
+.btn-gray{background:#eef0f5;color:var(--sub);}
+.btn-green{background:var(--green);color:#fff;}
+.btn-orange{background:var(--orange);color:#fff;}
+.btn+.btn{margin-top:8px;}
+.btn-sm{background:var(--grad);color:#fff;border:none;border-radius:7px;padding:6px 11px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+/* ACH DISPLAY */
+.ach-disp{text-align:center;padding:8px 0 12px;}
+.ach-num{font-size:1.9rem;font-weight:900;}
+.ach-num.hi{color:var(--green);}
+.ach-num.mid{color:var(--orange);}
+.ach-num.lo{color:var(--red);}
+
+/* COPY BOX */
+.copy-box{background:#f8faff;border:1.5px solid var(--border);border-radius:10px;padding:14px;font-size:.75rem;line-height:1.9;white-space:pre-wrap;word-break:break-all;max-height:50vh;overflow-y:auto;}
+.copy-ok{background:#d1fae5;border-color:var(--green);color:#065f46;text-align:center;padding:9px;border-radius:8px;font-size:.82rem;font-weight:700;display:none;margin-top:8px;}
+
+/* REPORT CARD */
+.report-card{background:var(--card);border-radius:12px;border:1.5px solid var(--border);padding:13px;margin-bottom:9px;cursor:pointer;transition:transform .12s;}
+.report-card:active{transform:scale(.98);}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.rc-store{font-size:.9rem;font-weight:800;}
+.rc-date{font-size:.72rem;color:var(--sub);}
+.rc-meta{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;}
+.badge{padding:2px 7px;border-radius:20px;font-size:.64rem;font-weight:700;white-space:nowrap;}
+.b-blue{background:var(--pl);color:var(--pd);}
+.b-green{background:#d1fae5;color:var(--green);}
+.b-red{background:#fee2e2;color:var(--red);}
+.b-orange{background:#fef3c7;color:var(--orange);}
+.b-gray{background:#f1f5f9;color:#64748b;}
+.rc-summary{font-size:.73rem;color:var(--sub);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* FILTER / SEARCH */
+.filter-bar{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px;margin-bottom:10px;scrollbar-width:none;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.fchip{padding:5px 11px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--sub);font-family:inherit;}
+.fchip.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.search-box{background:#fff;border:2px solid var(--border);border-radius:999px;display:flex;align-items:center;gap:7px;padding:0 13px;height:42px;margin-bottom:10px;}
+.search-box:focus-within{border-color:var(--primary);}
+.search-box input{flex:1;border:none;outline:none;font-size:.86rem;font-family:inherit;background:transparent;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.5);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-handle{width:34px;height:4px;background:var(--border);border-radius:2px;margin:11px auto 0;}
+.modal-hdr{padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-hdr h3{font-size:.92rem;font-weight:800;}
+.btn-close{background:var(--bg);border:none;width:27px;height:27px;border-radius:50%;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--sub);}
+.modal-body{padding:14px 16px 28px;}
+.report-full{font-size:.75rem;line-height:1.9;white-space:pre-wrap;word-break:break-all;background:#f8faff;border-radius:9px;padding:13px;border:1px solid var(--border);}
+
+/* TAB */
+.tab-bar{display:flex;border-bottom:2px solid var(--border);margin-bottom:13px;overflow-x:auto;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;padding:8px 12px;border:none;background:transparent;font-family:inherit;font-size:.78rem;font-weight:700;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+
+/* STATS */
+.stat-card{background:var(--card);border-radius:12px;border:1.5px solid var(--border);padding:13px;margin-bottom:9px;}
+.stat-store{font-size:.88rem;font-weight:800;margin-bottom:8px;}
+.stat-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.stat-label{font-size:.72rem;color:var(--sub);flex:0 0 80px;}
+.stat-bar-wrap{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;}
+.stat-bar{height:100%;border-radius:4px;transition:width .5s;}
+.stat-pct{font-size:.72rem;font-weight:800;width:36px;text-align:right;}
+
+/* HIYARI */
+.hiyari-card{background:#fff8f0;border:1.5px solid #ffd9a0;border-radius:10px;padding:11px 13px;margin-bottom:8px;}
+.hiyari-date{font-size:.7rem;color:var(--sub);margin-bottom:3px;}
+.hiyari-text{font-size:.82rem;line-height:1.6;}
+
+/* STORE FEATURE */
+.store-feat-card{background:var(--card);border-radius:12px;border:1.5px solid var(--border);padding:13px;margin-bottom:9px;cursor:pointer;}
+.store-feat-name{font-size:.9rem;font-weight:800;margin-bottom:4px;}
+.store-feat-preview{font-size:.76rem;color:var(--sub);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* CARRY OVER SCREEN */
+.carry-card{background:var(--card);border-radius:var(--r);border:2px solid var(--primary);padding:18px;margin-bottom:14px;}
+.carry-title{font-size:.92rem;font-weight:800;margin-bottom:6px;color:var(--primary);}
+.carry-info{font-size:.8rem;color:var(--sub);line-height:1.6;}
+
+/* LOADING/TOAST */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0a0f1e;color:#fff;padding:9px 18px;border-radius:9px;font-size:.8rem;font-weight:600;z-index:9999;transition:transform .28s;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+.divider{height:1px;background:var(--border);margin:12px 0;}
+.tc{text-align:center;}
+.ts{color:var(--sub);font-size:.76rem;}
+.fw8{font-weight:800;}
+.mt8{margin-top:8px;}
+.mt12{margin-top:12px;}
+.empty{text-align:center;padding:40px 20px;color:var(--sub);}
+.day-btn{padding:10px 20px;border-radius:10px;border:2px solid var(--border);background:#fff;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);transition:all .15s;}
+.day-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+</style>
+</head>
+<body>
+<div id="loading"><div style="font-size:1.2rem;font-weight:900;color:var(--primary);">FP 日報アプリ</div><div class="spinner"></div></div>
+
+<!-- サイドバーオーバーレイ -->
+<div class="sb-overlay" id="sb-overlay" onclick="closeSb()"></div>
+
+<!-- サイドバー -->
+<div class="sidebar" id="sidebar">
+  <div class="sb-head">
+    <div class="sb-head-mark">FP<br>日報</div>
+    <div><div class="sb-head-name" id="sb-uname">---</div><div class="sb-head-sub">FP 日報アプリ</div></div>
+  </div>
+  <div class="sb-nav">
+    <button class="sb-item" onclick="navTo('pg-carry')"><span class="sb-item-icon">📝</span>日報登録</button>
+    <button class="sb-item" onclick="navTo('pg-list')"><span class="sb-item-icon">📂</span>日報確認</button>
+    <button class="sb-item" onclick="navTo('pg-stats')"><span class="sb-item-icon">📊</span>実績確認</button>
+    <button class="sb-item" onclick="navTo('pg-stores')"><span class="sb-item-icon">🏪</span>店舗特徴</button>
+    <div class="sb-divider"></div>
+    <button class="sb-item" onclick="navTo('pg-admin-login')"><span class="sb-item-icon">🔐</span>管理者ログイン</button>
+  </div>
+</div>
+
+<!-- ══ ログイン ══ -->
+<div class="page active" id="pg-login">
+  <div class="hdr"><div class="logo"><div class="logo-mark">FP<br>日報</div><h1>FP 日報アプリ</h1></div></div>
+  <div class="body">
+    <div style="text-align:center;padding:22px 0 26px;"><div style="font-size:2.2rem;margin-bottom:7px;">📋</div><div class="fw8" style="font-size:1rem;">はじめまして！</div><div class="ts mt8">名前を登録してください<br>次回から自動ログインされます</div></div>
+    <div class="card">
+      <div class="form-group"><label>名前 <span class="req">*</span></label><input class="inp" id="login-name" placeholder="例：山田 太郎"/></div>
+      <button class="btn btn-p mt8" onclick="doLogin()">登録してはじめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 稼働日選択 ══ -->
+<div class="page" id="pg-dateselect">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>稼働日設定</h1></div>
+    <div class="hdr-right">
+      <button class="btn-back" onclick="showPage('pg-login')">← 戻る</button>
+      <button class="btn-menu" id="menu-dateselect" onclick="toggleSb()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="body">
+    <div class="section-title">📅 稼働日を設定してください</div>
+    <div class="card">
+      <div class="form-group">
+        <label>1日目の日付 <span class="req">*</span></label>
+        <input class="inp" type="date" id="ds-start" onchange="onDsDateChange()"/>
+      </div>
+      <div class="form-group">
+        <label>稼働日数 <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="ds-days-btns">
+          <button type="button" class="day-btn active" onclick="selectDays(1,this)">1日</button>
+          <button type="button" class="day-btn" onclick="selectDays(2,this)">2日</button>
+          <button type="button" class="day-btn" onclick="selectDays(3,this)">3日</button>
+          <button type="button" class="day-btn" onclick="selectDays(4,this)">4日</button>
+        </div>
+      </div>
+      <div id="ds-preview" style="background:var(--pl);border-radius:9px;padding:11px 13px;margin-top:4px;font-size:.82rem;font-weight:700;color:var(--pd);min-height:36px;"></div>
+    </div>
+
+    <button type="button" class="btn btn-p" style="margin-top:12px;" onclick="confirmDateSelect()">この日程で進む ▶</button>
+  </div>
+</div>
+
+<!-- ══ 引き継ぎ確認 ══ -->
+<div class="page" id="pg-carry">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報登録</h1></div>
+    <div class="hdr-right"><button class="btn-menu" id="menu-carry" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+  </div>
+  <div class="body">
+    <div id="carry-section">
+      <!-- 前回日報がある場合に表示 -->
+      <div id="carry-exists" style="display:none;">
+        <div class="carry-card">
+          <div class="carry-title">📋 前回の日報を引き継ぎますか？</div>
+          <div class="carry-info" id="carry-info">前回：---</div>
+        </div>
+        <button class="btn btn-p" onclick="useCarry()">✅ 引き継いで入力する</button>
+        <button class="btn btn-gray mt8" onclick="noCarry()">新規で入力する</button>
+      </div>
+      <div id="carry-none" style="display:none;">
+        <button class="btn btn-p" onclick="noCarry()">📝 日報を新規入力する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 日報入力 ══ -->
+<div class="page" id="pg-input">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報入力</h1></div>
+    <div class="hdr-right">
+      <button class="btn-back" onclick="showPage('pg-dateselect')">← 戻る</button>
+      <button class="btn-menu" id="menu-input" onclick="toggleSb()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="body">
+
+    <!-- 基本情報 -->
+    <div class="card">
+      <div class="card-title">📌 基本情報</div>
+      <div class="form-group"><label>日付 <span class="req">*</span></label><input class="inp" type="date" id="in-date"/></div>
+      <div class="grid2">
+        <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="in-store" placeholder="例：○○イオン"/></div>
+        <div class="form-group"><label>販路 <span class="req">*</span></label>
+          <select class="inp" id="in-ch"><option value="">選択</option><option>イオン</option><option>エディオン</option><option>ジョーシン</option><option>ケーズデンキ</option><option>ヤマダ</option><option>コジマ</option><option>その他</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>ディレクター名 <span class="req">*</span></label><input class="inp" id="in-dir"/></div>
+      <div class="form-group"><label>⚠️ ヒヤリハット報告</label><textarea class="inp" id="in-hiyari" placeholder="あれば記入（なければ空白でOK）" rows="2"></textarea></div>
+      <div class="form-group">
+        <label>現在入力中の日 <span class="req">*</span></label>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;" id="active-day-btns"></div>
+        <div class="hint">au/UQ実績を入力すると、この日の実績欄のみ自動計算されます</div>
+      </div>
+    </div>
+
+    <!-- 目標 -->
+    <div class="card">
+      <div class="card-title">🎯 目標</div>
+      <div class="row-inputs">
+        <div class="row-label">目標台数</div>
+        <input class="inp-s" id="r-ta" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+        <div class="unit">台</div>
+        <div class="row-sep">/</div>
+        <input class="inp-s" id="r-tb" placeholder="0" type="number" min="0" oninput="calcAuto()"/>
+        <div class="unit">台</div>
+      </div>
+    </div>
+
+    <!-- au/UQ mobile（日付別タブ） -->
+    <div class="card">
+      <div class="card-title">📱 au / UQ mobile実績</div>
+      <!-- 日付タブ -->
+      <div id="mobile-day-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <!-- au -->
+      <div style="font-size:.72rem;font-weight:800;color:var(--pd);margin-bottom:7px;background:var(--pl);padding:5px 10px;border-radius:6px;">📱 au mobile</div>
+      <div class="row-inputs"><div class="row-label-w">純新規</div><input class="inp-s" id="au0" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(UQ⇒au)</div><input class="inp-s" id="au1" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(SB⇒au)</div><input class="inp-s" id="au2" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(DCM⇒au)</div><input class="inp-s" id="au3" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(YM⇒au)</div><input class="inp-s" id="au4" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(楽天⇒au)</div><input class="inp-s" id="au5" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(その他⇒au)</div><input class="inp-s" id="au6" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">機種変更</div><input class="inp-s" id="au7" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <!-- UQ -->
+      <div style="font-size:.72rem;font-weight:800;color:var(--pd);margin:10px 0 7px;background:var(--pl);padding:5px 10px;border-radius:6px;">📱 UQ mobile</div>
+      <div class="row-inputs"><div class="row-label-w">純新規</div><input class="inp-s" id="uq0" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(au⇒UQ)</div><input class="inp-s" id="uq1" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(SB⇒UQ)</div><input class="inp-s" id="uq2" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(DCM⇒UQ)</div><input class="inp-s" id="uq3" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(YM⇒UQ)</div><input class="inp-s" id="uq4" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(楽天⇒UQ)</div><input class="inp-s" id="uq5" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">MNP(その他⇒UQ)</div><input class="inp-s" id="uq6" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">機種変更</div><input class="inp-s" id="uq7" placeholder="0" type="number" min="0" oninput="calcAutoForActiveDay()"/><div class="unit">件</div></div>
+    </div>
+
+
+
+    <!-- 実績（日数分動的生成） -->
+    <div class="card">
+      <div class="card-title">📊 実績（2Bダウン除き総販 / 2Bリク除き） ※最終日はau+UQ自動計算</div>
+      <div id="jisseki-inputs">
+        <div class="row-inputs"><div class="row-label">当日実績</div><input class="inp-s" id="j-a-0" placeholder="0" type="number" min="0" oninput="calcAuto()"/><div class="unit">件</div><div class="row-sep">/</div><input class="inp-s" id="j-b-0" placeholder="0" type="number" min="0" oninput="calcAuto()"/><div class="unit">件</div></div>
+      </div>
+      <div style="background:var(--pl);border-radius:9px;padding:11px 13px;margin-top:8px;">
+        <div class="row-inputs" style="margin-bottom:0;"><div class="row-label" style="color:var(--red);font-weight:800;">残数</div><div style="font-size:.92rem;font-weight:900;color:var(--red);" id="nokori-display">-/-</div></div>
+      </div>
+      <div class="ach-disp"><div class="ts" style="margin-bottom:2px;">達成率（全曜日合計）</div><div class="ach-num" id="ach-disp">- %</div></div>
+    </div>
+
+    <!-- 見込み獲得（日数分動的生成） -->
+    <div class="card">
+      <div class="card-title">🏠 店舗様見込み獲得 ※常勤当日除く</div>
+      <div id="mikomi-inputs">
+        <div class="row-inputs"><div class="row-label">本日獲得</div><input class="inp-s" id="v-ag-0" placeholder="0" type="number" min="0"/><div class="unit">組</div><div class="row-sep">/</div><input class="inp-s" id="v-ad-0" placeholder="0" type="number" min="0"/><div class="unit">台</div></div>
+      </div>
+    </div>
+
+    <!-- 内訳 -->
+    <div class="card">
+      <div class="card-title">📋 内訳（接客組 / 着座組 / 成約組 / 成約台）</div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">アンケート枚数（全体）</div><input class="inp-s" id="ank" placeholder="0" type="number" min="0"/><div class="unit">枚</div></div>
+      <div style="font-size:.68rem;color:var(--sub);margin:7px 0 5px;font-weight:700;">各チャネル：接客組 / 着座組 / 成約組 / 成約台</div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">FP（アンケート）</div><input class="inp-s" id="b-fp0" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fp1" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fp2" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fp3" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">フリーキャッチ</div><input class="inp-s" id="b-fc0" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fc1" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fc2" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-fc3" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">什器/POP</div><input class="inp-s" id="b-pop0" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-pop1" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-pop2" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-pop3" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">家電/TA</div><input class="inp-s" id="b-ta0" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-ta1" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-ta2" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-ta3" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label" style="font-size:.7rem;">振り（常勤/他）</div><input class="inp-s" id="b-furi0" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-furi1" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-furi2" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="b-furi3" placeholder="0" type="number" min="0"/></div>
+    </div>
+
+    <!-- FTTH -->
+    <div class="card">
+      <div class="card-title">🌐 FTTH実績</div>
+      <div class="row-inputs"><div class="row-label-w">auひかり</div><input class="inp-s" id="ft0" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">BIGLOBE光</div><input class="inp-s" id="ft1" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">eo光</div><input class="inp-s" id="ft2" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">CATV</div><input class="inp-s" id="ft3" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">WiMAX</div><input class="inp-s" id="ft4" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+    </div>
+
+    <!-- ライフデザイン -->
+    <div class="card">
+      <div class="card-title">💡 ライフデザイン実績</div>
+      <div class="row-inputs"><div class="row-label-w">auでんき</div><input class="inp-s" id="ld0" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+      <div class="row-inputs"><div class="row-label-w">auPayカード</div><input class="inp-s" id="ld1" placeholder="0" type="number" min="0"/><div class="unit">件</div></div>
+    </div>
+
+    <!-- アライアンス -->
+    <div class="card">
+      <div class="card-title">🤝 アライアンス協業</div>
+      <div class="form-group"><label>その他獲得商材</label><textarea class="inp" id="other-items" rows="2" placeholder="自由記入（なければ「−」）"></textarea></div>
+      <div class="divider"></div>
+      <div style="font-size:.72rem;font-weight:700;margin-bottom:7px;">❶ 振り組数 / 成約組数</div>
+      <div class="row-inputs"><div class="row-label">KDDI→eo</div><input class="inp-s" id="al0a" placeholder="0" type="number" min="0"/><div class="unit">組</div><div class="row-sep">/</div><input class="inp-s" id="al0b" placeholder="0" type="number" min="0"/><div class="unit">組</div></div>
+      <div class="row-inputs"><div class="row-label">eo→KDDI</div><input class="inp-s" id="al1a" placeholder="0" type="number" min="0"/><div class="unit">組</div><div class="row-sep">/</div><input class="inp-s" id="al1b" placeholder="0" type="number" min="0"/><div class="unit">組</div></div>
+      <div class="row-inputs"><div class="row-label">KDDI→CATV</div><input class="inp-s" id="al2a" placeholder="0" type="number" min="0"/><div class="unit">組</div><div class="row-sep">/</div><input class="inp-s" id="al2b" placeholder="0" type="number" min="0"/><div class="unit">組</div></div>
+      <div class="row-inputs"><div class="row-label">CATV→KDDI</div><input class="inp-s" id="al3a" placeholder="0" type="number" min="0"/><div class="unit">組</div><div class="row-sep">/</div><input class="inp-s" id="al3b" placeholder="0" type="number" min="0"/><div class="unit">組</div></div>
+      <div class="form-group mt8"><label>❷ アライアンス様連携　取組み工夫</label><textarea class="inp" id="al-eff" rows="3" placeholder="eo/CATVとの連携内容"></textarea></div>
+    </div>
+
+    <!-- 他社実績 -->
+    <div class="card">
+      <div class="card-title">🏢 他社実績（純新規 / MNP / 番号移行 / 機変）</div>
+      <div class="row-inputs"><div class="row-label">Softbank</div><input class="inp-s" id="ot0a" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot0b" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot0c" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot0d" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label">docomo</div><input class="inp-s" id="ot1a" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot1b" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot1c" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot1d" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label">Ymobile</div><input class="inp-s" id="ot2a" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot2b" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot2c" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot2d" placeholder="0" type="number" min="0"/></div>
+      <div class="row-inputs"><div class="row-label">楽天</div><input class="inp-s" id="ot3a" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot3b" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot3c" placeholder="0" type="number" min="0"/><div class="row-sep">/</div><input class="inp-s" id="ot3d" placeholder="0" type="number" min="0"/></div>
+    </div>
+
+    <!-- コメント -->
+    <div class="card">
+      <div class="card-title">✍️ コメント</div>
+      <div class="form-group"><label>■全体総括（活動内容/集客状況/他社状況）</label><textarea class="inp" id="txt-ov" rows="4" placeholder="活動内容・集客状況・他社状況を記入"></textarea></div>
+      <div class="form-group"><label>■【達成：達成理由】【未達：改善策】</label><textarea class="inp" id="txt-rs" rows="4" placeholder="達成理由または改善策を記入"></textarea></div>
+    </div>
+
+    <button class="btn btn-p" onclick="generateReport()">📋 プレビュー・コピー</button>
+    <button class="btn btn-gray mt8" onclick="clearForm()">🔄 入力をリセット</button>
+  </div>
+</div>
+
+<!-- ══ 日報一覧 ══ -->
+<div class="page" id="pg-list">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報確認</h1></div>
+    <div class="hdr-right"><button class="btn-menu" id="menu-list" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+  </div>
+  <div class="body">
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchListTab('lt-all',this)">全て</button>
+      <button class="tab" onclick="switchListTab('lt-hiyari',this)">⚠️ ヒヤリハット</button>
+    </div>
+    <div id="lt-all">
+      <div class="search-box"><span style="color:var(--sub);">🔍</span><input type="search" id="list-search" placeholder="店舗名・ディレクター名で検索..." oninput="filterReports()" autocomplete="off"/></div>
+      <div class="filter-bar" id="fb-ch">
+        <button class="fchip active" onclick="setFilter('ch','',this)">すべて</button>
+        <button class="fchip" onclick="setFilter('ch','イオン',this)">イオン</button>
+        <button class="fchip" onclick="setFilter('ch','エディオン',this)">エディオン</button>
+        <button class="fchip" onclick="setFilter('ch','ジョーシン',this)">ジョーシン</button>
+        <button class="fchip" onclick="setFilter('ch','ケーズデンキ',this)">ケーズ</button>
+        <button class="fchip" onclick="setFilter('ch','ヤマダ',this)">ヤマダ</button>
+        <button class="fchip" onclick="setFilter('ch','コジマ',this)">コジマ</button>
+        <button class="fchip" onclick="setFilter('ch','その他',this)">その他</button>
+      </div>
+      <div class="filter-bar" id="fb-ach">
+        <button class="fchip active" onclick="setFilter('ach','',this)">達成率：全て</button>
+        <button class="fchip" onclick="setFilter('ach','hi',this)">100%以上</button>
+        <button class="fchip" onclick="setFilter('ach','mid',this)">70〜99%</button>
+        <button class="fchip" onclick="setFilter('ach','lo',this)">70%未満</button>
+      </div>
+      <div id="report-list"></div>
+    </div>
+    <div id="lt-hiyari" style="display:none;">
+      <div class="section-title">⚠️ ヒヤリハット一覧（店舗別）</div>
+      <div id="hiyari-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 実績確認 ══ -->
+<div class="page" id="pg-stats">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>実績確認</h1></div>
+    <div class="hdr-right"><button class="btn-menu" id="menu-stats" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+  </div>
+  <div class="body">
+    <div class="form-group">
+      <label>対象月</label>
+      <input class="inp" type="month" id="stats-month"/>
+    </div>
+    <div class="form-group">
+      <label>週を選択</label>
+      <div class="filter-bar" id="week-filter" style="margin-bottom:0;">
+        <button class="fchip active" onclick="setWeekFilter('all',this)">全体</button>
+        <button class="fchip" onclick="setWeekFilter(1,this)">第1週</button>
+        <button class="fchip" onclick="setWeekFilter(2,this)">第2週</button>
+        <button class="fchip" onclick="setWeekFilter(3,this)">第3週</button>
+        <button class="fchip" onclick="setWeekFilter(4,this)">第4週</button>
+        <button class="fchip" onclick="setWeekFilter(5,this)">第5週</button>
+      </div>
+    </div>
+    <!-- 月次目標進捗 -->
+    <div class="card" id="monthly-goal-card">
+      <div class="card-title">🎯 月次目標進捗</div>
+      <div id="monthly-goal-display"><div class="ts tc" style="padding:10px;">目標未設定</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏪 達成店舗率</div>
+      <div id="achievement-store-rate"><div class="ts tc" style="padding:10px;">データなし</div></div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchStatsTab('st-store',this)">店舗別</button>
+      <button class="tab" onclick="switchStatsTab('st-channel',this)">販路別</button>
+    </div>
+    <div id="st-store"><div id="stats-store-list"></div></div>
+    <div id="st-channel" style="display:none;"><div id="stats-ch-list"></div></div>
+  </div>
+</div>
+
+<!-- ══ 店舗特徴 ══ -->
+<div class="page" id="pg-stores">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>店舗特徴</h1></div>
+    <div class="hdr-right"><button class="btn-menu" id="menu-stores" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+  </div>
+  <div class="body">
+    <div style="font-size:.74rem;color:var(--sub);background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:9px 12px;margin-bottom:12px;">🔒 この情報はFPへの日報には含まれません（社内管理用）</div>
+    <div class="search-box" style="margin-bottom:10px;"><span style="color:var(--sub);">🔍</span><input type="search" id="store-feat-search" placeholder="店舗名で検索..." oninput="renderStoreFeats()" autocomplete="off"/></div>
+    <button class="btn btn-p" onclick="openStoreFeatEdit(null)" style="margin-bottom:12px;">＋ 店舗を追加</button>
+    <div id="store-feat-list"></div>
+  </div>
+</div>
+
+<!-- ══ 管理者ログイン ══ -->
+<div class="page" id="pg-admin-login">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>管理者ログイン</h1></div>
+    <div class="hdr-right"><button class="btn-menu" id="menu-admin-login" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+  </div>
+  <div class="body">
+    <div style="text-align:center;padding:22px 0;"><div style="font-size:2rem;margin-bottom:7px;">🔐</div><div class="fw8">管理者専用</div></div>
+    <div class="card">
+      <div class="form-group"><label>パスワード</label><input class="inp" id="admin-pw" type="password" placeholder="パスワードを入力"/></div>
+      <button class="btn btn-p mt8" onclick="doAdminLogin()">ログイン</button>
+    </div>
+    <div id="admin-logged-in-msg" style="display:none;" class="card mt8">
+      <div style="color:var(--green);font-weight:800;font-size:.9rem;margin-bottom:8px;">✅ 管理者ログイン中</div>
+      <button class="btn btn-p" onclick="showPage('pg-admin')">管理者画面へ</button>
+      <button class="btn btn-gray mt8" onclick="adminLogout()">ログアウト</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 管理者ダッシュボード ══ -->
+<div class="page" id="pg-admin">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>管理者画面</h1></div>
+    <div class="hdr-right"><button class="btn-ghost" onclick="adminLogout()">ログアウト</button><button class="btn-back" onclick="showPage('pg-list')">← 戻る</button></div>
+  </div>
+  <div class="body">
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchATab('at-list',this)">日報管理</button>
+      <button class="tab" onclick="switchATab('at-goal',this)">月次目標</button>
+    </div>
+    <div id="at-list">
+      <div class="section-title">日報一覧（編集・削除可）</div>
+      <div class="search-box"><span style="color:var(--sub);">🔍</span><input type="search" id="adm-search" placeholder="店舗名・ディレクター名..." oninput="renderAdminList()" autocomplete="off"/></div>
+      <div id="adm-list"></div>
+    </div>
+    <div id="at-goal" style="display:none;">
+      <div class="section-title">月次目標設定</div>
+      <div class="card">
+        <div class="form-group"><label>対象月</label><input class="inp" type="month" id="goal-month"/></div>
+        <div class="form-group"><label>総販目標（左）</label><div class="row-inputs" style="margin-bottom:0;"><input class="inp-s" id="goal-a" placeholder="0" type="number" min="0"/><div class="unit">台</div></div></div>
+        <div class="form-group"><label>2Bリク除き目標（右）</label><div class="row-inputs" style="margin-bottom:0;"><input class="inp-s" id="goal-b" placeholder="0" type="number" min="0"/><div class="unit">台</div></div></div>
+        <button class="btn btn-p mt8" onclick="saveGoal()">目標を保存</button>
+      </div>
+      <div class="section-title mt8">設定済み月次目標</div>
+      <div id="goal-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：プレビュー ══ -->
+<div class="modal-overlay" id="modal-preview">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3>📋 日報プレビュー</h3><button class="btn-close" onclick="closeModal('modal-preview')">✕</button></div>
+    <div class="modal-body">
+      <div class="copy-box" id="preview-text"></div>
+      <div class="copy-ok" id="copy-ok">✅ コピーしました！</div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-outline" onclick="doCopy()">📋 コピーのみ</button>
+        <button class="btn btn-green" onclick="saveAndCopy()">💾 保存してコピー</button>
+      </div>
+      <button class="btn btn-gray mt8" onclick="closeModal('modal-preview')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：保存完了 ══ -->
+<div class="modal-overlay" id="modal-saved">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3>✅ 日報を保存しました</h3><button class="btn-close" onclick="closeModal('modal-saved')">✕</button></div>
+    <div class="modal-body">
+      <div style="text-align:center;padding:10px 0 16px;font-size:.88rem;color:var(--sub);">次に何をしますか？</div>
+      <button class="btn btn-p" onclick="closeModal('modal-saved');showPage('pg-list');">📂 日報確認へ</button>
+      <button class="btn btn-orange mt8" onclick="closeModal('modal-saved');goToStoreFeat();">🏪 店舗特徴を記入する</button>
+      <button class="btn btn-gray mt8" onclick="closeModal('modal-saved');">このまま続ける</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：日報詳細 ══ -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr">
+      <h3 id="detail-title" style="font-size:.85rem;">日報詳細</h3>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-sm" id="detail-edit-btn" style="display:none;" onclick="openEditFromDetail()">編集</button>
+        <button class="btn-close" onclick="closeModal('modal-detail')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="report-full" id="detail-text"></div>
+      <button class="btn btn-p mt12" onclick="copyDetail()">📋 コピー</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：日報編集 ══ -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3>日報を編集</h3><button class="btn-close" onclick="closeModal('modal-edit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id"/>
+      <div class="form-group"><label>■全体総括</label><textarea class="inp" id="edit-ov" rows="5"></textarea></div>
+      <div class="form-group"><label>■達成理由 / 改善策</label><textarea class="inp" id="edit-rs" rows="5"></textarea></div>
+      <div class="form-group"><label>❷ アライアンス連携工夫</label><textarea class="inp" id="edit-al" rows="3"></textarea></div>
+      <div style="display:flex;gap:7px;margin-top:12px;">
+        <button class="btn btn-p" onclick="saveEdit()">保存</button>
+        <button class="btn btn-gray" onclick="closeModal('modal-edit')">キャンセル</button>
+      </div>
+      <button class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;" onclick="doDelete()">🗑 削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：店舗特徴編集 ══ -->
+<div class="modal-overlay" id="modal-store-feat">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3 id="store-feat-modal-title">店舗特徴を記入</h3><button class="btn-close" onclick="closeModal('modal-store-feat')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="sf-id"/>
+      <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="sf-name" placeholder="例：○○イオン"/></div>
+      <div class="form-group"><label>店舗の特徴・雰囲気</label><textarea class="inp" id="sf-feature" rows="4" placeholder="客層・混雑時間帯・設備など"></textarea></div>
+      <div class="form-group"><label>店舗管理者の特徴</label><textarea class="inp" id="sf-manager" rows="4" placeholder="担当者名・コミュニケーションスタイルなど"></textarea></div>
+      <div class="form-group"><label>その他メモ</label><textarea class="inp" id="sf-memo" rows="3" placeholder="注意事項・過去の事例など"></textarea></div>
+      <div style="display:flex;gap:7px;margin-top:12px;">
+        <button class="btn btn-p" onclick="saveStoreFeat()">保存</button>
+        <button class="btn btn-gray" onclick="closeModal('modal-store-feat')">キャンセル</button>
+      </div>
+      <button class="btn mt8" id="sf-del-btn" style="background:#fee2e2;color:#dc2626;font-weight:700;display:none;" onclick="deleteStoreFeat()">🗑 削除</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, onValue, push, set, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+const app = initializeApp({
+  apiKey:"AIzaSyDzhKiWLngKPLL85L8JyBkOQCWztLoSMwI",
+  authDomain:"nippou-data-base.firebaseapp.com",
+  databaseURL:"https://nippou-data-base-default-rtdb.firebaseio.com",
+  projectId:"nippou-data-base",
+  storageBucket:"nippou-data-base.firebasestorage.app",
+  messagingSenderId:"516171183375",
+  appId:"1:516171183375:web:bffa959ef109da150aba7a"
+});
+const db=getDatabase(app);
+window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=remove;
+onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});filterReports();renderHiyari();renderStats();renderAdminList();});
+onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});renderStoreFeats();});
+onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});renderGoalList();renderStats();});
+document.getElementById('loading').style.display='none';
+const s=localStorage.getItem('fp_user');
+if(s){window._user=JSON.parse(s);goMain();}else{showPage('pg-login');}
+window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
+updateAdminUI();
+</script>
+
+<script>
+window._reports={}; window._storeFeats={}; window._goals={};
+window._user=null; window._isAdmin=false;
+let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='';
+const PW='fp2024admin';
+const DOWS=['日','月','火','水','木','金','土'];
+
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');}
+window.showPage=showPage;
+
+// ── SIDEBAR ──
+function toggleSb(){_sbOpen?closeSb():openSb();}
+function openSb(){_sbOpen=true;document.getElementById('sidebar').classList.add('open');document.getElementById('sb-overlay').classList.add('show');document.querySelectorAll('.btn-menu').forEach(b=>b.classList.add('active'));}
+function closeSb(){_sbOpen=false;document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('show');document.querySelectorAll('.btn-menu').forEach(b=>b.classList.remove('active'));}
+function navTo(pg){closeSb();if(pg==='pg-carry'){showDateSelectPage();}else if(pg==='pg-admin-login'){showAdminLoginPage();}else{showPage(pg);}if(pg==='pg-stats')renderStats();if(pg==='pg-stores')renderStoreFeats();}
+window.toggleSb=toggleSb;window.closeSb=closeSb;window.navTo=navTo;
+
+// ── LOGIN ──
+function doLogin(){
+  const name=document.getElementById('login-name').value.trim();
+  if(!name){showToast('名前を入力してください');return;}
+  window._user={name};
+  localStorage.setItem('fp_user',JSON.stringify(_user));
+  goMain();
+}
+window.doLogin=doLogin;
+
+function goMain(){
+  document.getElementById('sb-uname').textContent=_user.name;
+  document.getElementById('in-dir').value=_user.name;
+  showDateSelectPage();
+}
+
+function setTodayDate(){
+  const t=new Date();
+  document.getElementById('in-date').value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('stats-month').value=ym;
+  document.getElementById('goal-month').value=ym;
+}
+
+// ── 引き継ぎ ──
+// ── 稼働日選択 ──
+let _workDays = [];  // ['2025-05-24','2025-05-25'] のような配列
+let _workDayCount = 1;
+
+function showDateSelectPage(){
+  _workDayCount=1;
+  _workDays=[];
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('active'));
+  const firstBtn=document.querySelector('.day-btn[data-d="1"]');
+  if(firstBtn)firstBtn.classList.add('active');
+  const t=new Date();
+  const el=document.getElementById('ds-start');
+  if(el){
+    el.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  }
+  updateDsPreview(); // ← 内部でupdateCarryCandidateも呼ばれる
+  showPage('pg-dateselect');
+}
+
+
+window.showDateSelectPage=showDateSelectPage;
+
+function selectDays(n, el){
+  _workDayCount=n;
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  updateDsPreview();
+}
+window.selectDays=selectDays;
+
+function updateDsPreview(){
+  const start=document.getElementById('ds-start')?.value;
+  if(!start){document.getElementById('ds-preview').textContent='';return;}
+  const dates=[];
+  for(let i=0;i<_workDayCount;i++){
+    const d=parseDateLocal(start);d.setDate(d.getDate()+i);
+    dates.push(d);
+  }
+  _workDays=dates.map(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  const labels=dates.map(d=>DOWS[d.getDay()]+'曜日');
+  document.getElementById('ds-preview').textContent='稼働日：'+labels.join('・');
+
+}
+
+
+window.updateDsPreview=updateDsPreview;
+document.addEventListener('DOMContentLoaded',()=>{
+  const dsStart=document.getElementById('ds-start');
+  if(dsStart) dsStart.addEventListener('change', updateDsPreview);
+});
+
+function confirmDateSelect(){
+  const start=document.getElementById('ds-start')?.value;
+  if(!start){showToast('日付を選択してください');return;}
+  updateDsPreview();
+  clearFormSilent();
+  applyWorkDaysToForm();
+
+  if(_carryMode&&window._latestReport){
+    // 引き継ぎ：前回日報のデータをフォームに反映
+    const d=window._latestReport;
+    _carryData=d;
+    try{
+      document.getElementById('in-store').value=d.store||'';
+      document.getElementById('in-ch').value=d.channel||'';
+      document.getElementById('in-dir').value=d.director||d.userName||(_user?.name||'');
+      document.getElementById('r-ta').value=d.r_ta||'';
+      document.getElementById('r-tb').value=d.r_tb||'';
+    }catch(e){}
+  } else {
+    _carryData=null;
+    document.getElementById('in-dir').value=_user?.name||'';
+  }
+  showPage('pg-input');
+}
+window.confirmDateSelect=confirmDateSelect;
+
+function onDsDateChange(){
+  try{ updateDsPreview(); }catch(e){ console.warn(e); }
+}
+window.onDsDateChange=onDsDateChange;
+
+function showCarryPage(){
+  const myReports=Object.entries(_reports).filter(([,r])=>r.userName===_user.name).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const latest=myReports.length?myReports[0][1]:null;
+  if(latest){
+    const dow=DOWS[parseDateLocal(latest.date).getDay()];
+    document.getElementById('carry-info').textContent=`前回：${latest.date}(${dow}) ${latest.store||''} 達成率${latest.ach||0}%`;
+    document.getElementById('carry-exists').style.display='block';
+    document.getElementById('carry-none').style.display='none';
+    _carryData=latest;
+  } else {
+    document.getElementById('carry-exists').style.display='none';
+    document.getElementById('carry-none').style.display='block';
+    _carryData=null;
+  }
+  showPage('pg-carry');
+}
+
+function useCarry(){
+  try{
+    if(!_carryData){noCarry();return;}
+    const d=_carryData;
+    const cpCard=document.getElementById('carry-prev-card');
+    if(cpCard){
+      cpCard.style.display='block';
+      document.getElementById('prev-target').textContent=`${d.r_ta||'-'}台/${d.r_tb||'-'}台`;
+      document.getElementById('prev-jisseki').textContent=`${d.auto_souhan||'-'}件/${d.auto_2b||'-'}件`;
+      document.getElementById('prev-fp').textContent=`${d.r_fa||'-'}/${d.r_fb||'-'}`;
+      const prevMikomiLast=d.v_mikomi?d.v_mikomi[d.v_mikomi.length-1]:null;
+      document.getElementById('prev-mikomig').textContent=`${prevMikomiLast?prevMikomiLast.g:d.v_ag||'-'}組`;
+      document.getElementById('prev-mikomid').textContent=`${prevMikomiLast?prevMikomiLast.d:d.v_ad||'-'}台`;
+    }
+    document.getElementById('in-store').value=d.store||'';
+    document.getElementById('in-ch').value=d.channel||'';
+  }catch(e){ console.warn('useCarry error:', e); }
+  applyWorkDaysToForm();
+  showPage('pg-input');
+}
+function noCarry(){
+  try{ clearFormSilent(); }catch(e){}
+  try{
+    const cpCard=document.getElementById('carry-prev-card');
+    if(cpCard) cpCard.style.display='none';
+  }catch(e){}
+  _carryData=null;
+  applyWorkDaysToForm();
+  showPage('pg-input');
+}
+function applyWorkDaysToForm(){
+  // _workDays が空の場合は今日を1日として扱う
+  if(!_workDays||_workDays.length===0){
+    const t=new Date();
+    const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    _workDays=[today];
+    _workDayCount=1;
+  }
+  const firstDay=_workDays[0];
+  const dateEl=document.getElementById('in-date');
+  if(dateEl&&firstDay) dateEl.value=firstDay;
+  if(firstDay){
+    const ym=firstDay.substring(0,7);
+    const sm=document.getElementById('stats-month');
+    const gm=document.getElementById('goal-month');
+    if(sm)sm.value=ym;
+    if(gm)gm.value=ym;
+  }
+  // 見込み・実績欄を日数分動的生成
+  try{ renderMikomiInputs(); }catch(e){ console.warn('renderMikomiInputs error:',e); }
+}
+window.useCarry=useCarry;window.noCarry=noCarry;
+
+// ── 実績・見込み獲得入力欄の動的生成 ──
+function renderMikomiInputs(){
+  const seen=new Set();
+  const days=(_workDays.length?_workDays:[''])
+    .filter(dt=>{ if(!dt||seen.has(dt))return false; seen.add(dt); return true; });
+
+  // 「現在入力中の日」ボタン生成
+  const activeDayBtns=document.getElementById('active-day-btns');
+  if(activeDayBtns){
+    activeDayBtns.innerHTML=days.map((dt,i)=>{
+      const lbl=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日（'+(i+1)+'日目）':'1日目';
+      return `<button type="button" class="day-btn${i===days.length-1?' active':''}" onclick="setActiveDay(${i},this)">${lbl}</button>`;
+    }).join('');
+    window._activeDayIdx=days.length-1;
+  }
+
+  // au/UQカードの日付タブ生成
+  const mobileTabs=document.getElementById('mobile-day-tabs');
+  if(mobileTabs){
+    mobileTabs.innerHTML=days.map((dt,i)=>{
+      const lbl=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'1日目';
+      return `<button type="button" class="day-btn${i===days.length-1?' active':''}" onclick="switchMobileDay(${i},this)">${lbl}</button>`;
+    }).join('');
+  }
+  // データ初期化
+  if(!window._mobileDayData){
+    window._mobileDayData={};
+  }
+  days.forEach((_,i)=>{
+    if(!window._mobileDayData[i]) window._mobileDayData[i]={au:[0,0,0,0,0,0,0,0],uq:[0,0,0,0,0,0,0,0]};
+  });
+  // 最終日のデータをフォームに表示
+  loadMobileDayData(days.length-1);
+
+  // 実績入力（各曜日 + FP獲得数）
+  const jissekiWrap=document.getElementById('jisseki-inputs');
+  if(jissekiWrap){
+    jissekiWrap.innerHTML=days.map((dt,i)=>{
+      const lbl=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'当日';
+      const isLast=(i===days.length-1);
+      return `<div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        <div style="font-size:.74rem;font-weight:800;color:var(--pd);margin-bottom:6px;">${lbl}</div>
+        <div class="row-inputs" style="margin-bottom:6px;">
+          <div class="row-label" style="font-size:.7rem;">総販/2Bリク除き</div>
+          <input class="inp-s" id="j-a-${i}" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+          <div class="unit">件</div>
+          <div class="row-sep">/</div>
+          <input class="inp-s" id="j-b-${i}" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+          <div class="unit">件</div>
+        </div>
+        <div class="row-inputs" style="margin-bottom:0;">
+          <div class="row-label" style="font-size:.7rem;">FP獲得数</div>
+          <input class="inp-s" id="fp-a-${i}" placeholder="0" type="number" min="0"/>
+          <div class="unit">台</div>
+          <div class="row-sep">/</div>
+          <input class="inp-s" id="fp-b-${i}" placeholder="0" type="number" min="0"/>
+          <div class="unit">台</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // 見込み獲得（各曜日 + 合計自動計算）
+  const mikomiWrap=document.getElementById('mikomi-inputs');
+  if(mikomiWrap){
+    mikomiWrap.innerHTML=days.map((dt,i)=>{
+      const lbl=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'本日';
+      return `<div class="row-inputs">
+        <div class="row-label">${lbl}獲得</div>
+        <input class="inp-s" id="v-ag-${i}" placeholder="0" type="number" min="0" oninput="calcMikomiTotal()"/>
+        <div class="unit">組</div>
+        <div class="row-sep">/</div>
+        <input class="inp-s" id="v-ad-${i}" placeholder="0" type="number" min="0" oninput="calcMikomiTotal()"/>
+        <div class="unit">台</div>
+      </div>`;
+    }).join('');
+    // 合計表示行
+    mikomiWrap.innerHTML+=`<div style="background:var(--pl);border-radius:8px;padding:8px 12px;margin-top:8px;display:flex;align-items:center;gap:8px;">
+      <div style="font-size:.74rem;font-weight:700;color:var(--pd);flex:1;">合計</div>
+      <div style="font-size:.92rem;font-weight:900;color:var(--pd);" id="mikomi-total-g">0</div>
+      <div class="unit">組</div>
+      <div class="row-sep">/</div>
+      <div style="font-size:.92rem;font-weight:900;color:var(--pd);" id="mikomi-total-d">0</div>
+      <div class="unit">台</div>
+    </div>`;
+  }
+  calcAuto();
+}
+
+function calcMikomiTotal(){
+  const days=_workDays.length?_workDays:[''];
+  let tg=0,td=0;
+  days.forEach((_,i)=>{ tg+=gn('v-ag-'+i); td+=gn('v-ad-'+i); });
+  const eg=document.getElementById('mikomi-total-g');
+  const ed=document.getElementById('mikomi-total-d');
+  if(eg) eg.textContent=tg;
+  if(ed) ed.textContent=td;
+  window._mikomiTotalG=tg;
+  window._mikomiTotalD=td;
+}
+window.calcMikomiTotal=calcMikomiTotal;
+
+// ── 自動計算 ──
+function gn(id){const el=document.getElementById(id);return el?(+el.value||0):0;}
+function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+
+function calcAuto(){ calcStats(); }
+
+function setActiveDay(idx, el){
+  window._activeDayIdx=idx;
+  document.querySelectorAll('#active-day-btns .day-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  // au/UQタブも連動して切り替え
+  switchMobileDayByIdx(idx);
+}
+window.setActiveDay=setActiveDay;
+
+function switchMobileDay(idx, el){
+  // au/UQデータを保存してから切り替え
+  saveMobileDayData(window._activeMobileDayIdx??0);
+  window._activeMobileDayIdx=idx;
+  window._activeDayIdx=idx;
+  // 実績入力欄のボタンも連動
+  document.querySelectorAll('#active-day-btns .day-btn').forEach((b,i)=>{
+    b.classList.toggle('active',i===idx);
+  });
+  document.querySelectorAll('#mobile-day-tabs .day-btn').forEach((b,i)=>{
+    b.classList.toggle('active',i===idx);
+  });
+  loadMobileDayData(idx);
+}
+window.switchMobileDay=switchMobileDay;
+
+function switchMobileDayByIdx(idx){
+  saveMobileDayData(window._activeMobileDayIdx??0);
+  window._activeMobileDayIdx=idx;
+  document.querySelectorAll('#mobile-day-tabs .day-btn').forEach((b,i)=>{
+    b.classList.toggle('active',i===idx);
+  });
+  loadMobileDayData(idx);
+}
+
+function saveMobileDayData(idx){
+  if(!window._mobileDayData) window._mobileDayData={};
+  window._mobileDayData[idx]={
+    au:[gn('au0'),gn('au1'),gn('au2'),gn('au3'),gn('au4'),gn('au5'),gn('au6'),gn('au7')],
+    uq:[gn('uq0'),gn('uq1'),gn('uq2'),gn('uq3'),gn('uq4'),gn('uq5'),gn('uq6'),gn('uq7')]
+  };
+}
+
+function loadMobileDayData(idx){
+  if(!window._mobileDayData||!window._mobileDayData[idx]) return;
+  const d=window._mobileDayData[idx];
+  d.au.forEach((v,i)=>{ const el=document.getElementById('au'+i); if(el)el.value=v||''; });
+  d.uq.forEach((v,i)=>{ const el=document.getElementById('uq'+i); if(el)el.value=v||''; });
+  // 読み込み後に自動計算も更新
+  calcAutoForActiveDay();
+}
+
+// au+UQ → 選択中の日の実績欄のみ上書き
+function calcAutoForActiveDay(){
+  const au=[gn('au0'),gn('au1'),gn('au2'),gn('au3'),gn('au4'),gn('au5'),gn('au6'),gn('au7')];
+  const uq=[gn('uq0'),gn('uq1'),gn('uq2'),gn('uq3'),gn('uq4'),gn('uq5'),gn('uq6'),gn('uq7')];
+  const auTotal=au.reduce((a,b)=>a+b,0);
+  // UQはMNP(au⇒UQ)=uq[1]を総販に含めない
+  const uqTotal=uq.reduce((a,b)=>a+b,0)-uq[1];
+  const souhan=auTotal+uqTotal;
+  const riK=souhan-(au[1]+au[7]+uq[7]);
+  const idx=window._activeDayIdx??Math.max((_workDays.length||1)-1,0);
+  const jaEl=document.getElementById('j-a-'+idx);
+  const jbEl=document.getElementById('j-b-'+idx);
+  if(jaEl) jaEl.value=souhan;
+  if(jbEl) jbEl.value=riK;
+  // 現在の入力をキャッシュに保存
+  saveMobileDayData(idx);
+  calcStats();
+}
+window.calcAutoForActiveDay=calcAutoForActiveDay;
+
+// 実績欄手入力時：残数・達成率のみ更新（実績欄は上書きしない）
+function calcStats(){
+  const days=_workDays.length?_workDays:[''];
+  let totalA=0,totalB=0;
+  days.forEach((_,i)=>{ totalA+=gn('j-a-'+i); totalB+=gn('j-b-'+i); });
+  const ta=gn('r-ta'), tb=gn('r-tb');
+  const nokoriA=Math.max(ta-totalA,0), nokoriB=Math.max(tb-totalB,0);
+  const nEl=document.getElementById('nokori-display');
+  if(nEl) nEl.textContent=`${nokoriA}/${nokoriB}`;
+  const el=document.getElementById('ach-disp');
+  if(!ta){if(el){el.textContent='- %';el.className='ach-num';}return;}
+  const p=Math.round((totalA/ta)*100);
+  if(el){el.textContent=p+'%';el.className='ach-num '+(p>=100?'hi':p>=70?'mid':'lo');}
+}
+window.calcStats=calcStats;
+window.calcAuto=calcAuto;
+
+function collectData(){
+  const date=gv('in-date'),dt=date?parseDateLocal(date):new Date();
+  const dow=DOWS[dt.getDay()];
+  const au=[gn('au0'),gn('au1'),gn('au2'),gn('au3'),gn('au4'),gn('au5'),gn('au6'),gn('au7')];
+  const uq=[gn('uq0'),gn('uq1'),gn('uq2'),gn('uq3'),gn('uq4'),gn('uq5'),gn('uq6'),gn('uq7')];
+  // 現在表示中の日のデータを保存してから全日分を合算
+  saveMobileDayData(window._activeDayIdx??0);
+  const mdd=window._mobileDayData||{};
+  const dayCount=Math.max(_workDays.length,1);
+  const au_=[0,0,0,0,0,0,0,0],uq_=[0,0,0,0,0,0,0,0];
+  for(let i=0;i<dayCount;i++){
+    const d=mdd[i];
+    if(d){ d.au.forEach((v,j)=>au_[j]+=(+v||0)); d.uq.forEach((v,j)=>uq_[j]+=(+v||0)); }
+  }
+  // フォームの現在値も念のため加算（未保存分）
+  const curAu=[gn('au0'),gn('au1'),gn('au2'),gn('au3'),gn('au4'),gn('au5'),gn('au6'),gn('au7')];
+  const curUq=[gn('uq0'),gn('uq1'),gn('uq2'),gn('uq3'),gn('uq4'),gn('uq5'),gn('uq6'),gn('uq7')];
+  const activeIdx=window._activeDayIdx??0;
+  const savedAu=(mdd[activeIdx]||{}).au||[];
+  // 既にsaveMobileDayDataで保存済みなので合算済みのau_/uq_をそのまま使う
+  const auTotal_=au_.reduce((a,b)=>a+b,0);
+  const uqTotal_=uq_.reduce((a,b)=>a+b,0)-uq_[1];
+  const souhan=auTotal_+uqTotal_;
+  const riK=souhan-(au_[1]+au_[7]+uq_[7]);
+  // 各日別データも保存
+  const auByDay=Object.fromEntries(Object.entries(mdd).map(([k,v])=>[k,v.au]));
+  const uqByDay=Object.fromEntries(Object.entries(mdd).map(([k,v])=>[k,v.uq]));
+  const ta=gn('r-ta');
+  // 各日の実績
+  const days=_workDays.length?_workDays:[date||''];
+  const jisseki=days.map((_,i)=>({a:gn('j-a-'+i),b:gn('j-b-'+i)}));
+  return {
+    date,store:gv('in-store'),channel:gv('in-ch'),director:gv('in-dir'),dow,
+    hiyari:gv('in-hiyari'),
+    r_ta:String(ta),r_tb:gv('r-tb'),
+    r_fa:String(days.reduce((s,_,i)=>s+gn('fp-a-'+i),0)),
+    r_fb:String(days.reduce((s,_,i)=>s+gn('fp-b-'+i),0)),
+    fp_by_day:days.map((_,i)=>({a:gn('fp-a-'+i),b:gn('fp-b-'+i)})),
+    auto_souhan:souhan,auto_2b:riK,
+    jisseki,
+    v_mikomi: days.map((_,i)=>({g:gn('v-ag-'+i),d:gn('v-ad-'+i)})),
+    v_ag:String(days.reduce((s,_,i)=>s+gn('v-ag-'+i),0)),
+    v_ad:String(days.reduce((s,_,i)=>s+gn('v-ad-'+i),0)),
+    ank:gn('ank'),
+    b_fp:[gn('b-fp0'),gn('b-fp1'),gn('b-fp2'),gn('b-fp3')],
+    b_fc:[gn('b-fc0'),gn('b-fc1'),gn('b-fc2'),gn('b-fc3')],
+    b_pop:[gn('b-pop0'),gn('b-pop1'),gn('b-pop2'),gn('b-pop3')],
+    b_ta:[gn('b-ta0'),gn('b-ta1'),gn('b-ta2'),gn('b-ta3')],
+    b_furi:[gn('b-furi0'),gn('b-furi1'),gn('b-furi2'),gn('b-furi3')],
+    au:au_,uq:uq_,au_by_day:auByDay,uq_by_day:uqByDay,
+    ft:[gn('ft0'),gn('ft1'),gn('ft2'),gn('ft3'),gn('ft4')],
+    ld:[gn('ld0'),gn('ld1')],
+    other:gv('other-items'),
+    al:[[gn('al0a'),gn('al0b')],[gn('al1a'),gn('al1b')],[gn('al2a'),gn('al2b')],[gn('al3a'),gn('al3b')]],
+    al_eff:gv('al-eff'),
+    ot:[[gn('ot0a'),gn('ot0b'),gn('ot0c'),gn('ot0d')],[gn('ot1a'),gn('ot1b'),gn('ot1c'),gn('ot1d')],[gn('ot2a'),gn('ot2b'),gn('ot2c'),gn('ot2d')],[gn('ot3a'),gn('ot3b'),gn('ot3c'),gn('ot3d')]],
+    txt_ov:gv('txt-ov'),txt_rs:gv('txt-rs'),
+    ach:(ta&&souhan)?Math.round((souhan/ta)*100):0,
+    userName:_user?.name||'',
+    workDays:_workDays.length?[..._workDays]:[gv('in-date')],
+    carryFrom:_carryData?_carryData.date:null
+  };
+}
+
+// ── 日報テキスト生成 ──
+function parseDateLocal(str){
+  // 'YYYY-MM-DD' をローカルタイムで正しくパースする（タイムゾーンズレ防止）
+  if(!str)return new Date();
+  const [y,m,d]=str.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+
+function buildText(d){
+  const wdays=(d.workDays&&d.workDays.length)?d.workDays:(d.date?[d.date]:[]);
+  const dayLabels=wdays.map(dt=>DOWS[parseDateLocal(dt).getDay()]+'曜日');
+  const lastLabel=dayLabels.length?dayLabels[dayLabels.length-1]:'当日';
+  const prevDays=wdays.slice(0,-1);
+
+  // 値が空・0・nullなら'-'を返す（0は0で表示、未入力は-）
+  const fmt=(v)=>(v===null||v===undefined||v==='')?'-':String(v);
+  const fmtN=(v)=>{ const n=+(v||0); return n===0?'0':String(n); };
+
+  // 実績行
+  let jissekiLines='';
+  if(d.jisseki&&d.jisseki.length){
+    d.jisseki.forEach((j,i)=>{
+      const lbl=dayLabels[i]||'当日';
+      const fpDay=d.fp_by_day&&d.fp_by_day[i];
+      const fpStr=fpDay?`（内FP獲得${fmtN(fpDay.a)}/${fmtN(fpDay.b)}）`:'';
+      const ja=j.a||j.a===0?fmtN(j.a):'○';
+      const jb=j.b||j.b===0?fmtN(j.b):'○';
+      jissekiLines+=`\n${lbl}：${ja}/${jb}${fpStr}`;
+    });
+  } else {
+    prevDays.forEach((dt,i)=>{
+      const prevR=Object.values(_reports).find(r=>r.date===dt&&r.store===d.store)||{};
+      jissekiLines+=`\n${dayLabels[i]||''} : ${prevR.auto_souhan||'○'}/${prevR.auto_2b||'○'}`;
+    });
+    jissekiLines+=`\n${lastLabel}：${d.auto_souhan||'○'}/${d.auto_2b||'○'}（内FP獲得${fmtN(d.r_fa)}/${fmtN(d.r_fb)}）`;
+  }
+
+  // 残数
+  let totalJA=0,totalJB=0;
+  if(d.jisseki&&d.jisseki.length){
+    d.jisseki.forEach(j=>{
+      if(j.a!==''&&j.a!==null&&j.a!==undefined) totalJA+=+(j.a||0);
+      if(j.b!==''&&j.b!==null&&j.b!==undefined) totalJB+=+(j.b||0);
+    });
+  } else { totalJA=+(d.auto_souhan||0); totalJB=+(d.auto_2b||0); }
+  const nokoriA=Math.max((+(d.r_ta||0))-totalJA,0);
+  const nokoriB=Math.max((+(d.r_tb||0))-totalJB,0);
+
+  // 見込み獲得行（○組○台 形式）
+  let mikomiLines='';
+  if(d.v_mikomi&&d.v_mikomi.length){
+    d.v_mikomi.forEach((vm,i)=>{
+      const lbl=dayLabels[i]||'当日';
+      const g=vm.g||vm.g===0?fmtN(vm.g):'○';
+      const dv=vm.d||vm.d===0?fmtN(vm.d):'○';
+      mikomiLines+=`\n${lbl}獲得 : ${g}組${dv}台`;
+    });
+  } else {
+    mikomiLines+=`\n${lastLabel}獲得 : ${fmtN(d.v_ag)}組${fmtN(d.v_ad)}台`;
+  }
+  const totalG=d.v_ag||'○', totalD=d.v_ad||'○';
+
+  // 内訳（0なら0、未入力なら-）
+  const bf=v=>(!v&&v!==0)?'-':(Array.isArray(v)?v.map(x=>x===''||x===null||x===undefined?'-':x).join('/'):v);
+
+  return `お疲れ様です。
+${d.director||'●●'}です。
+本日の日報を下記に記載いたします。
+⚠️ヒヤリハット報告⚠️
+${d.hiyari||'特に無し。'}
+
+■実績：2Bダウン除き総販/2Bリク除き
+目　標 : ${fmt(d.r_ta)}/${fmt(d.r_tb)}${jissekiLines}
+残数：${nokoriA}/${nokoriB}
+
+■店舗様見込み獲得（${totalG}組/${totalD}台）
+※常勤様の当日獲得は除く${mikomiLines}
+
+■内訳（接客組/着座組/成約組/成約台数）
+アンケート枚数（全体） : ${fmt(d.ank)}枚
+アンケート（内FP）　 : ${bf(d.b_fp)}
+フリーキャッチ　  　 : ${bf(d.b_fc)}
+什器/POP                  : ${bf(d.b_pop)}
+家電/TA                     : ${bf(d.b_ta)}
+振り（常勤/他）　　   : ${bf(d.b_furi)}
+※フリーキャッチの接客組は「足を止めた数」
+※アンケートの着座組は「見積りを出した数」
+
+■au mobile実績
+純新規獲得件数：${fmtN((d.au||[])[0])}件
+MNP(UQ⇒au)：${fmtN((d.au||[])[1])}件
+MNP(SB⇒au)：${fmtN((d.au||[])[2])}件
+MNP(DCM⇒au)：${fmtN((d.au||[])[3])}件
+MNP(YM⇒au)：${fmtN((d.au||[])[4])}件
+MNP(楽天⇒au)：${fmtN((d.au||[])[5])}件
+MNP(その他⇒au)：${fmtN((d.au||[])[6])}件
+機種変更獲得件数：${fmtN((d.au||[])[7])}件
+
+■UQ mobile実績
+純新規獲得件数：${fmtN((d.uq||[])[0])}件
+MNP(au⇒UQ)：${fmtN((d.uq||[])[1])}件
+MNP(SB⇒UQ)：${fmtN((d.uq||[])[2])}件
+MNP(DCM⇒UQ)：${fmtN((d.uq||[])[3])}件
+MNP(YM⇒UQ)：${fmtN((d.uq||[])[4])}件
+MNP(楽天⇒UQ)：${fmtN((d.uq||[])[5])}件
+MNP(その他⇒UQ)：${fmtN((d.uq||[])[6])}件
+機種変更件数：${fmtN((d.uq||[])[7])}件
+
+■FTTH実績
+auひかり　：${fmtN((d.ft||[])[0])}件
+BIGLOBE光：${fmtN((d.ft||[])[1])}件
+eo光：${fmtN((d.ft||[])[2])}件
+CATV : ${fmtN((d.ft||[])[3])}件
+WiMAX ：${fmtN((d.ft||[])[4])}件
+
+■ライフデザイン実績
+auでんき　　：${fmtN((d.ld||[])[0])}件
+auPayカード：${fmtN((d.ld||[])[1])}件
+
+■その他獲得商材
+${d.other||''}
+
+■アライアンス協業
+
+❶振り組数/成約組数
+KDDI→eo : ${fmtN((d.al||[[]])[0][0])}/${fmtN((d.al||[[]])[0][1])}
+eo→KDDI : ${fmtN((d.al||[[],[]])[1][0])}/${fmtN((d.al||[[],[]])[1][1])}
+KDDI→CATV : ${fmtN((d.al||[[],[],[]])[2][0])}/${fmtN((d.al||[[],[],[]])[2][1])}
+CATV→KDDI : ${fmtN((d.al||[[],[],[],[]])[3][0])}/${fmtN((d.al||[[],[],[],[]])[3][1])}
+
+❷アライアンス様連携（eo/CATV）取組み工夫
+${d.al_eff||''}
+
+■他社実績 
+(純新規/MNP/番号移行/機変)
+※他社取扱がない場合は「ー」を記入ください。
+Softbank：${(d.ot||[[]])[0].join('/')}
+docomo：${(d.ot||[[],[]])[1].join('/')}
+Ymobile：${(d.ot||[[],[],[]])[2].join('/')}
+楽天：${(d.ot||[[],[],[],[]])[3].join('/')}
+
+■全体総括（活動内容/集客状況/他社状況）
+${d.txt_ov||''}
+
+■【達成：達成理由】【未達：改善策】
+${d.txt_rs||''}
+
+■【添付】着座管理シート貼付
+
+ご確認の程、よろしくお願いいたします。`;
+}
+
+function generateReport(){
+  if(!gv('in-store')||!gv('in-date')){showToast('日付と店舗名は必須です');return;}
+  calcAuto();
+  window._curData=collectData();
+  document.getElementById('preview-text').textContent=buildText(_curData);
+  document.getElementById('copy-ok').style.display='none';
+  document.getElementById('modal-preview').classList.add('open');
+}
+window.generateReport=generateReport;
+
+function doCopy(){
+  navigator.clipboard.writeText(document.getElementById('preview-text').textContent).then(()=>{
+    document.getElementById('copy-ok').style.display='block';
+    setTimeout(()=>{document.getElementById('copy-ok').style.display='none';},2000);
+  }).catch(()=>showToast('コピーできませんでした'));
+}
+window.doCopy=doCopy;
+
+async function saveAndCopy(){
+  doCopy();
+  if(!window._curData)return;
+  try{
+    await _set(_push(_ref(_db,'fp_reports')),{...window._curData,createdAt:Date.now()});
+    _savedStore=window._curData.store||'';
+    closeModal('modal-preview');
+    document.getElementById('modal-saved').classList.add('open');
+  }catch(e){showToast('保存エラー:'+e.message);}
+}
+window.saveAndCopy=saveAndCopy;
+
+function goToStoreFeat(){
+  const store=_savedStore;
+  const existing=Object.entries(_storeFeats).find(([,s])=>s.name===store);
+  openStoreFeatEdit(existing?existing[0]:null,store);
+}
+window.goToStoreFeat=goToStoreFeat;
+
+function clearForm(){if(!confirm('入力内容をリセットしますか？'))return;clearFormSilent();showToast('リセットしました');}
+function clearFormSilent(){
+  document.querySelectorAll('#pg-input input[type="number"]').forEach(el=>el.value='');
+  document.querySelectorAll('#pg-input textarea').forEach(el=>el.value='');
+  window._autoSouhan=0;window._auto2b=0;
+  window._mobileDayData={};
+  window._activeDayIdx=0;
+  window._activeMobileDayIdx=0;
+  renderMikomiInputs();
+  document.getElementById('in-dir').value=_user?.name||'';
+  document.getElementById('in-store').value='';
+  document.getElementById('in-ch').value='';
+  setTodayDate();
+  document.getElementById('ach-disp').textContent='- %';
+  document.getElementById('ach-disp').className='ach-num';
+  document.getElementById('auto-souhan').textContent='0件';
+  document.getElementById('auto-2b').textContent='0件';
+  window._autoSouhan=0;window._auto2b=0;
+}
+window.clearForm=clearForm;
+
+// ── 日報一覧 ──
+function achBC(p){return p>=100?'b-green':p>=70?'b-orange':'b-red';}
+
+function filterReports(){
+  const q=(document.getElementById('list-search')?.value||'').trim().toLowerCase();
+  const all=Object.entries(_reports).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const filtered=all.filter(([,r])=>{
+    const qOk=!q||(r.store||'').includes(q)||(r.director||'').toLowerCase().includes(q);
+    const cOk=!_fCh||r.channel===_fCh;
+    const aOk=!_fAch||(_fAch==='hi'&&r.ach>=100)||(_fAch==='mid'&&r.ach>=70&&r.ach<100)||(_fAch==='lo'&&r.ach<70);
+    return qOk&&cOk&&aOk;
+  });
+  const c=document.getElementById('report-list');if(!c)return;
+  if(!filtered.length){c.innerHTML='<div class="empty"><div style="font-size:2rem;margin-bottom:8px;">📭</div><p>日報がありません</p></div>';return;}
+  c.innerHTML=filtered.map(([id,r])=>{
+    const p=r.ach||0,dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+    return `<div class="report-card" onclick="openDetail('${id}')">
+      <div class="rc-top"><div class="rc-store">${esc(r.store||'−')}</div><div class="rc-date">${r.date||'−'}(${dow})</div></div>
+      <div class="rc-meta">
+        <span class="badge b-blue">${esc(r.channel||'−')}</span>
+        <span class="badge ${achBC(p)}">${p}%</span>
+        <span class="badge b-gray">${esc(r.director||r.userName||'−')}</span>
+      </div>
+      <div class="rc-summary">${esc(r.al_eff||'')} ${esc(r.txt_ov||'')} ${esc(r.txt_rs||'')}</div>
+    </div>`;
+  }).join('');
+}
+window.filterReports=filterReports;
+
+function setFilter(type,val,el){
+  if(type==='ch'){_fCh=val;document.querySelectorAll('#fb-ch .fchip').forEach(c=>c.classList.remove('active'));}
+  else{_fAch=val;document.querySelectorAll('#fb-ach .fchip').forEach(c=>c.classList.remove('active'));}
+  el.classList.add('active');filterReports();
+}
+window.setFilter=setFilter;
+
+function switchListTab(id,el){
+  ['lt-all','lt-hiyari'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
+  document.querySelectorAll('#pg-list .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(id==='lt-hiyari')renderHiyari();
+}
+window.switchListTab=switchListTab;
+
+function renderHiyari(){
+  const c=document.getElementById('hiyari-list');if(!c)return;
+  const all=Object.values(_reports).filter(r=>r.hiyari&&r.hiyari.trim());
+  // 店舗別にグループ化
+  const byStore={};
+  all.forEach(r=>{const s=r.store||'不明';if(!byStore[s])byStore[s]=[];byStore[s].push(r);});
+  if(!Object.keys(byStore).length){c.innerHTML='<div class="empty"><p>ヒヤリハット報告はありません</p></div>';return;}
+  c.innerHTML=Object.entries(byStore).map(([store,reports])=>`
+    <div class="card" style="margin-bottom:12px;">
+      <div class="fw8" style="font-size:.88rem;margin-bottom:9px;">🏪 ${esc(store)}</div>
+      ${reports.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(r=>`
+        <div class="hiyari-card">
+          <div class="hiyari-date">${r.date||'−'} ／ ${esc(r.director||r.userName||'')}</div>
+          <div class="hiyari-text">${esc(r.hiyari)}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// ── 詳細 ──
+function openDetail(id){
+  _curId=id;const r=_reports[id];if(!r)return;
+  const dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+  document.getElementById('detail-title').textContent=`${r.store||'−'} ${r.date||''}(${dow}) ${r.ach||0}%`;
+  document.getElementById('detail-text').textContent=buildText(r);
+  document.getElementById('detail-edit-btn').style.display=_isAdmin?'inline-block':'none';
+  document.getElementById('modal-detail').classList.add('open');
+}
+window.openDetail=openDetail;
+
+function copyDetail(){navigator.clipboard.writeText(document.getElementById('detail-text').textContent).then(()=>showToast('✅ コピーしました')).catch(()=>showToast('コピーできませんでした'));}
+window.copyDetail=copyDetail;
+
+// ── 実績確認 ──
+let _weekFilter='all';
+function setWeekFilter(w,el){
+  _weekFilter=w;
+  document.querySelectorAll('#week-filter .fchip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderStats();
+}
+window.setWeekFilter=setWeekFilter;
+
+function getWeekOfMonth(dateStr){
+  const d=parseDateLocal(dateStr);
+  const firstDay=new Date(d.getFullYear(),d.getMonth(),1);
+  return Math.ceil((d.getDate()+firstDay.getDay())/7);
+}
+
+function renderStats(){
+  const month=document.getElementById('stats-month')?.value||'';
+  let filtered=Object.values(_reports).filter(r=>month?(r.date||'').startsWith(month):true);
+  if(_weekFilter!=='all') filtered=filtered.filter(r=>getWeekOfMonth(r.date)===_weekFilter);
+
+  // 月次目標
+  const goalEntry=Object.values(_goals).find(g=>g.month===month);
+  const goalDiv=document.getElementById('monthly-goal-display');
+  if(goalEntry&&goalDiv){
+    const totalSouhan=filtered.reduce((s,r)=>s+(r.auto_souhan||0),0);
+    const total2b=filtered.reduce((s,r)=>s+(r.auto_2b||0),0);
+    const pctA=goalEntry.a>0?Math.round((totalSouhan/goalEntry.a)*100):0;
+    const pctB=goalEntry.b>0?Math.round((total2b/goalEntry.b)*100):0;
+    const barColor=p=>p>=100?'var(--green)':p>=70?'var(--orange)':'var(--red)';
+    goalDiv.innerHTML=`
+      <div style="margin-bottom:10px;">
+        <div style="font-size:.74rem;font-weight:700;margin-bottom:4px;">総販：${totalSouhan}件 / 目標${goalEntry.a}台（${pctA}%）</div>
+        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctA,100)}%;background:${barColor(pctA)};border-radius:4px;transition:width .5s;"></div></div>
+      </div>
+      <div>
+        <div style="font-size:.74rem;font-weight:700;margin-bottom:4px;">2Bリク除き：${total2b}件 / 目標${goalEntry.b}台（${pctB}%）</div>
+        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctB,100)}%;background:${barColor(pctB)};border-radius:4px;transition:width .5s;"></div></div>
+      </div>`;
+  } else if(goalDiv){
+    goalDiv.innerHTML='<div class="ts tc" style="padding:8px;">目標未設定（管理者が設定可能）</div>';
+  }
+
+  // 店舗別
+  const byStore={};
+  filtered.forEach(r=>{
+    const s=r.store||'不明';
+    if(!byStore[s])byStore[s]={souhan:0,b2:0,cnt:0,achSum:0};
+    byStore[s].souhan+=(r.auto_souhan||0);byStore[s].b2+=(r.auto_2b||0);byStore[s].cnt++;byStore[s].achSum+=(r.ach||0);
+  });
+  // 達成店舗率
+  const achRateDiv=document.getElementById('achievement-store-rate');
+  if(achRateDiv){
+    // 週末(土日)ごとにグループ化してカウント
+    const weekendGroups={};
+    filtered.forEach(r=>{
+      if(!r.date)return;
+      const d=parseDateLocal(r.date),dow=d.getDay();
+      if(dow===0||dow===6){
+        const satDate=dow===6?r.date:(()=>{const sd=parseDateLocal(r.date);sd.setDate(sd.getDate()-1);return `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;})();
+        if(!weekendGroups[satDate])weekendGroups[satDate]={total:0,achieved:0,stores:new Set()};
+        weekendGroups[satDate].stores.add(r.store||'不明');
+        weekendGroups[satDate].total++;
+        if((r.ach||0)>=100)weekendGroups[satDate].achieved++;
+      }
+    });
+    const weekends=Object.entries(weekendGroups).sort((a,b)=>b[0].localeCompare(a[0]));
+    if(!weekends.length){
+      achRateDiv.innerHTML='<div class="ts tc" style="padding:8px;">土日稼働データなし</div>';
+    } else {
+      achRateDiv.innerHTML=weekends.map(([sat,v])=>{
+        const rate=v.total>0?Math.round((v.achieved/v.total)*100):0;
+        const bc=rate>=80?'var(--green)':rate>=50?'var(--orange)':'var(--red)';
+        const satDow=DOWS[parseDateLocal(sat).getDay()];
+        const sunDate=parseDateLocal(sat);sunDate.setDate(sunDate.getDate()+1);
+        const sunStr=`${sunDate.getMonth()+1}/${sunDate.getDate()}`;
+        return `<div style="margin-bottom:10px;">
+          <div style="font-size:.76rem;font-weight:700;margin-bottom:4px;">${sat.slice(5).replace('-','/')}(${satDow})〜${sunStr} ／ ${v.achieved}/${v.total}店舗達成（${rate}%）</div>
+          <div style="background:var(--bg);border-radius:4px;height:9px;overflow:hidden;"><div style="height:100%;width:${Math.min(rate,100)}%;background:${bc};border-radius:4px;transition:width .5s;"></div></div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  const storeC=document.getElementById('stats-store-list');
+  if(storeC){
+    if(!Object.keys(byStore).length){storeC.innerHTML='<div class="empty ts">データなし</div>';return;}
+    const maxS=Math.max(...Object.values(byStore).map(v=>v.souhan),1);
+    storeC.innerHTML=Object.entries(byStore).sort((a,b)=>b[1].souhan-a[1].souhan).map(([store,v])=>{
+      const avgAch=v.cnt>0?Math.round(v.achSum/v.cnt):0;
+      const bc=avgAch>=100?'var(--green)':avgAch>=70?'var(--orange)':'var(--red)';
+      return `<div class="stat-card">
+        <div class="stat-store">${esc(store)} <span class="badge b-gray">${v.cnt}回</span></div>
+        <div class="stat-row"><div class="stat-label">総販</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.souhan/maxS)*100)}%;background:var(--primary);"></div></div><div class="stat-pct" style="color:var(--primary);">${v.souhan}件</div></div>
+        <div class="stat-row"><div class="stat-label">2Bリク除き</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.b2/maxS)*100)}%;background:#3b82f6;"></div></div><div class="stat-pct" style="color:#3b82f6;">${v.b2}件</div></div>
+        <div class="stat-row"><div class="stat-label">平均達成率</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(avgAch,100)}%;background:${bc};"></div></div><div class="stat-pct" style="color:${bc};">${avgAch}%</div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // 販路別
+  const byCh={};
+  filtered.forEach(r=>{
+    const ch=r.channel||'不明';
+    if(!byCh[ch])byCh[ch]={souhan:0,cnt:0,achSum:0};
+    byCh[ch].souhan+=(r.auto_souhan||0);byCh[ch].cnt++;byCh[ch].achSum+=(r.ach||0);
+  });
+  const chC=document.getElementById('stats-ch-list');
+  if(chC){
+    if(!Object.keys(byCh).length){chC.innerHTML='<div class="empty ts">データなし</div>';return;}
+    const maxC=Math.max(...Object.values(byCh).map(v=>v.souhan),1);
+    chC.innerHTML=Object.entries(byCh).sort((a,b)=>b[1].souhan-a[1].souhan).map(([ch,v])=>{
+      const avgAch=v.cnt>0?Math.round(v.achSum/v.cnt):0;
+      const bc=avgAch>=100?'var(--green)':avgAch>=70?'var(--orange)':'var(--red)';
+      return `<div class="stat-card">
+        <div class="stat-store">${esc(ch)} <span class="badge b-gray">${v.cnt}回</span></div>
+        <div class="stat-row"><div class="stat-label">総販合計</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.souhan/maxC)*100)}%;background:var(--primary);"></div></div><div class="stat-pct" style="color:var(--primary);">${v.souhan}件</div></div>
+        <div class="stat-row"><div class="stat-label">平均達成率</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(avgAch,100)}%;background:${bc};"></div></div><div class="stat-pct" style="color:${bc};">${avgAch}%</div></div>
+      </div>`;
+    }).join('');
+  }
+}
+window.renderStats=renderStats;
+
+function switchStatsTab(id,el){
+  ['st-store','st-channel'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
+  document.querySelectorAll('#pg-stats .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+window.switchStatsTab=switchStatsTab;
+
+document.getElementById('stats-month')?.addEventListener('change',()=>{_weekFilter='all';document.querySelectorAll('#week-filter .fchip').forEach(c=>c.classList.remove('active'));document.querySelector('#week-filter .fchip')?.classList.add('active');renderStats();});
+
+// ── 店舗特徴 ──
+function renderStoreFeats(){
+  const c=document.getElementById('store-feat-list');if(!c)return;
+  const q=(document.getElementById('store-feat-search')?.value||'').trim();
+  let all=Object.entries(_storeFeats);
+  if(q) all=all.filter(([,s])=>(s.name||'').includes(q));
+  if(!all.length){c.innerHTML='<div class="empty ts">'+( q?'該当する店舗がありません':'まだ店舗特徴が登録されていません')+'</div>';return;}
+  c.innerHTML=all.map(([id,s])=>`
+    <div class="store-feat-card" onclick="openStoreFeatEdit('${id}')">
+      <div class="store-feat-name">🏪 ${esc(s.name||'')}</div>
+      <div class="store-feat-preview">${esc(s.feature||'')} ${esc(s.manager||'')}</div>
+    </div>`).join('');
+}
+
+function openStoreFeatEdit(id,prefillName=''){
+  document.getElementById('sf-id').value=id||'';
+  document.getElementById('store-feat-modal-title').textContent=id?'店舗特徴を編集':'店舗特徴を追加';
+  document.getElementById('sf-del-btn').style.display=id?'block':'none';
+  if(id){
+    const s=_storeFeats[id];
+    document.getElementById('sf-name').value=s?.name||'';
+    document.getElementById('sf-feature').value=s?.feature||'';
+    document.getElementById('sf-manager').value=s?.manager||'';
+    document.getElementById('sf-memo').value=s?.memo||'';
+  } else {
+    document.getElementById('sf-name').value=prefillName||'';
+    document.getElementById('sf-feature').value='';
+    document.getElementById('sf-manager').value='';
+    document.getElementById('sf-memo').value='';
+  }
+  document.getElementById('modal-store-feat').classList.add('open');
+}
+window.openStoreFeatEdit=openStoreFeatEdit;
+
+async function saveStoreFeat(){
+  const id=document.getElementById('sf-id').value;
+  const name=document.getElementById('sf-name').value.trim();
+  if(!name){showToast('店舗名は必須です');return;}
+  const data={name,feature:document.getElementById('sf-feature').value,manager:document.getElementById('sf-manager').value,memo:document.getElementById('sf-memo').value,updatedAt:Date.now()};
+  try{
+    if(id){await _set(_ref(_db,'fp_store_features/'+id),data);}
+    else{await _set(_push(_ref(_db,'fp_store_features')),data);}
+    closeModal('modal-store-feat');showToast('✅ 保存しました');
+  }catch(e){showToast('エラー:'+e.message);}
+}
+window.saveStoreFeat=saveStoreFeat;
+
+async function deleteStoreFeat(){
+  const id=document.getElementById('sf-id').value;
+  if(!confirm('削除しますか？'))return;
+  try{await _remove(_ref(_db,'fp_store_features/'+id));closeModal('modal-store-feat');showToast('削除しました');}
+  catch(e){showToast('エラー:'+e.message);}
+}
+window.deleteStoreFeat=deleteStoreFeat;
+
+// ── 管理者 ──
+function showAdminLoginPage(){
+  const loggedIn=document.getElementById('admin-logged-in-msg');
+  const form=document.getElementById('admin-pw');
+  if(_isAdmin){loggedIn.style.display='block';if(form)form.closest('.card').style.display='none';}
+  else{loggedIn.style.display='none';const c=form?.closest('.card');if(c)c.style.display='block';}
+  showPage('pg-admin-login');
+}
+
+function doAdminLogin(){
+  if(document.getElementById('admin-pw').value===PW){
+    _isAdmin=true;sessionStorage.setItem('fp_admin','1');
+    updateAdminUI();
+    document.getElementById('admin-logged-in-msg').style.display='block';
+    document.getElementById('admin-pw').closest('.card').style.display='none';
+    showToast('✅ 管理者ログインしました');
+  }else{showToast('パスワードが違います');}
+}
+function adminLogout(){
+  _isAdmin=false;sessionStorage.removeItem('fp_admin');
+  updateAdminUI();showToast('ログアウトしました');
+  showCarryPage();
+}
+function updateAdminUI(){const b=document.getElementById('detail-edit-btn');if(b)b.style.display=_isAdmin?'inline-block':'none';}
+window.doAdminLogin=doAdminLogin;window.adminLogout=adminLogout;
+
+function switchATab(id,el){
+  ['at-list','at-goal'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
+  document.querySelectorAll('#pg-admin .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(id==='at-list')renderAdminList();
+  if(id==='at-goal')renderGoalList();
+}
+window.switchATab=switchATab;
+
+function renderAdminList(){
+  const q=(document.getElementById('adm-search')?.value||'').trim().toLowerCase();
+  const all=Object.entries(_reports).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const filtered=all.filter(([,r])=>!q||(r.store||'').includes(q)||(r.director||r.userName||'').toLowerCase().includes(q));
+  const c=document.getElementById('adm-list');if(!c)return;
+  if(!filtered.length){c.innerHTML='<div class="empty ts">データなし</div>';return;}
+  c.innerHTML=filtered.map(([id,r])=>{
+    const p=r.ach||0,dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+    return `<div class="report-card">
+      <div class="rc-top"><div class="rc-store">${esc(r.store||'−')}</div><div class="rc-date">${r.date||'−'}(${dow})</div></div>
+      <div class="rc-meta"><span class="badge b-blue">${esc(r.channel||'−')}</span><span class="badge ${achBC(p)}">${p}%</span><span class="badge b-gray">${esc(r.director||r.userName||'−')}</span></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button onclick="openEdit('${id}')" class="btn-sm" style="flex:1;padding:8px;">編集</button>
+        <button onclick="delReport('${id}')" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+window.renderAdminList=renderAdminList;
+
+function openEditFromDetail(){closeModal('modal-detail');openEdit(_curId);}
+function openEdit(id){
+  const r=_reports[id];if(!r)return;
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-ov').value=r.txt_ov||'';
+  document.getElementById('edit-rs').value=r.txt_rs||'';
+  document.getElementById('edit-al').value=r.al_eff||'';
+  document.getElementById('modal-edit').classList.add('open');
+}
+window.openEditFromDetail=openEditFromDetail;window.openEdit=openEdit;
+
+async function saveEdit(){
+  const id=document.getElementById('edit-id').value,r=_reports[id];if(!r)return;
+  try{
+    await _set(_ref(_db,'fp_reports/'+id),{...r,txt_ov:document.getElementById('edit-ov').value,txt_rs:document.getElementById('edit-rs').value,al_eff:document.getElementById('edit-al').value,updatedAt:Date.now()});
+    closeModal('modal-edit');showToast('✅ 更新しました');
+  }catch(e){showToast('エラー:'+e.message);}
+}
+async function doDelete(){
+  const id=document.getElementById('edit-id').value;
+  if(!confirm('この日報を削除しますか？'))return;
+  try{await _remove(_ref(_db,'fp_reports/'+id));closeModal('modal-edit');showToast('🗑 削除しました');}
+  catch(e){showToast('エラー:'+e.message);}
+}
+async function delReport(id){
+  if(!confirm('この日報を削除しますか？'))return;
+  try{await _remove(_ref(_db,'fp_reports/'+id));showToast('🗑 削除しました');}
+  catch(e){showToast('エラー:'+e.message);}
+}
+window.saveEdit=saveEdit;window.doDelete=doDelete;window.delReport=delReport;
+
+// ── 月次目標 ──
+async function saveGoal(){
+  const month=document.getElementById('goal-month').value;
+  const a=+document.getElementById('goal-a').value||0;
+  const b=+document.getElementById('goal-b').value||0;
+  if(!month){showToast('対象月を選択してください');return;}
+  const key=month.replace('-','');
+  try{
+    await _set(_ref(_db,'fp_goals/'+key),{month,a,b,updatedAt:Date.now()});
+    showToast('✅ 目標を保存しました');renderGoalList();
+  }catch(e){showToast('エラー:'+e.message);}
+}
+window.saveGoal=saveGoal;
+
+function renderGoalList(){
+  const c=document.getElementById('goal-list');if(!c)return;
+  const all=Object.values(_goals).sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  if(!all.length){c.innerHTML='<div class="empty ts">目標未設定</div>';return;}
+  c.innerHTML=all.map(g=>`
+    <div class="card" style="margin-bottom:8px;">
+      <div style="font-weight:800;font-size:.88rem;margin-bottom:5px;">${g.month}</div>
+      <div class="ts">総販目標：${g.a}台 ／ 2Bリク除き目標：${g.b}台</div>
+    </div>`).join('');
+}
+
+// ── utils ──
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+window.closeModal=closeModal;
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
+</script>
+</body>
+</html>
