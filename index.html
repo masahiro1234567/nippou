@@ -176,6 +176,21 @@ textarea.inp{resize:vertical;min-height:70px;}
 .empty{text-align:center;padding:40px 20px;color:var(--sub);}
 .day-btn{padding:10px 20px;border-radius:10px;border:2px solid var(--border);background:#fff;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);transition:all .15s;}
 .day-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+
+/* ── PC対応 ── */
+@media (min-width: 600px) {
+  .page { max-width: 480px; margin: 0 auto; position: relative; }
+  body { background: #e8edf5; }
+  .hdr { max-width: 480px; margin: 0 auto; }
+  #sidebar { width: 280px; }
+  .modal-overlay { padding: 20px; }
+  .modal { max-height: 85vh; border-radius: 16px; }
+  #toast { font-size: .85rem; }
+}
+@media (min-width: 900px) {
+  .page { max-width: 520px; }
+  .hdr { max-width: 520px; }
+}
 </style>
 </head>
 <body>
@@ -611,7 +626,8 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="kpi-store" placeholder="例：○○イオン"/></div>
       <!-- 日程ごとのメンバー・KPI入力（日程追加で展開） -->
       <div id="kpi-date-members-wrap"></div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
+      <div id="kpi-grand-total" style="background:var(--pl);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:.8rem;font-weight:800;color:var(--pd);"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-p" onclick="saveKpi()">保存</button>
         <button class="btn btn-gray" onclick="closeModal('modal-kpi-edit')">キャンセル</button>
       </div>
@@ -2522,6 +2538,30 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('clic
 
 
 // ── FP獲得内訳入力 ──
+function calcFpAch2(mi){
+  const rows=document.getElementById('fp-breakdown-rows');
+  if(!rows)return;
+  const allDates=JSON.parse(rows.dataset.dates||'[]');
+  const allMembersData=JSON.parse(rows.dataset.members||'[]');
+  const md=allMembersData[mi];if(!md)return;
+  let totalTarget=0,totalSouhan=0;
+  allDates.forEach((d,di)=>{
+    const dayData=md.days[di];
+    if(!dayData)return;
+    totalTarget+=dayData.target||0;
+    totalSouhan+=+document.getElementById(`fp-s-${mi}-${di}`)?.value||0;
+  });
+  const achEl=document.getElementById('fp-ach2-'+mi);
+  if(!achEl)return;
+  if(totalTarget>0){
+    const pct=Math.round((totalSouhan/totalTarget)*100);
+    const col=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+    achEl.textContent=`${totalSouhan}/${totalTarget}件 ${pct}%`;
+    achEl.style.color=col;
+  }
+}
+window.calcFpAch2=calcFpAch2;
+
 function calcFpAch(i){
   const rows=document.getElementById('fp-breakdown-rows');
   if(!rows)return;
@@ -2544,6 +2584,7 @@ function calcFpAch(i){
 window.calcFpAch=calcFpAch;
 
 function openFpBreakdown(date, store){
+  // その店舗のKPIエントリを全日程から検索
   const kpiEntry=Object.values(_kpi||{}).find(k=>{
     const kDates=k.dates||[k.date||''];
     return kDates.includes(date) && k.store===store;
@@ -2552,61 +2593,104 @@ function openFpBreakdown(date, store){
     document.getElementById('modal-saved').classList.add('open');
     return;
   }
-  // dateMembersからその日のメンバーを取得
-  const members=(kpiEntry.dateMembers&&kpiEntry.dateMembers[date])||kpiEntry.members||[{member:kpiEntry.member||'',role:kpiEntry.role||'',target:kpiEntry.target||0}];
-  // キャッチャー以外のみ対象
-  const targetMembers=members.filter(m=>m.role!=='キャッチャー');
-  if(!targetMembers.length){
-    document.getElementById('modal-saved').classList.add('open');
-    return;
-  }
+  const allDates=kpiEntry.dates||[kpiEntry.date||''];
+  
+  // 全日程の全メンバーを収集（キャッチャー除外）
+  let hasMembers=false;
   const rows=document.getElementById('fp-breakdown-rows');
   if(!rows)return;
-  // 既存データ取得
+
+  // 既存データ
   const fbKey=(date+store).replace(/[^a-zA-Z0-9]/g,'_');
   const existing=(_fpBreakdown||{})[fbKey];
   const existingData=existing?existing.members:[];
-  rows.dataset.memberCount=targetMembers.length;
-  rows.dataset.members=JSON.stringify(targetMembers);
-  rows.innerHTML=targetMembers.map((m,i)=>{
-    const ex=existingData.find(e=>e.member===m.member)||{};
-    const target=+(m.target||0);
-    return `<div style="display:grid;grid-template-columns:1fr 72px 72px 72px;gap:4px;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bg);">
-      <div>
-        <div style="font-size:.82rem;font-weight:700;">${esc(m.member||'')}</div>
-        <div style="font-size:.68rem;color:var(--sub);">${esc(m.role||'')}</div>
+
+  // 全日程の合計KPI計算
+  let totalKpi=0;
+  allDates.forEach(d=>{
+    const members=(kpiEntry.dateMembers&&kpiEntry.dateMembers[d])||kpiEntry.members||[];
+    members.filter(m=>m.role!=='キャッチャー').forEach(m=>{ totalKpi+=+(m.target||0); });
+  });
+
+  // 全メンバー名（ユニーク）
+  const allMemberNames=[];
+  allDates.forEach(d=>{
+    const members=(kpiEntry.dateMembers&&kpiEntry.dateMembers[d])||kpiEntry.members||[];
+    members.filter(m=>m.role!=='キャッチャー'&&m.member).forEach(m=>{
+      if(!allMemberNames.includes(m.member)) allMemberNames.push(m.member);
+    });
+  });
+
+  if(!allMemberNames.length){
+    document.getElementById('modal-saved').classList.add('open');
+    return;
+  }
+
+  // ヘッダー行
+  const dayLabels=allDates.map(d=>DOWS[parseDateLocal(d).getDay()]);
+  const allMembersData=allMemberNames.map((name,mi)=>{
+    return {name, days: allDates.map(d=>{
+      const members=(kpiEntry.dateMembers&&kpiEntry.dateMembers[d])||kpiEntry.members||[];
+      const m=members.find(m=>m.member===name);
+      return m?{role:m.role,target:+(m.target||0)}:null;
+    })};
+  });
+
+  rows.dataset.memberCount=allMemberNames.length;
+  rows.dataset.members=JSON.stringify(allMembersData);
+  rows.dataset.dates=JSON.stringify(allDates);
+
+  // 合計KPI表示
+  const totalLine=`<div style="background:var(--pl);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:.8rem;font-weight:800;color:var(--pd);">
+    KPI合計：${totalKpi}件　（${allDates.map((d,i)=>dayLabels[i]+':'+((kpiEntry.dateMembers&&kpiEntry.dateMembers[d])||kpiEntry.members||[]).filter(m=>m.role!=='キャッチャー').reduce((s,m)=>s+(+(m.target||0)),0)+'件').join('　')}）
+  </div>`;
+
+  // メンバー行（全日程分の入力欄）
+  const memberRows=allMembersData.map((md,mi)=>{
+    const ex=existingData.find(e=>e.member===md.name)||{};
+    const dayInputs=allDates.map((d,di)=>{
+      const dayData=md.days[di];
+      if(!dayData) return `<div style="text-align:center;color:var(--sub);font-size:.72rem;">-</div>`;
+      const sVal=(ex.days&&ex.days[di])?ex.days[di].souhan||'':'';
+      const rVal=(ex.days&&ex.days[di])?ex.days[di].riknuki||'':'';
+      return `<div style="text-align:center;">
+        <div style="font-size:.65rem;color:var(--sub);margin-bottom:2px;">目標${dayData.target}件</div>
+        <input class="inp-s" id="fp-s-${mi}-${di}" type="number" min="0" placeholder="0" value="${sVal}" oninput="calcFpAch2(${mi})" style="width:52px;text-align:center;padding:4px 2px;margin-bottom:2px;"/>
+        <input class="inp-s" id="fp-r-${mi}-${di}" type="number" min="0" placeholder="0" value="${rVal}" style="width:52px;text-align:center;padding:4px 2px;"/>
+      </div>`;
+    }).join('');
+    return `<div style="border-bottom:1px solid var(--bg);padding:8px 0;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div><div style="font-size:.82rem;font-weight:700;">${esc(md.name)}</div></div>
+        <div style="font-size:.74rem;font-weight:700;" id="fp-ach2-${mi}"></div>
       </div>
-      <div style="text-align:center;">
-        <div style="font-size:.8rem;font-weight:800;color:var(--pd);">${target}</div>
-        <div style="font-size:.62rem;color:var(--sub);">件</div>
+      <div style="display:grid;grid-template-columns:repeat(${allDates.length},1fr);gap:6px;text-align:center;margin-bottom:4px;">
+        ${dayLabels.map(l=>`<div style="font-size:.68rem;font-weight:700;color:var(--sub);">${l}<br><span style="font-size:.6rem;">総販/リク抜き</span></div>`).join('')}
       </div>
-      <div style="text-align:center;">
-        <input class="inp-s" id="fp-souhan-${i}" type="number" min="0" placeholder="0" value="${ex.souhan||''}" oninput="calcFpAch(${i})" style="width:100%;text-align:center;padding:5px 2px;"/>
-        <div style="font-size:.62rem;color:var(--sub);">総販</div>
-      </div>
-      <div style="text-align:center;">
-        <input class="inp-s" id="fp-riknuki-${i}" type="number" min="0" placeholder="0" value="${ex.riknuki||''}" style="width:100%;text-align:center;padding:5px 2px;"/>
-        <div style="font-size:.62rem;color:var(--sub);">リク抜き</div>
-      </div>
-    </div>
-    <div style="text-align:right;margin-top:-6px;margin-bottom:6px;font-size:.74rem;font-weight:700;" id="fp-ach-${i}"></div>`;
+      <div style="display:grid;grid-template-columns:repeat(${allDates.length},1fr);gap:6px;">${dayInputs}</div>
+    </div>`;
   }).join('');
-  // 既存データがあれば達成率を初期表示
-  targetMembers.forEach((_,i)=>calcFpAch(i));
+
+  rows.innerHTML=totalLine+memberRows;
+  // 達成率初期化
+  allMembersData.forEach((_,mi)=>calcFpAch2(mi));
   document.getElementById('modal-fp-breakdown').classList.add('open');
 }
 window.openFpBreakdown=openFpBreakdown;
 
 async function saveFpBreakdown(){
   const rows=document.getElementById('fp-breakdown-rows');
-  const count=+(rows?.dataset.memberCount||0);
-  const members=JSON.parse(rows?.dataset.members||'[]');
-  const results=members.map((m,i)=>({
-    member:m.member,
-    role:m.role,
-    target:m.target,
-    souhan:+document.getElementById('fp-souhan-'+i)?.value||0,
-    riknuki:+document.getElementById('fp-riknuki-'+i)?.value||0,
+  const allMembersData=JSON.parse(rows?.dataset.members||'[]');
+  const allDates=JSON.parse(rows?.dataset.dates||'[]');
+  const results=allMembersData.map((md,mi)=>({
+    member:md.name,
+    days:allDates.map((d,di)=>({
+      date:d,
+      souhan:+document.getElementById(`fp-s-${mi}-${di}`)?.value||0,
+      riknuki:+document.getElementById(`fp-r-${mi}-${di}`)?.value||0,
+    })),
+    souhan:allDates.reduce((s,d,di)=>s+(+document.getElementById(`fp-s-${mi}-${di}`)?.value||0),0),
+    riknuki:allDates.reduce((s,d,di)=>s+(+document.getElementById(`fp-r-${mi}-${di}`)?.value||0),0),
   }));
   const data={
     date:_savedDate,
@@ -2793,16 +2877,23 @@ function renderKpiList(){
     // dateMembersから当日のメンバーを取得、なければmembersにフォールバック
     const memberList=(k.dateMembers&&k.dateMembers[k2.date])||k.members||[{member:k.member||'',role:k.role||'',target:k.target||0}];
     memberList.forEach(m=>{
-      // fp_breakdownからメンバー別実績を取得
-      const fbKey=(k.date+k.store).replace(/[^a-zA-Z0-9]/g,'_');
+      // fp_breakdownからメンバー別実績を取得（当日分）
+      const fbKey=(k2.date+k2.store).replace(/[^a-zA-Z0-9]/g,'_');
       const fbData=(_fpBreakdown||{})[fbKey];
       const fbMember=fbData?.members?.find(mb=>mb.member===m.member);
       let actual=null;
-      if(fbMember&&fbMember.souhan!==undefined){ actual=fbMember.souhan; }
-      else {
-        // フォールバック：日報のr_faを参照
+      if(fbMember){
+        // days配列がある場合は当日分を取得
+        if(fbMember.days){
+          const dayEntry=fbMember.days.find(d=>d.date===k2.date);
+          if(dayEntry) actual=dayEntry.souhan||0;
+          else actual=fbMember.souhan||0;
+        } else {
+          actual=fbMember.souhan||0;
+        }
+      } else {
         const report2=Object.values(_reports||{}).find(r=>
-          r.date===k.date && r.store===k.store && (r.userName===m.member||r.director===m.member)
+          r.date===k2.date && r.store===k2.store && (r.userName===m.member||r.director===m.member)
         );
         if(report2) actual=+(report2.r_fa||0);
       }
@@ -2830,7 +2921,7 @@ function renderKpiList(){
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <div style="font-size:.8rem;font-weight:700;">実績 ${actualStr}</div>
-          <span style="padding:3px 9px;border-radius:10px;background:${isCatcher?'#f3f4f6':statusBg};color:${isCatcher?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${isCatcher?'参考':achieved?'達成':'未達'}</span>
+          <span style="padding:3px 9px;border-radius:10px;background:${mb.isCatcher?'#f3f4f6':statusBg};color:${mb.isCatcher?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.isCatcher?'参考':achieved?'達成':'未達'}</span>
           ${_isAdmin?`<button type="button" onclick="openKpiEdit('${id}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>`:''}
         </div>
       </div>`;
@@ -2927,6 +3018,15 @@ function updateKpiDayTotal(di){
   }
   const el=document.getElementById(`kpi-day-total-${di}`);
   if(el)el.textContent=total;
+  // 全日程合計を更新
+  let grandTotal=0;
+  let di2=0;
+  while(document.getElementById(`kpi-day-total-${di2}`)){
+    grandTotal+=+document.getElementById(`kpi-day-total-${di2}`).textContent||0;
+    di2++;
+  }
+  const gtEl=document.getElementById('kpi-grand-total');
+  if(gtEl) gtEl.textContent=`全日程合計：${grandTotal}件`;
 }
 window.updateKpiDayTotal=updateKpiDayTotal;
 
