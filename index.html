@@ -2922,7 +2922,7 @@ function renderKpiList(){
     const bc=achRate>=80?'var(--green)':achRate>=50?'var(--orange)':'var(--red)';
     const dow=g.date?DOWS[parseDateLocal(g.date).getDay()]:'';
 
-    const memberRows=g.members.map(({id,k,m,actual,achieved})=>{
+    const memberRows=g.members.map((mb)=>{ const {id,k,m,actual,achieved}=mb;
       const statusBg=achieved?'#d1fae5':'#fee2e2';
       const statusCol=achieved?'var(--green)':'var(--red)';
       const actualStr=actual!==null?`${actual}台`:'未記入';
