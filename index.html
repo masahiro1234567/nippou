@@ -46,6 +46,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .sb-item:hover{background:var(--pl);}
 .sb-item.active{background:var(--pl);color:var(--primary);font-weight:800;}
 .sb-item-icon{font-size:1.1rem;flex-shrink:0;}
+.admin-badge{background:#fff3e0;color:#e65100;border:1.5px solid #ffcc80;border-radius:12px;padding:3px 8px;font-size:.65rem;font-weight:800;white-space:nowrap;}
 .sb-divider{height:1px;background:var(--border);margin:6px 14px;}
 
 /* BODY */
@@ -672,7 +673,13 @@ textarea.inp{resize:vertical;min-height:70px;}
     <div class="modal-handle"></div>
     <div class="modal-hdr"><h3>📊 FP獲得内訳を入力</h3><button class="btn-close" onclick="skipFpBreakdown()">✕</button></div>
     <div class="modal-body">
-      <div style="font-size:.76rem;color:var(--sub);margin-bottom:12px;">この日・この店舗のメンバー別FP獲得数を入力してください</div>
+      <div style="font-size:.76rem;color:var(--sub);margin-bottom:12px;">メンバー別FP獲得数を入力してください</div>
+      <div style="display:grid;grid-template-columns:1fr 72px 72px 72px;gap:4px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);">
+        <div style="font-size:.68rem;font-weight:700;color:var(--sub);">メンバー</div>
+        <div style="font-size:.68rem;font-weight:700;color:var(--sub);text-align:center;">目標</div>
+        <div style="font-size:.68rem;font-weight:700;color:var(--sub);text-align:center;">総販</div>
+        <div style="font-size:.68rem;font-weight:700;color:var(--sub);text-align:center;">リク抜き</div>
+      </div>
       <div id="fp-breakdown-rows"></div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn btn-p" onclick="saveFpBreakdown()">保存して次へ</button>
@@ -763,7 +770,7 @@ textarea.inp{resize:vertical;min-height:70px;}
         <button class="btn btn-p" onclick="saveEdit()">保存</button>
         <button class="btn btn-gray" onclick="closeModal('modal-edit')">キャンセル</button>
       </div>
-      <button type="button" class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;" onclick="doDelete()">🗑 削除</button>
+      <button type="button" class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;width:100%;" onclick="doDelete()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -1127,7 +1134,9 @@ window.removeWorkdayRow=removeWorkdayRow;
 function setTodayDate(){
   const t=new Date();
   document.getElementById('in-date').value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+  // デフォルトは前月（データのある月）
+  const prevMonth=new Date(t.getFullYear(),t.getMonth()-1,1);
+  const ym=`${prevMonth.getFullYear()}-${String(prevMonth.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('stats-month').value=ym;
   document.getElementById('goal-month').value=ym;
 }
@@ -1907,8 +1916,12 @@ function getWeekOfMonth(dateStr){
 
 function renderStats(){
   const month=document.getElementById('stats-month')?.value||'';
-  let filtered=Object.values(_reports).filter(r=>month?(r.date||'').startsWith(month):true);
+  let filtered=Object.values(_reports||{}).filter(r=>month?(r.date||'').startsWith(month):true);
   if(_weekFilter!=='all') filtered=filtered.filter(r=>getWeekOfMonth(r.date)===_weekFilter);
+  // 販路フィルター
+  if(_statsChannel&&_statsChannel!=='all'){
+    filtered=filtered.filter(r=>(r.channel||'')=== _statsChannel);
+  }
 
   // 月次目標
   const goalEntry=Object.values(_goals).find(g=>g.month===month);
@@ -2074,14 +2087,20 @@ function switchStatsTab(id,el){
 function setStatsChannel(ch,el){
   _statsChannel=ch;
   document.querySelectorAll('#stats-ch-filter .fchip').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
+  if(el)el.classList.add('active');
   renderStats();
 }
 window.switchStatsTab=switchStatsTab;
 window.setStatsChannel=setStatsChannel;
 window.switchStatsTab=switchStatsTab;
 
-document.getElementById('stats-month')?.addEventListener('change',()=>{_weekFilter='all';document.querySelectorAll('#week-filter .fchip').forEach(c=>c.classList.remove('active'));document.querySelector('#week-filter .fchip')?.classList.add('active');renderStats();});
+document.getElementById('stats-month')?.addEventListener('change',()=>{
+  _weekFilter='all';
+  document.querySelectorAll('#week-filter .fchip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#week-filter .fchip')?.classList.add('active');
+  renderStats();
+});
+document.getElementById('stats-month')?.addEventListener('input',()=>{ renderStats(); });
 
 // ── 店舗特徴 ──
 function renderStoreFeats(){
@@ -2204,6 +2223,16 @@ function updateAdminUI(){
   if(b) b.style.display=_isAdmin?'inline-block':'none';
   const kb=document.getElementById('kpi-admin-btn-wrap');
   if(kb) kb.style.display=_isAdmin?'block':'none';
+  // 全ページの戻るボタン左に管理者バッジを表示
+  document.querySelectorAll('.admin-badge').forEach(el=>el.remove());
+  if(_isAdmin){
+    document.querySelectorAll('.hdr-right').forEach(hdr=>{
+      const badge=document.createElement('span');
+      badge.className='admin-badge';
+      badge.textContent='管理者ログイン中';
+      hdr.insertBefore(badge,hdr.firstChild);
+    });
+  }
 }
 window.doAdminLogin=doAdminLogin;window.adminLogout=adminLogout;
 
@@ -2470,51 +2499,77 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('clic
 
 
 // ── FP獲得内訳入力 ──
+function calcFpAch(i){
+  const rows=document.getElementById('fp-breakdown-rows');
+  if(!rows)return;
+  const members=JSON.parse(rows.dataset.members||'[]');
+  const m=members[i];if(!m)return;
+  const souhan=+document.getElementById('fp-souhan-'+i)?.value||0;
+  const target=+(m.target||0);
+  const achEl=document.getElementById('fp-ach-'+i);
+  if(!achEl)return;
+  if(target>0){
+    const pct=Math.round((souhan/target)*100);
+    const col=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+    achEl.textContent=pct+'%';
+    achEl.style.color=col;
+  } else {
+    achEl.textContent='-';
+    achEl.style.color='var(--sub)';
+  }
+}
+window.calcFpAch=calcFpAch;
+
 function openFpBreakdown(date, store){
-  // その日・その店舗のKPIメンバーを検索
   const kpiEntry=Object.values(_kpi||{}).find(k=>{
     const kDates=k.dates||[k.date||''];
     return kDates.includes(date) && k.store===store;
   });
   if(!kpiEntry){
-    // KPIデータなし → 直接savedモーダルへ
     document.getElementById('modal-saved').classList.add('open');
     return;
   }
-  const members=kpiEntry.members||[{member:kpiEntry.member||'',role:kpiEntry.role||'',target:kpiEntry.target||0}];
+  // dateMembersからその日のメンバーを取得
+  const members=(kpiEntry.dateMembers&&kpiEntry.dateMembers[date])||kpiEntry.members||[{member:kpiEntry.member||'',role:kpiEntry.role||'',target:kpiEntry.target||0}];
+  // キャッチャー以外のみ対象
+  const targetMembers=members.filter(m=>m.role!=='キャッチャー');
+  if(!targetMembers.length){
+    document.getElementById('modal-saved').classList.add('open');
+    return;
+  }
   const rows=document.getElementById('fp-breakdown-rows');
   if(!rows)return;
-
-  // 既存の内訳データを取得（編集時）
-  const existing=Object.entries(_fpBreakdown||{}).find(([,fb])=>fb.date===date&&fb.store===store);
-  const existingData=existing?existing[1].members:[];
-
-  rows.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 80px 80px;gap:6px;margin-bottom:6px;">
-      <div style="font-size:.7rem;font-weight:700;color:var(--sub);">メンバー</div>
-      <div style="font-size:.7rem;font-weight:700;color:var(--sub);text-align:right;">総販</div>
-      <div style="font-size:.7rem;font-weight:700;color:var(--sub);text-align:right;">リク抜き</div>
+  // 既存データ取得
+  const fbKey=(date+store).replace(/[^a-zA-Z0-9]/g,'_');
+  const existing=(_fpBreakdown||{})[fbKey];
+  const existingData=existing?existing.members:[];
+  rows.dataset.memberCount=targetMembers.length;
+  rows.dataset.members=JSON.stringify(targetMembers);
+  rows.innerHTML=targetMembers.map((m,i)=>{
+    const ex=existingData.find(e=>e.member===m.member)||{};
+    const target=+(m.target||0);
+    return `<div style="display:grid;grid-template-columns:1fr 72px 72px 72px;gap:4px;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bg);">
+      <div>
+        <div style="font-size:.82rem;font-weight:700;">${esc(m.member||'')}</div>
+        <div style="font-size:.68rem;color:var(--sub);">${esc(m.role||'')}</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:.8rem;font-weight:800;color:var(--pd);">${target}</div>
+        <div style="font-size:.62rem;color:var(--sub);">件</div>
+      </div>
+      <div style="text-align:center;">
+        <input class="inp-s" id="fp-souhan-${i}" type="number" min="0" placeholder="0" value="${ex.souhan||''}" oninput="calcFpAch(${i})" style="width:100%;text-align:center;padding:5px 2px;"/>
+        <div style="font-size:.62rem;color:var(--sub);">総販</div>
+      </div>
+      <div style="text-align:center;">
+        <input class="inp-s" id="fp-riknuki-${i}" type="number" min="0" placeholder="0" value="${ex.riknuki||''}" style="width:100%;text-align:center;padding:5px 2px;"/>
+        <div style="font-size:.62rem;color:var(--sub);">リク抜き</div>
+      </div>
     </div>
-    ${members.map((m,i)=>{
-      const ex=existingData.find(e=>e.member===m.member)||{};
-      return `<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:6px;margin-bottom:8px;align-items:center;">
-        <div>
-          <div style="font-size:.82rem;font-weight:700;">${esc(m.member||'')}</div>
-          <div style="font-size:.68rem;color:var(--sub);">${esc(m.role||'')} 目標${m.target||0}台</div>
-        </div>
-        <input class="inp-s" id="fp-souhan-${i}" type="number" min="0" placeholder="0" value="${ex.souhan||''}"/>
-        <input class="inp-s" id="fp-riknuki-${i}" type="number" min="0" placeholder="0" value="${ex.riknuki||''}"/>
-      </div>`;
-    }).join('')}
-  `;
-  // kpiEntryIDを保存
-  document.getElementById('fp-breakdown-rows').dataset.kpiId=Object.keys(_kpi||{}).find(k=>{
-    const kv=_kpi[k];
-    const kDates=kv.dates||[kv.date||''];
-    return kDates.includes(date)&&kv.store===store;
-  })||'';
-  document.getElementById('fp-breakdown-rows').dataset.memberCount=members.length;
-  document.getElementById('fp-breakdown-rows').dataset.members=JSON.stringify(members);
+    <div style="text-align:right;margin-top:-6px;margin-bottom:6px;font-size:.74rem;font-weight:700;" id="fp-ach-${i}"></div>`;
+  }).join('');
+  // 既存データがあれば達成率を初期表示
+  targetMembers.forEach((_,i)=>calcFpAch(i));
   document.getElementById('modal-fp-breakdown').classList.add('open');
 }
 window.openFpBreakdown=openFpBreakdown;
