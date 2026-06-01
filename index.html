@@ -2916,10 +2916,15 @@ function renderKpiList(){
   });
 
   c.innerHTML=Object.values(groups).map(g=>{
-    const total=g.members.length;
-    const achCount=g.members.filter(m=>m.achieved).length;
+    const nonCatchers=g.members.filter(mb=>mb.m&&mb.m.role!=='キャッチャー');
+    const total=nonCatchers.length||1;
+    const achCount=nonCatchers.filter(mb=>mb.achieved).length;
     const achRate=total>0?Math.ceil((achCount/total)*100):0;
     const bc=achRate>=80?'var(--green)':achRate>=50?'var(--orange)':'var(--red)';
+    const totalTarget=nonCatchers.reduce((s,mb)=>s+(+(mb.m&&mb.m.target||0)),0);
+    const totalActual=nonCatchers.reduce((s,mb)=>s+(mb.actual!==null?mb.actual:0),0);
+    const storeAch=totalTarget>0?Math.round((totalActual/totalTarget)*100):0;
+    const storeBc=storeAch>=100?'var(--green)':storeAch>=70?'var(--orange)':'var(--red)';
     const dow=g.date?DOWS[parseDateLocal(g.date).getDay()]:'';
 
     const memberRows=g.members.map((mb)=>{ const {id,k,m,actual,achieved}=mb;
@@ -2933,19 +2938,14 @@ function renderKpiList(){
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <div style="font-size:.8rem;font-weight:700;">実績 ${actualStr}</div>
-          <span style="padding:3px 9px;border-radius:10px;background:${mb.m?.role==='キャッチャー'?'#f3f4f6':statusBg};color:${mb.m?.role==='キャッチャー'?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.m?.role==='キャッチャー'?'参考':achieved?'達成':'未達'}</span>
+          <span style="padding:3px 9px;border-radius:10px;background:${m.role==='キャッチャー'?'#f3f4f6':statusBg};color:${m.role==='キャッチャー'?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${m.role==='キャッチャー'?'参考':achieved?'達成':'未達'}</span>
           ${_isAdmin?`<button type="button" onclick="openKpiEdit('${id}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>`:''}
         </div>
       </div>`;
     }).join('');
 
     // 店舗合計FP獲得・KPI目標
-    // キャッチャーは合計から除外
-    const nonCatchers=g.members.filter(mb=>mb.m?.role!=='キャッチャー');
-    const totalTarget=nonCatchers.reduce((s,mb)=>s+(+(mb.m?.target||0)),0);
-    const totalActual=nonCatchers.reduce((s,mb)=>s+(mb.actual!==null?mb.actual:0),0);
-    const storeAch=totalTarget>0?Math.round((totalActual/totalTarget)*100):0;
-    const storeBc=storeAch>=100?'var(--green)':storeAch>=70?'var(--orange)':'var(--red)';
+
     return `<div class="card" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
