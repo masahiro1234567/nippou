@@ -179,17 +179,12 @@ textarea.inp{resize:vertical;min-height:70px;}
 
 /* ── PC対応 ── */
 @media (min-width: 600px) {
-  .page { max-width: 480px; margin: 0 auto; position: relative; }
-  body { background: #e8edf5; }
-  .hdr { max-width: 480px; margin: 0 auto; }
   #sidebar { width: 280px; }
-  .modal-overlay { padding: 20px; }
-  .modal { max-height: 85vh; border-radius: 16px; }
+  .modal-overlay { padding: 20px; align-items: center; }
+  .modal { max-height: 85vh; border-radius: 16px; max-width: 560px; }
   #toast { font-size: .85rem; }
-}
-@media (min-width: 900px) {
-  .page { max-width: 520px; }
-  .hdr { max-width: 520px; }
+  .body { padding: 20px 24px 40px; }
+  .card { border-radius: 14px; }
 }
 </style>
 </head>
@@ -2938,7 +2933,7 @@ function renderKpiList(){
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <div style="font-size:.8rem;font-weight:700;">実績 ${actualStr}</div>
-          <span style="padding:3px 9px;border-radius:10px;background:${mb.mb.m?.role==='キャッチャー'?'#f3f4f6':statusBg};color:${mb.mb.m?.role==='キャッチャー'?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.mb.m?.role==='キャッチャー'?'参考':achieved?'達成':'未達'}</span>
+          <span style="padding:3px 9px;border-radius:10px;background:${mb.m?.role==='キャッチャー'?'#f3f4f6':statusBg};color:${mb.m?.role==='キャッチャー'?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.m?.role==='キャッチャー'?'参考':achieved?'達成':'未達'}</span>
           ${_isAdmin?`<button type="button" onclick="openKpiEdit('${id}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>`:''}
         </div>
       </div>`;
