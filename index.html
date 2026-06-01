@@ -644,6 +644,7 @@ textarea.inp{resize:vertical;min-height:70px;}
       <button class="tab" onclick="switchATab('at-goal',this)">月次目標</button>
       <button class="tab" onclick="switchATab('at-kpi',this)">KPI登録</button>
       <button class="tab" onclick="switchATab('at-kpi-view',this)">KPI表示</button>
+      <button class="tab" onclick="switchATab('at-kpi-result',this)">稼働実績</button>
     </div>
     <div id="at-list">
       <div class="section-title">日報一覧（編集・削除可）</div>
@@ -666,6 +667,19 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div class="section-title">KPI登録・管理</div>
       <button type="button" class="btn btn-p" style="margin-bottom:12px;" onclick="openKpiEdit(null)">＋ KPIを登録</button>
       <div id="at-kpi-list"></div>
+    </div>
+    <div id="at-kpi-result" style="display:none;">
+      <div class="section-title">稼働実績・KPI達成率</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input class="inp" id="kpi-result-search" placeholder="🔍 名前・店舗名で検索" oninput="renderKpiResult()" style="flex:1;min-width:150px;"/>
+      </div>
+      <div class="filter-bar" id="kpi-result-filter" style="margin-bottom:8px;">
+        <button class="fchip active" onclick="setKpiResultFilter('all',this)">全て</button>
+        <button class="fchip" onclick="setKpiResultFilter('member',this)">メンバー別</button>
+        <button class="fchip" onclick="setKpiResultFilter('store',this)">店舗別</button>
+        <button class="fchip" onclick="setKpiResultFilter('channel',this)">販路別</button>
+      </div>
+      <div id="kpi-result-list"></div>
     </div>
     <div id="at-kpi-view" style="display:none;">
       <div class="section-title">KPI表示</div>
@@ -1019,7 +1033,9 @@ function continueReport(id){
   window._activeMobileDayIdx=_workDays.length-1;
   // フォームに既存データを反映
   document.getElementById('in-store').value=r.store||'';
-  document.getElementById('in-ch').value=r.channel||'';
+  // 販路セット（select要素）
+  const chEl=document.getElementById('in-ch');
+  if(chEl){ chEl.value=r.channel||''; }
   document.getElementById('in-dir').value=r.director||r.userName||(_user?.name||'');
   document.getElementById('r-ta').value=r.r_ta||'';
   document.getElementById('r-tb').value=r.r_tb||'';
@@ -1848,20 +1864,58 @@ function filterReports(){
   });
   const c=document.getElementById('report-list');if(!c)return;
   if(!filtered.length){c.innerHTML='<div class="empty"><div style="font-size:2rem;margin-bottom:8px;">📭</div><p>日報がありません</p></div>';return;}
-  c.innerHTML=filtered.map(([id,r])=>{
-    const p=r.ach||0,dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
-    return `<div class="report-card" onclick="openDetail('${id}')">
-      <div class="rc-top"><div class="rc-store">${esc(r.store||'−')}</div><div class="rc-date">${r.date||'−'}(${dow})</div></div>
-      <div class="rc-meta">
-        <span class="badge b-blue">${esc(r.channel||'−')}</span>
-        <span class="badge ${achBC(p)}">${p}%</span>
-        <span class="badge b-gray">${esc(r.director||r.userName||'−')}</span>
+  // 同店舗×同週でグループ化
+  const groups={};
+  filtered.forEach(([id,r])=>{
+    if(!r.date)return;
+    const d=parseDateLocal(r.date),day=d.getDay();
+    const mon=parseDateLocal(r.date); mon.setDate(d.getDate()-(day===0?6:day-1));
+    const wKey=`${r.store||''}__${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+    if(!groups[wKey]) groups[wKey]=[];
+    groups[wKey].push([id,r]);
+  });
+
+  c.innerHTML=Object.values(groups).map(group=>{
+    // 最新日の日報をメインとして表示
+    group.sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+    const [mainId,mainR]=group[0];
+    const p=mainR.ach||0;
+    const dateOptions=group.map(([id,r])=>{
+      const dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+      return `<option value="${id}">${r.date}(${dow}) ${r.ach||0}%</option>`;
+    }).join('');
+    const multiDay=group.length>1;
+    return `<div class="report-card" id="rc-${mainId}">
+      <div class="rc-top">
+        <div class="rc-store">${esc(mainR.store||'−')}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${multiDay?`<select class="inp-s" style="font-size:.7rem;padding:3px 6px;" onchange="switchReportCard('${mainId}',this.value,this)">${dateOptions}</select>`:`<span class="rc-date">${mainR.date||'−'}(${mainR.date?DOWS[parseDateLocal(mainR.date).getDay()]:''}</span>`}
+        </div>
       </div>
-      <div class="rc-summary">${esc(r.al_eff||'')} ${esc(r.txt_ov||'')} ${esc(r.txt_rs||'')}</div>
+      <div class="rc-meta" id="rc-meta-${mainId}">
+        <span class="badge b-blue">${esc(mainR.channel||'−')}</span>
+        <span class="badge ${achBC(p)}">${p}%</span>
+        <span class="badge b-gray">${esc(mainR.director||mainR.userName||'−')}</span>
+      </div>
+      <div class="rc-summary" id="rc-sum-${mainId}">${esc(mainR.al_eff||'')} ${esc(mainR.txt_ov||'')} ${esc(mainR.txt_rs||'')}</div>
+      <div style="font-size:.7rem;color:var(--primary);font-weight:700;margin-top:4px;" onclick="openDetail('${mainId}')">▶ 詳細を見る</div>
     </div>`;
   }).join('');
 }
 window.filterReports=filterReports;
+
+function switchReportCard(mainId, newId, sel){
+  const r=_reports[newId]; if(!r)return;
+  const p=r.ach||0;
+  const metaEl=document.getElementById('rc-meta-'+mainId);
+  const sumEl=document.getElementById('rc-sum-'+mainId);
+  const detailLink=sel.closest('.report-card').querySelector('[onclick^="openDetail"]');
+  if(metaEl) metaEl.innerHTML=`<span class="badge b-blue">${esc(r.channel||'−')}</span><span class="badge ${achBC(p)}">${p}%</span><span class="badge b-gray">${esc(r.director||r.userName||'−')}</span>`;
+  if(sumEl) sumEl.textContent=(r.al_eff||'')+' '+(r.txt_ov||'')+' '+(r.txt_rs||'');
+  if(detailLink) detailLink.setAttribute('onclick',`openDetail('${newId}')`);
+}
+window.switchReportCard=switchReportCard;
+
 
 function setFilter(type,val,el){
   if(type==='ch'){_fCh=val;document.querySelectorAll('#fb-ch .fchip').forEach(c=>c.classList.remove('active'));}
@@ -2249,7 +2303,7 @@ function updateAdminUI(){
 window.doAdminLogin=doAdminLogin;window.adminLogout=adminLogout;
 
 function switchATab(id,el){
-  ['at-list','at-goal','at-kpi','at-kpi-view'].forEach(t=>{
+  ['at-list','at-goal','at-kpi','at-kpi-view','at-kpi-result'].forEach(t=>{
     const el2=document.getElementById(t);
     if(el2)el2.style.display=(t===id)?'block':'none';
   });
@@ -2258,6 +2312,7 @@ function switchATab(id,el){
   if(id==='at-list') try{renderAdminList();}catch(e){}
   if(id==='at-goal') try{renderGoalList();}catch(e){}
   if(id==='at-kpi') setTimeout(()=>{ try{renderAdminKpiList();}catch(e){} }, 100);
+  if(id==='at-kpi-result') setTimeout(()=>{ try{renderKpiResult();}catch(e){} },100);
   if(id==='at-kpi-view'){
     // 今週の月曜日をデフォルトにセット
     const t=new Date(),day=t.getDay();
@@ -2833,6 +2888,150 @@ function copyKpiView(){
 }
 window.copyKpiView=copyKpiView;
 
+
+// ── 稼働実績 ──
+let _kpiResultFilter='all';
+function setKpiResultFilter(f,el){
+  _kpiResultFilter=f;
+  document.querySelectorAll('#kpi-result-filter .fchip').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderKpiResult();
+}
+window.setKpiResultFilter=setKpiResultFilter;
+
+function renderKpiResult(){
+  const cont=document.getElementById('kpi-result-list');
+  if(!cont)return;
+  const q=(document.getElementById('kpi-result-search')?.value||'').trim().toLowerCase();
+
+  // fp_breakdownから全実績を収集
+  const breakdown=Object.values(_fpBreakdown||{});
+  const kpiEntries=Object.values(_kpi||{});
+
+  // メンバーごとの集計
+  const memberStats={};
+  kpiEntries.forEach(k=>{
+    const allDates=k.dates||[k.date||''];
+    allDates.forEach(d=>{
+      const members=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+      members.filter(m=>m.role!=='キャッチャー'&&m.member).forEach(m=>{
+        const fbKey=(d+k.store).replace(/[^a-zA-Z0-9]/g,'_');
+        const fbData=(_fpBreakdown||{})[fbKey];
+        const fbMember=fbData?.members?.find(mb=>mb.member===m.member);
+        let actual=null;
+        if(fbMember){
+          if(fbMember.days){ const de=fbMember.days.find(dd=>dd.date===d); if(de) actual=de.souhan||0; else actual=fbMember.souhan||0; }
+          else actual=fbMember.souhan||0;
+        }
+        const key=m.member;
+        if(!memberStats[key]) memberStats[key]={name:m.member,role:m.role,stores:{},totalTarget:0,totalActual:0,records:[]};
+        memberStats[key].totalTarget+=+(m.target||0);
+        if(actual!==null) memberStats[key].totalActual+=actual;
+        if(!memberStats[key].stores[k.store]) memberStats[key].stores[k.store]={store:k.store,channel:k.channel||'',target:0,actual:0};
+        memberStats[key].stores[k.store].target+=+(m.target||0);
+        if(actual!==null) memberStats[key].stores[k.store].actual+=actual;
+        memberStats[key].records.push({date:d,store:k.store,target:+(m.target||0),actual});
+      });
+    });
+  });
+
+  // フィルター・検索
+  let entries=Object.values(memberStats).filter(v=>{
+    if(!q) return true;
+    if(v.name.includes(q)) return true;
+    if(Object.keys(v.stores).some(s=>s.includes(q))) return true;
+    return false;
+  });
+
+  if(!entries.length){cont.innerHTML='<div class="empty ts">データなし</div>';return;}
+
+  if(_kpiResultFilter==='member'||_kpiResultFilter==='all'){
+    // メンバー別
+    const html=entries.map(v=>{
+      const pct=v.totalTarget>0?Math.round((v.totalActual/v.totalTarget)*100):0;
+      const bc=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+      const storeRows=Object.values(v.stores).map(s=>{
+        const sp=s.target>0?Math.round((s.actual/s.target)*100):0;
+        const sbc=sp>=100?'var(--green)':sp>=70?'var(--orange)':'var(--red)';
+        return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.72rem;">
+          <span style="color:var(--sub);">${esc(s.store)}</span>
+          <span style="font-weight:700;color:${sbc};">${s.actual}/${s.target}件 ${sp}%</span>
+        </div>`;
+      }).join('');
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div><div style="font-weight:800;">${esc(v.name)}</div><div style="font-size:.7rem;color:var(--sub);">${esc(v.role||'')}</div></div>
+          <div style="text-align:right;"><div style="font-size:1rem;font-weight:900;color:${bc};">${pct}%</div><div style="font-size:.72rem;color:var(--sub);">${v.totalActual}/${v.totalTarget}件</div></div>
+        </div>
+        <div style="background:var(--bg);border-radius:7px;height:10px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:${Math.min(pct,100)}%;background:${bc};border-radius:7px;transition:width .5s;"></div></div>
+        <div style="border-top:1px solid var(--border);padding-top:6px;">${storeRows}</div>
+      </div>`;
+    }).join('');
+    cont.innerHTML=html;
+  } else if(_kpiResultFilter==='store'){
+    // 店舗別
+    const storeMap={};
+    entries.forEach(v=>{
+      Object.values(v.stores).forEach(s=>{
+        if(!storeMap[s.store]) storeMap[s.store]={store:s.store,target:0,actual:0,members:[]};
+        storeMap[s.store].target+=s.target;
+        storeMap[s.store].actual+=s.actual;
+        storeMap[s.store].members.push({name:v.name,target:s.target,actual:s.actual});
+      });
+    });
+    cont.innerHTML=Object.values(storeMap).map(s=>{
+      const pct=s.target>0?Math.round((s.actual/s.target)*100):0;
+      const bc=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+      const mRows=s.members.map(m=>{
+        const mp=m.target>0?Math.round((m.actual/m.target)*100):0;
+        const mbc=mp>=100?'var(--green)':mp>=70?'var(--orange)':'var(--red)';
+        return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.72rem;">
+          <span style="color:var(--sub);">${esc(m.name)}</span>
+          <span style="font-weight:700;color:${mbc};">${m.actual}/${m.target}件 ${mp}%</span>
+        </div>`;
+      }).join('');
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-weight:800;">${esc(s.store)}</div>
+          <div style="font-size:1rem;font-weight:900;color:${bc};">${pct}%</div>
+        </div>
+        <div style="background:var(--bg);border-radius:7px;height:10px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:${Math.min(pct,100)}%;background:${bc};border-radius:7px;"></div></div>
+        <div style="border-top:1px solid var(--border);padding-top:6px;">${mRows}</div>
+      </div>`;
+    }).join('');
+  } else if(_kpiResultFilter==='channel'){
+    // 販路別（KPIエントリのchannelを使用、なければ日報から）
+    const chMap={};
+    kpiEntries.forEach(k=>{
+      const ch=k.channel||Object.values(_reports||{}).find(r=>r.store===k.store)?.channel||'不明';
+      const allDates=k.dates||[k.date||''];
+      allDates.forEach(d=>{
+        const members=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+        members.filter(m=>m.role!=='キャッチャー').forEach(m=>{
+          if(!chMap[ch]) chMap[ch]={channel:ch,target:0,actual:0};
+          chMap[ch].target+=+(m.target||0);
+          const fbKey=(d+k.store).replace(/[^a-zA-Z0-9]/g,'_');
+          const fbData=(_fpBreakdown||{})[fbKey];
+          const fbMember=fbData?.members?.find(mb=>mb.member===m.member);
+          if(fbMember){ const a=fbMember.days?.find(dd=>dd.date===d)?.souhan??fbMember.souhan??0; chMap[ch].actual+=a; }
+        });
+      });
+    });
+    cont.innerHTML=Object.values(chMap).map(ch=>{
+      const pct=ch.target>0?Math.round((ch.actual/ch.target)*100):0;
+      const bc=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-weight:800;">${esc(ch.channel)}</div>
+          <div style="font-size:1rem;font-weight:900;color:${bc};">${pct}%</div>
+        </div>
+        <div style="font-size:.74rem;color:var(--sub);margin-bottom:4px;">${ch.actual}/${ch.target}件</div>
+        <div style="background:var(--bg);border-radius:7px;height:10px;overflow:hidden;"><div style="height:100%;width:${Math.min(pct,100)}%;background:${bc};border-radius:7px;"></div></div>
+      </div>`;
+    }).join('');
+  }
+}
+window.renderKpiResult=renderKpiResult;
 // ── KPI管理 ──
 window._kpi={};
 
@@ -2880,9 +3079,11 @@ function renderKpiList(){
   const groups={};
   entries.forEach(([id,k])=>{
     const kDates=k.dates||[k.date||''];
+    // KPIエントリ単位でグループ化（1エントリ=1枠）
     kDates.forEach(kDate=>{
-      const gKey=`${kDate}__${k.store||''}`;
-      if(!groups[gKey]) groups[gKey]={date:kDate,store:k.store,members:[]};
+      // 同じKPIエントリの日付は同じグループキーを使う
+      const gKey=`${id}__${k.store||''}`;
+      if(!groups[gKey]) groups[gKey]={date:kDate,store:k.store,members:[],allDates:kDates,kpiId:id,k};
       const k2={...k,date:kDate}; // 各日付版のkを作成
     // 日報からFP獲得実績を取得
     // members配列対応（旧データ互換）
@@ -2915,6 +3116,7 @@ function renderKpiList(){
     }); // kDates.forEach end
   });
 
+  // KPIエントリ1つ=1枠（日付複数の場合はプルダウン）
   c.innerHTML=Object.values(groups).map(g=>{
     const nonCatchers=g.members.filter(mb=>mb.m&&mb.m.role!=='キャッチャー');
     const total=nonCatchers.length||1;
@@ -2946,15 +3148,21 @@ function renderKpiList(){
 
     // 店舗合計FP獲得・KPI目標
 
-    return `<div class="card" style="margin-bottom:12px;">
+    // プルダウン（複数日程の場合）
+    const allDates=g.allDates||[g.date];
+    const dateSelector=allDates.length>1?`
+      <select class="inp-s" style="font-size:.7rem;padding:3px 6px;margin-top:3px;" onchange="switchKpiDate('${g.kpiId}',this.value)">
+        ${allDates.map(d=>`<option value="${d}"${d===g.date?' selected':''}>${d}(${DOWS[parseDateLocal(d).getDay()]})</option>`).join('')}
+      </select>`:`<div style="font-size:.74rem;color:var(--sub);">${g.date||''}(${dow})</div>`;
+    return `<div class="card" style="margin-bottom:12px;" id="kpi-card-${g.kpiId}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
           <div style="font-size:.9rem;font-weight:800;">${esc(g.store||'')}</div>
-          <div style="font-size:.74rem;color:var(--sub);">${g.date||''}(${dow})</div>
+          ${dateSelector}
         </div>
         <div style="text-align:right;">
           <div style="font-size:1rem;font-weight:900;color:${storeBc};">${storeAch}%</div>
-          <div style="font-size:.74rem;color:var(--sub);">FP ${totalActual}台 / 目標${totalTarget}台</div>
+          <div style="font-size:.74rem;color:var(--sub);">FP ${totalActual}件 / 目標${totalTarget}件</div>
         </div>
       </div>
       <div style="background:var(--bg);border-radius:7px;height:12px;overflow:hidden;margin-bottom:10px;">
@@ -2968,6 +3176,16 @@ function renderKpiList(){
   }catch(e){ console.error('renderKpiList:',e); document.getElementById('kpi-list').innerHTML='<div class="ts">表示エラー:'+e.message+'</div>'; }
 }
 window.renderKpiList=renderKpiList;
+
+function switchKpiDate(kpiId, date){
+  // 選択日付でKPIリストを再描画（_kpiWeekはそのまま）
+  const k=_kpi[kpiId];
+  if(!k)return;
+  // グループのdateを更新して再レンダリング
+  renderKpiList();
+}
+window.switchKpiDate=switchKpiDate;
+
 
 function renderKpiDateRows(dates, dateMembersData){
   // 日程入力欄
