@@ -2417,6 +2417,14 @@ async function saveEdit(){
     closeModal('modal-edit');showToast('✅ 更新しました');
   }catch(e){ showToast('エラー:'+e.message); }
 }
+function doDelete(){
+  const id=document.getElementById('edit-id').value;
+  if(!id)return;
+  showDeleteConfirm(id,()=>{ closeModal('modal-edit'); });
+}
+function delReport(id){
+  showDeleteConfirm(id,null);
+}
 window.saveEdit=saveEdit;window.doDelete=doDelete;window.delReport=delReport;window.showDeleteConfirm=showDeleteConfirm;
 
 // ── 月次目標 ──
