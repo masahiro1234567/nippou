@@ -2417,6 +2417,21 @@ async function saveEdit(){
     closeModal('modal-edit');showToast('✅ 更新しました');
   }catch(e){ showToast('エラー:'+e.message); }
 }
+function showDeleteConfirm(id, onConfirm){
+  const btn=document.getElementById('confirm-delete-btn');
+  if(!btn)return;
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_reports/'+id));
+      closeModal('modal-confirm-delete');
+      showToast('🗑 削除しました');
+      if(onConfirm) onConfirm();
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
 function doDelete(){
   const id=document.getElementById('edit-id').value;
   if(!id)return;
