@@ -2300,14 +2300,26 @@ function renderAdminKpiList(){
   const entries=Object.entries(_kpi||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   if(!entries.length){cont.innerHTML='<div class="empty ts">KPIデータなし</div>';return;}
   cont.innerHTML=entries.map(([id,k])=>{
-    const memberList=k.members||[{member:k.member||'',role:k.role||'',target:k.target||0}];
-    const dow=k.date?DOWS[parseDateLocal(k.date).getDay()]:'';
+    const allDates=k.dates||[k.date||''];
+    // 日程ごとの合計KPI
+    let grandTotal=0;
+    const dayTotals=allDates.map(d=>{
+      const members=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+      const t=members.filter(m=>m.role!=='キャッチャー').reduce((s,m)=>s+(+(m.target||0)),0);
+      grandTotal+=t;
+      const dow=d?DOWS[parseDateLocal(d).getDay()]:'';
+      return `${dow}:${t}件`;
+    });
+    const firstDow=allDates[0]?DOWS[parseDateLocal(allDates[0]).getDay()]:'';
+    // 最初のメンバーリスト
+    const firstMembers=(k.dateMembers&&k.dateMembers[allDates[0]])||k.members||[];
     return `<div class="report-card" style="margin-bottom:8px;">
       <div class="rc-top">
         <div class="rc-store">${esc(k.store||'−')}</div>
-        <div class="rc-date">${k.date||'−'}(${dow})</div>
+        <div class="rc-date">${allDates[0]||'−'}(${firstDow})${allDates.length>1?`〜${allDates[allDates.length-1].slice(5)}`:''}}</div>
       </div>
-      <div style="font-size:.76rem;color:var(--sub);margin-bottom:6px;">${memberList.map(m=>`${esc(m.member||'')} ${esc(m.role||'')} ${m.target||0}台`).join(' ／ ')}</div>
+      <div style="font-size:.8rem;font-weight:800;color:var(--pd);margin-bottom:3px;">合計${grandTotal}件　（${dayTotals.join('　')}）</div>
+      <div style="font-size:.72rem;color:var(--sub);margin-bottom:8px;">${firstMembers.filter(m=>m.role!=='キャッチャー').map(m=>`${esc(m.member||'')} ${esc(m.role||'')} ${m.target||0}件`).join(' ／ ')}</div>
       <div style="display:flex;gap:6px;">
         <button type="button" onclick="openKpiEdit('${id}')" class="btn-sm" style="flex:1;padding:8px;">編集</button>
         <button type="button" onclick="deleteKpiById('${id}')" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
@@ -2926,7 +2938,7 @@ function renderKpiList(){
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <div style="font-size:.8rem;font-weight:700;">実績 ${actualStr}</div>
-          <span style="padding:3px 9px;border-radius:10px;background:${mb.isCatcher?'#f3f4f6':statusBg};color:${mb.isCatcher?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.isCatcher?'参考':achieved?'達成':'未達'}</span>
+          <span style="padding:3px 9px;border-radius:10px;background:${mb.mb.m?.role==='キャッチャー'?'#f3f4f6':statusBg};color:${mb.mb.m?.role==='キャッチャー'?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${mb.mb.m?.role==='キャッチャー'?'参考':achieved?'達成':'未達'}</span>
           ${_isAdmin?`<button type="button" onclick="openKpiEdit('${id}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>`:''}
         </div>
       </div>`;
