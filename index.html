@@ -624,6 +624,7 @@ textarea.inp{resize:vertical;min-height:70px;}
         <button type="button" onclick="addKpiDate()" style="width:100%;margin-top:6px;padding:9px;border-radius:8px;border:2px dashed var(--border);background:var(--bg);font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);">＋ 日程を追加</button>
       </div>
       <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="kpi-store" placeholder="例：○○イオン"/></div>
+      <div id="kpi-grand-total-top" style="background:var(--pl);border-radius:8px;padding:8px 12px;font-size:.8rem;font-weight:800;color:var(--pd);display:none;"></div>
       <!-- 日程ごとのメンバー・KPI入力（日程追加で展開） -->
       <div id="kpi-date-members-wrap"></div>
       <div id="kpi-grand-total" style="background:var(--pl);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:.8rem;font-weight:800;color:var(--pd);"></div>
@@ -819,7 +820,7 @@ textarea.inp{resize:vertical;min-height:70px;}
     <div class="modal-handle"></div>
     <div class="modal-hdr"><h3>🗑 削除の確認</h3></div>
     <div class="modal-body">
-      <div style="text-align:center;padding:10px 0 18px;font-size:.9rem;">この日報を削除しますか？<br><span class="ts">削除したデータは元に戻せません</span></div>
+      <div id="confirm-delete-msg" style="text-align:center;padding:10px 0 18px;font-size:.9rem;">この日報を削除しますか？<br><span class="ts">削除したデータは元に戻せません</span></div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-gray" onclick="closeModal('modal-confirm-delete')">キャンセル</button>
         <button class="btn" id="confirm-delete-btn" style="background:#dc2626;color:#fff;font-weight:700;">削除する</button>
@@ -2317,6 +2318,8 @@ function renderAdminKpiList(){
 window.renderAdminKpiList=renderAdminKpiList;
 
 function deleteKpiById(id){
+  const msg=document.getElementById('confirm-delete-msg');
+  if(msg) msg.innerHTML='このKPIを削除しますか？<br><span class="ts">削除したデータは元に戻せません</span>';
   const btn=document.getElementById('confirm-delete-btn');
   const newBtn=btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn,btn);
@@ -2434,6 +2437,8 @@ async function saveEdit(){
   }catch(e){ showToast('エラー:'+e.message); }
 }
 function showDeleteConfirm(id, onConfirm){
+  const msg=document.getElementById('confirm-delete-msg');
+  if(msg) msg.innerHTML='この日報を削除しますか？<br><span class="ts">削除したデータは元に戻せません</span>';
   const btn=document.getElementById('confirm-delete-btn');
   if(!btn)return;
   const newBtn=btn.cloneNode(true);
@@ -3027,6 +3032,25 @@ function updateKpiDayTotal(di){
   }
   const gtEl=document.getElementById('kpi-grand-total');
   if(gtEl) gtEl.textContent=`全日程合計：${grandTotal}件`;
+  const gtTopEl=document.getElementById('kpi-grand-total-top');
+  if(gtTopEl){
+    if(grandTotal>0){
+      gtTopEl.style.display='block';
+      // 日程ごとの合計も表示
+      let dayStr='';
+      let di3=0;
+      while(document.getElementById(`kpi-day-total-${di3}`)){
+        const dt=document.getElementById(`kpi-date-${di3}`)?.value||'';
+        const dow=dt?DOWS[parseDateLocal(dt).getDay()]:'';
+        const t=document.getElementById(`kpi-day-total-${di3}`).textContent||'0';
+        dayStr+=(dayStr?'　':'')+dow+':'+t+'件';
+        di3++;
+      }
+      gtTopEl.textContent=`全日程合計：${grandTotal}件　（${dayStr}）`;
+    } else {
+      gtTopEl.style.display='none';
+    }
+  }
 }
 window.updateKpiDayTotal=updateKpiDayTotal;
 
@@ -3203,6 +3227,8 @@ window.saveKpi=saveKpi;
 function deleteKpi(){
   const id=document.getElementById('kpi-edit-id').value;
   if(!id)return;
+  const msg=document.getElementById('confirm-delete-msg');
+  if(msg) msg.innerHTML='このKPIを削除しますか？<br><span class="ts">削除したデータは元に戻せません</span>';
   const btn=document.getElementById('confirm-delete-btn');
   const newBtn=btn.cloneNode(true);
   btn.parentNode.replaceChild(newBtn,btn);
