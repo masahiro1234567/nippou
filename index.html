@@ -33,9 +33,9 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .btn-menu.active span{background:#fff;}
 
 /* SIDEBAR */
-.sb-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.4);z-index:90;}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.4);z-index:290;}
 .sb-overlay.show{display:block;}
-.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;background:#fff;border-right:2px solid var(--border);z-index:100;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:4px 0 24px rgba(37,99,235,.13);}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;background:#fff;border-right:2px solid var(--border);z-index:300;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:4px 0 24px rgba(37,99,235,.13);}
 .sidebar.open{transform:translateX(0);}
 .sb-head{background:var(--grad);padding:20px 16px 16px;display:flex;align-items:center;gap:10px;}
 .sb-head-mark{width:34px;height:34px;background:rgba(255,255,255,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:.72rem;text-align:center;line-height:1.3;}
@@ -122,7 +122,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.5);z-index:200;align-items:flex-end;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:transform .3s ease;}
 .modal-handle{width:34px;height:4px;background:var(--border);border-radius:2px;margin:11px auto 0;}
 .modal-hdr{padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .modal-hdr h3{font-size:.92rem;font-weight:800;}
@@ -141,8 +141,8 @@ textarea.inp{resize:vertical;min-height:70px;}
 .stat-store{font-size:.88rem;font-weight:800;margin-bottom:8px;}
 .stat-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
 .stat-label{font-size:.72rem;color:var(--sub);flex:0 0 80px;}
-.stat-bar-wrap{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;}
-.stat-bar{height:100%;border-radius:4px;transition:width .5s;}
+.stat-bar-wrap{flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;}
+.stat-bar{height:100%;border-radius:7px;transition:width .5s;}
 .stat-pct{font-size:.72rem;font-weight:800;width:36px;text-align:right;}
 
 /* HIYARI */
@@ -190,12 +190,14 @@ textarea.inp{resize:vertical;min-height:70px;}
     <div><div class="sb-head-name" id="sb-uname">---</div><div class="sb-head-sub">FP 日報アプリ</div></div>
   </div>
   <div class="sb-nav">
-    <button class="sb-item" onclick="navTo('pg-carry')"><span class="sb-item-icon">📝</span>日報登録</button>
-    <button class="sb-item" onclick="navTo('pg-list')"><span class="sb-item-icon">📂</span>日報確認</button>
-    <button class="sb-item" onclick="navTo('pg-stats')"><span class="sb-item-icon">📊</span>実績確認</button>
-    <button class="sb-item" onclick="navTo('pg-stores')"><span class="sb-item-icon">🏪</span>店舗特徴</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-home');"><span class="sb-item-icon">🏠</span>ホーム</button>
+    <button type="button" class="sb-item" onclick="closeSb();startNewReport();"><span class="sb-item-icon">📝</span>日報登録</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-list');"><span class="sb-item-icon">📂</span>日報確認</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-stats');"><span class="sb-item-icon">📊</span>実績確認</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-stores');"><span class="sb-item-icon">🏪</span>店舗特徴</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-kpi');"><span class="sb-item-icon">🎯</span>KPI</button>
     <div class="sb-divider"></div>
-    <button class="sb-item" onclick="navTo('pg-admin-login')"><span class="sb-item-icon">🔐</span>管理者ログイン</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-admin-login');"><span class="sb-item-icon">🔐</span>管理者ログイン</button>
   </div>
 </div>
 
@@ -211,58 +213,42 @@ textarea.inp{resize:vertical;min-height:70px;}
   </div>
 </div>
 
-<!-- ══ 稼働日選択 ══ -->
-<div class="page" id="pg-dateselect">
+<!-- ══ ホーム画面 ══ -->
+<div class="page" id="pg-home">
   <div class="hdr">
-    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>稼働日設定</h1></div>
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>FP 日報アプリ</h1></div>
     <div class="hdr-right">
-      <button class="btn-back" onclick="showPage('pg-login')">← 戻る</button>
-      <button class="btn-menu" id="menu-dateselect" onclick="toggleSb()"><span></span><span></span><span></span></button>
+      <div id="home-uname" style="background:var(--pl);border:1.5px solid var(--border);border-radius:20px;padding:3px 9px;font-size:.7rem;font-weight:700;color:var(--pd);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">---</div>
+      <button class="btn-menu" id="menu-home" onclick="toggleSb()"><span></span><span></span><span></span></button>
     </div>
   </div>
   <div class="body">
-    <div class="section-title">📅 稼働日を設定してください</div>
-    <div class="card">
-      <div class="form-group">
-        <label>1日目の日付 <span class="req">*</span></label>
-        <input class="inp" type="date" id="ds-start" onchange="onDsDateChange()"/>
-      </div>
-      <div class="form-group">
-        <label>稼働日数 <span class="req">*</span></label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="ds-days-btns">
-          <button type="button" class="day-btn active" onclick="selectDays(1,this)">1日</button>
-          <button type="button" class="day-btn" onclick="selectDays(2,this)">2日</button>
-          <button type="button" class="day-btn" onclick="selectDays(3,this)">3日</button>
-          <button type="button" class="day-btn" onclick="selectDays(4,this)">4日</button>
-        </div>
-      </div>
-      <div id="ds-preview" style="background:var(--pl);border-radius:9px;padding:11px 13px;margin-top:4px;font-size:.82rem;font-weight:700;color:var(--pd);min-height:36px;"></div>
+    <!-- メニューグリッド -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+      <button type="button" onclick="startNewReport()" style="background:var(--grad);color:#fff;border:none;border-radius:12px;padding:18px 10px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 3px 10px rgba(37,99,235,.3);">
+        <span style="font-size:1.6rem;">📝</span>日報登録
+      </button>
+      <button type="button" onclick="navTo('pg-list')" style="background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:18px 10px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:1.6rem;">📂</span>日報確認
+      </button>
+      <button type="button" onclick="navTo('pg-stats')" style="background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:18px 10px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:1.6rem;">📊</span>実績確認
+      </button>
+      <button type="button" onclick="navTo('pg-stores')" style="background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:18px 10px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:1.6rem;">🏪</span>店舗特徴
+      </button>
+      <button type="button" onclick="navTo('pg-kpi')" style="background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:18px 10px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <span style="font-size:1.6rem;">🎯</span>KPI
+      </button>
     </div>
+    <button type="button" onclick="navTo('pg-admin-login')" style="width:100%;background:#fff;color:var(--sub);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:.86rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;">
+      🔐 管理者ログイン
+    </button>
 
-    <button type="button" class="btn btn-p" style="margin-top:12px;" onclick="confirmDateSelect()">この日程で進む ▶</button>
-  </div>
-</div>
-
-<!-- ══ 引き継ぎ確認 ══ -->
-<div class="page" id="pg-carry">
-  <div class="hdr">
-    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報登録</h1></div>
-    <div class="hdr-right"><button class="btn-menu" id="menu-carry" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
-  </div>
-  <div class="body">
-    <div id="carry-section">
-      <!-- 前回日報がある場合に表示 -->
-      <div id="carry-exists" style="display:none;">
-        <div class="carry-card">
-          <div class="carry-title">📋 前回の日報を引き継ぎますか？</div>
-          <div class="carry-info" id="carry-info">前回：---</div>
-        </div>
-        <button class="btn btn-p" onclick="useCarry()">✅ 引き継いで入力する</button>
-        <button class="btn btn-gray mt8" onclick="noCarry()">新規で入力する</button>
-      </div>
-      <div id="carry-none" style="display:none;">
-        <button class="btn btn-p" onclick="noCarry()">📝 日報を新規入力する</button>
-      </div>
+    <!-- 前回の日報 -->
+    <div class="section-title">📋 前回の日報を続けて入力</div>
+    <div id="home-prev-reports">
+      <div class="ts tc" style="padding:20px;">読み込み中...</div>
     </div>
   </div>
 </div>
@@ -270,18 +256,31 @@ textarea.inp{resize:vertical;min-height:70px;}
 <!-- ══ 日報入力 ══ -->
 <div class="page" id="pg-input">
   <div class="hdr">
-    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報入力</h1></div>
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1 id="input-page-title">日報入力</h1></div>
     <div class="hdr-right">
-      <button class="btn-back" onclick="showPage('pg-dateselect')">← 戻る</button>
+      <button class="btn-back" onclick="goBack()">← 戻る</button>
       <button class="btn-menu" id="menu-input" onclick="toggleSb()"><span></span><span></span><span></span></button>
     </div>
   </div>
   <div class="body">
 
+    <!-- 稼働日設定（入力画面に統合） -->
+    <div class="card" id="workdays-card">
+      <div class="card-title">📅 稼働日</div>
+      <div id="workday-rows">
+        <div class="row-inputs" style="margin-bottom:6px;">
+          <div class="row-label">1日目</div>
+          <input class="inp-s" type="date" id="wd-0" style="flex:2;text-align:left;padding:7px 8px;" onchange="onWorkdayChange()"/>
+        </div>
+      </div>
+      <button type="button" onclick="addWorkdayRow()" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:2px dashed var(--border);background:var(--bg);font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);">＋ 日程を追加</button>
+      <div id="workday-preview" style="margin-top:8px;background:var(--pl);border-radius:8px;padding:8px 11px;font-size:.8rem;font-weight:700;color:var(--pd);display:none;"></div>
+    </div>
+
     <!-- 基本情報 -->
     <div class="card">
       <div class="card-title">📌 基本情報</div>
-      <div class="form-group"><label>日付 <span class="req">*</span></label><input class="inp" type="date" id="in-date"/></div>
+      <div class="form-group" style="display:none;"><label>日付</label><input class="inp" type="date" id="in-date"/></div>
       <div class="grid2">
         <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="in-store" placeholder="例：○○イオン"/></div>
         <div class="form-group"><label>販路 <span class="req">*</span></label>
@@ -297,15 +296,18 @@ textarea.inp{resize:vertical;min-height:70px;}
       </div>
     </div>
 
+    <!-- 目標・FP（隠しフィールド、動的生成で上書き） -->
+    <input type="hidden" id="r-fa" value="0"/>
+    <input type="hidden" id="r-fb" value="0"/>
     <!-- 目標 -->
     <div class="card">
       <div class="card-title">🎯 目標</div>
       <div class="row-inputs">
         <div class="row-label">目標台数</div>
-        <input class="inp-s" id="r-ta" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+        <input class="inp-s" id="r-ta" placeholder="総販" type="number" min="0" oninput="calcStats()"/>
         <div class="unit">台</div>
         <div class="row-sep">/</div>
-        <input class="inp-s" id="r-tb" placeholder="0" type="number" min="0" oninput="calcAuto()"/>
+        <input class="inp-s" id="r-tb" placeholder="リク抜き" type="number" min="0" oninput="calcAuto()"/>
         <div class="unit">台</div>
       </div>
     </div>
@@ -348,7 +350,18 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div style="background:var(--pl);border-radius:9px;padding:11px 13px;margin-top:8px;">
         <div class="row-inputs" style="margin-bottom:0;"><div class="row-label" style="color:var(--red);font-weight:800;">残数</div><div style="font-size:.92rem;font-weight:900;color:var(--red);" id="nokori-display">-/-</div></div>
       </div>
-      <div class="ach-disp"><div class="ts" style="margin-bottom:2px;">達成率（全曜日合計）</div><div class="ach-num" id="ach-disp">- %</div></div>
+      <div style="background:var(--pl);border-radius:9px;padding:9px 13px;margin-bottom:8px;font-size:.78rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--sub);font-weight:700;">総販（左）</span><span style="font-weight:800;color:var(--pd);" id="auto-souhan">-</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--sub);font-weight:700;">2Bリク除き（右）</span><span style="font-weight:800;color:var(--pd);" id="auto-2b">-</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--red);font-weight:700;">残数</span><span style="font-weight:800;color:var(--red);" id="nokori-display">-/-</span></div>
+      </div>
+      <div class="ach-disp">
+        <div class="ts" style="margin-bottom:2px;">達成率（全曜日合計）</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:10px;">
+          <div class="ach-num" id="ach-disp">- %</div>
+          <div style="font-size:.8rem;font-weight:700;color:var(--sub);" id="day-ach-disp"></div>
+        </div>
+      </div>
     </div>
 
     <!-- 見込み獲得（日数分動的生成） -->
@@ -426,7 +439,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 <div class="page" id="pg-list">
   <div class="hdr">
     <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>日報確認</h1></div>
-    <div class="hdr-right"><button class="btn-menu" id="menu-list" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+    <div class="hdr-right"><button class="btn-back" onclick="goBack()">← 戻る</button><button class="btn-menu" id="menu-list" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
   </div>
   <div class="body">
     <div class="tab-bar">
@@ -464,7 +477,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 <div class="page" id="pg-stats">
   <div class="hdr">
     <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>実績確認</h1></div>
-    <div class="hdr-right"><button class="btn-menu" id="menu-stats" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+    <div class="hdr-right"><button class="btn-back" onclick="goBack()">← 戻る</button><button class="btn-menu" id="menu-stats" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
   </div>
   <div class="body">
     <div class="form-group">
@@ -491,6 +504,17 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div class="card-title">🏪 達成店舗率</div>
       <div id="achievement-store-rate"><div class="ts tc" style="padding:10px;">データなし</div></div>
     </div>
+    <!-- 販路絞り込み -->
+    <div class="filter-bar" id="stats-ch-filter" style="margin-bottom:8px;display:none;">
+      <button class="fchip active" onclick="setStatsChannel('all',this)">全て</button>
+      <button class="fchip" onclick="setStatsChannel('イオン',this)">イオン</button>
+      <button class="fchip" onclick="setStatsChannel('エディオン',this)">エディオン</button>
+      <button class="fchip" onclick="setStatsChannel('ジョーシン',this)">ジョーシン</button>
+      <button class="fchip" onclick="setStatsChannel('ケーズデンキ',this)">ケーズ</button>
+      <button class="fchip" onclick="setStatsChannel('ヤマダ',this)">ヤマダ</button>
+      <button class="fchip" onclick="setStatsChannel('コジマ',this)">コジマ</button>
+      <button class="fchip" onclick="setStatsChannel('その他',this)">その他</button>
+    </div>
     <div class="tab-bar">
       <button class="tab active" onclick="switchStatsTab('st-store',this)">店舗別</button>
       <button class="tab" onclick="switchStatsTab('st-channel',this)">販路別</button>
@@ -504,7 +528,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 <div class="page" id="pg-stores">
   <div class="hdr">
     <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>店舗特徴</h1></div>
-    <div class="hdr-right"><button class="btn-menu" id="menu-stores" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+    <div class="hdr-right"><button class="btn-back" onclick="goBack()">← 戻る</button><button class="btn-menu" id="menu-stores" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
   </div>
   <div class="body">
     <div style="font-size:.74rem;color:var(--sub);background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:9px 12px;margin-bottom:12px;">🔒 この情報はFPへの日報には含まれません（社内管理用）</div>
@@ -518,7 +542,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 <div class="page" id="pg-admin-login">
   <div class="hdr">
     <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>管理者ログイン</h1></div>
-    <div class="hdr-right"><button class="btn-menu" id="menu-admin-login" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
+    <div class="hdr-right"><button class="btn-back" onclick="goBack()">← 戻る</button><button class="btn-menu" id="menu-admin-login" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
   </div>
   <div class="body">
     <div style="text-align:center;padding:22px 0;"><div style="font-size:2rem;margin-bottom:7px;">🔐</div><div class="fw8">管理者専用</div></div>
@@ -530,6 +554,67 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div style="color:var(--green);font-weight:800;font-size:.9rem;margin-bottom:8px;">✅ 管理者ログイン中</div>
       <button class="btn btn-p" onclick="showPage('pg-admin')">管理者画面へ</button>
       <button class="btn btn-gray mt8" onclick="adminLogout()">ログアウト</button>
+    </div>
+
+
+    
+  </div>
+</div>
+
+<!-- ══ KPI管理 ══ -->
+<div class="page" id="pg-kpi">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>KPI管理</h1></div>
+    <div class="hdr-right">
+      <button class="btn-back" onclick="goBack()">← 戻る</button>
+      <button class="btn-menu" id="menu-kpi" onclick="toggleSb()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="body">
+    <!-- 絞り込み -->
+    <div class="form-group">
+      <label>対象月</label>
+      <input class="inp" type="month" id="kpi-month"/>
+    </div>
+    <div class="filter-bar" id="kpi-week-filter">
+      <button class="fchip active" onclick="setKpiWeek('all',this)">全体</button>
+      <button class="fchip" onclick="setKpiWeek(1,this)">第1週</button>
+      <button class="fchip" onclick="setKpiWeek(2,this)">第2週</button>
+      <button class="fchip" onclick="setKpiWeek(3,this)">第3週</button>
+      <button class="fchip" onclick="setKpiWeek(4,this)">第4週</button>
+      <button class="fchip" onclick="setKpiWeek(5,this)">第5週</button>
+    </div>
+
+    <!-- 管理者：KPI登録ボタン -->
+    <div id="kpi-admin-btn-wrap" style="display:none;margin-bottom:12px;">
+      <button type="button" class="btn btn-p" onclick="openKpiEdit(null)">＋ KPIを登録</button>
+    </div>
+
+    <!-- KPI一覧 -->
+    <div id="kpi-list"></div>
+  </div>
+</div>
+
+<!-- KPI編集モーダル -->
+<div class="modal-overlay" id="modal-kpi-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3 id="kpi-edit-title">KPIを登録</h3><button class="btn-close" onclick="closeModal('modal-kpi-edit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="kpi-edit-id"/>
+      <div class="form-group">
+        <label>日程 <span class="req">*</span></label>
+        <div id="kpi-dates-wrap"></div>
+        <button type="button" onclick="addKpiDate()" style="width:100%;margin-top:6px;padding:9px;border-radius:8px;border:2px dashed var(--border);background:var(--bg);font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);">＋ 日程を追加</button>
+      </div>
+      <div class="form-group"><label>店舗名 <span class="req">*</span></label><input class="inp" id="kpi-store" placeholder="例：○○イオン"/></div>
+      <!-- 日程ごとのメンバー・KPI入力（日程追加で展開） -->
+      <div id="kpi-date-members-wrap"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-p" onclick="saveKpi()">保存</button>
+        <button class="btn btn-gray" onclick="closeModal('modal-kpi-edit')">キャンセル</button>
+      </div>
+      <button type="button" class="btn mt8" id="kpi-del-btn" style="background:#fee2e2;color:#dc2626;font-weight:700;display:none;" onclick="deleteKpi()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -544,6 +629,8 @@ textarea.inp{resize:vertical;min-height:70px;}
     <div class="tab-bar">
       <button class="tab active" onclick="switchATab('at-list',this)">日報管理</button>
       <button class="tab" onclick="switchATab('at-goal',this)">月次目標</button>
+      <button class="tab" onclick="switchATab('at-kpi',this)">KPI登録</button>
+      <button class="tab" onclick="switchATab('at-kpi-view',this)">KPI表示</button>
     </div>
     <div id="at-list">
       <div class="section-title">日報一覧（編集・削除可）</div>
@@ -556,10 +643,41 @@ textarea.inp{resize:vertical;min-height:70px;}
         <div class="form-group"><label>対象月</label><input class="inp" type="month" id="goal-month"/></div>
         <div class="form-group"><label>総販目標（左）</label><div class="row-inputs" style="margin-bottom:0;"><input class="inp-s" id="goal-a" placeholder="0" type="number" min="0"/><div class="unit">台</div></div></div>
         <div class="form-group"><label>2Bリク除き目標（右）</label><div class="row-inputs" style="margin-bottom:0;"><input class="inp-s" id="goal-b" placeholder="0" type="number" min="0"/><div class="unit">台</div></div></div>
+        <div class="form-group"><label>自由記述（定性目標・方針など）</label><textarea class="inp" id="goal-memo" rows="3" placeholder="今月の方針、定性目標など自由に記入"></textarea></div>
         <button class="btn btn-p mt8" onclick="saveGoal()">目標を保存</button>
       </div>
       <div class="section-title mt8">設定済み月次目標</div>
       <div id="goal-list"></div>
+    </div>
+    <div id="at-kpi" style="display:none;">
+      <div class="section-title">KPI登録・管理</div>
+      <button type="button" class="btn btn-p" style="margin-bottom:12px;" onclick="openKpiEdit(null)">＋ KPIを登録</button>
+      <div id="at-kpi-list"></div>
+    </div>
+    <div id="at-kpi-view" style="display:none;">
+      <div class="section-title">KPI表示</div>
+      <div class="form-group">
+        <label>対象週（開始日）</label>
+        <input class="inp" type="date" id="kpi-view-start" onchange="renderKpiView()"/>
+      </div>
+      <div id="kpi-view-text" style="background:#f8faff;border-radius:8px;padding:14px;font-size:.78rem;line-height:1.9;white-space:pre-wrap;border:1px solid var(--border);min-height:100px;"></div>
+      <button type="button" class="btn btn-p mt8" onclick="copyKpiView()">📋 コピー</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FP獲得内訳入力モーダル ══ -->
+<div class="modal-overlay" id="modal-fp-breakdown">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3>📊 FP獲得内訳を入力</h3><button class="btn-close" onclick="skipFpBreakdown()">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:.76rem;color:var(--sub);margin-bottom:12px;">この日・この店舗のメンバー別FP獲得数を入力してください</div>
+      <div id="fp-breakdown-rows"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-p" onclick="saveFpBreakdown()">保存して次へ</button>
+        <button class="btn btn-gray" onclick="skipFpBreakdown()">スキップ</button>
+      </div>
     </div>
   </div>
 </div>
@@ -620,14 +738,32 @@ textarea.inp{resize:vertical;min-height:70px;}
     <div class="modal-hdr"><h3>日報を編集</h3><button class="btn-close" onclick="closeModal('modal-edit')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="edit-id"/>
-      <div class="form-group"><label>■全体総括</label><textarea class="inp" id="edit-ov" rows="5"></textarea></div>
-      <div class="form-group"><label>■達成理由 / 改善策</label><textarea class="inp" id="edit-rs" rows="5"></textarea></div>
+      <!-- 基本情報 -->
+      <div class="section-title" style="margin-bottom:8px;">📌 基本情報</div>
+      <div class="form-group"><label>店舗名</label><input class="inp" id="edit-store"/></div>
+      <div class="form-group"><label>販路</label><select class="inp" id="edit-ch"><option>イオン</option><option>エディオン</option><option>ジョーシン</option><option>ケーズデンキ</option><option>ヤマダ</option><option>コジマ</option><option>その他</option></select></div>
+      <div class="form-group"><label>ディレクター名</label><input class="inp" id="edit-dir"/></div>
+      <div class="form-group"><label>目標（総販/リク抜き）</label><div style="display:flex;gap:7px;"><input class="inp" id="edit-ta" placeholder="総販"/><input class="inp" id="edit-tb" placeholder="リク抜き"/></div></div>
+      <div class="form-group"><label>ヒヤリハット</label><textarea class="inp" id="edit-hiyari" rows="2"></textarea></div>
+      <!-- 実績 -->
+      <div class="section-title" style="margin:12px 0 8px;">📊 実績</div>
+      <div id="edit-jisseki-wrap"></div>
+      <!-- 見込み獲得 -->
+      <div class="section-title" style="margin:12px 0 8px;">🏪 店舗様見込み獲得</div>
+      <div id="edit-mikomi-wrap"></div>
+      <!-- コメント -->
+      <div class="section-title" style="margin:12px 0 8px;">💬 コメント</div>
+      <div class="form-group"><label>■全体総括</label><textarea class="inp" id="edit-ov" rows="4"></textarea></div>
+      <div class="form-group"><label>■達成理由 / 改善策</label><textarea class="inp" id="edit-rs" rows="4"></textarea></div>
       <div class="form-group"><label>❷ アライアンス連携工夫</label><textarea class="inp" id="edit-al" rows="3"></textarea></div>
+      <!-- プレビュー -->
+      <div class="section-title" style="margin:12px 0 8px;">📋 プレビュー</div>
+      <div id="edit-preview-text" style="background:#f8faff;border-radius:8px;padding:12px;font-size:.72rem;line-height:1.8;white-space:pre-wrap;border:1px solid var(--border);max-height:200px;overflow-y:auto;"></div>
       <div style="display:flex;gap:7px;margin-top:12px;">
         <button class="btn btn-p" onclick="saveEdit()">保存</button>
         <button class="btn btn-gray" onclick="closeModal('modal-edit')">キャンセル</button>
       </div>
-      <button class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;" onclick="doDelete()">🗑 削除</button>
+      <button type="button" class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;" onclick="doDelete()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -654,6 +790,21 @@ textarea.inp{resize:vertical;min-height:70px;}
 
 <div id="toast"></div>
 
+<!-- 削除確認モーダル -->
+<div class="modal-overlay" id="modal-confirm-delete">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3>🗑 削除の確認</h3></div>
+    <div class="modal-body">
+      <div style="text-align:center;padding:10px 0 18px;font-size:.9rem;">この日報を削除しますか？<br><span class="ts">削除したデータは元に戻せません</span></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-gray" onclick="closeModal('modal-confirm-delete')">キャンセル</button>
+        <button class="btn" id="confirm-delete-btn" style="background:#dc2626;color:#fff;font-weight:700;">削除する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, onValue, push, set, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
@@ -671,6 +822,8 @@ window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=r
 onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});filterReports();renderHiyari();renderStats();renderAdminList();});
 onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});renderStoreFeats();});
 onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});renderGoalList();renderStats();});
+onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
+onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
 document.getElementById('loading').style.display='none';
 const s=localStorage.getItem('fp_user');
 if(s){window._user=JSON.parse(s);goMain();}else{showPage('pg-login');}
@@ -681,18 +834,66 @@ updateAdminUI();
 <script>
 window._reports={}; window._storeFeats={}; window._goals={};
 window._user=null; window._isAdmin=false;
-let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='';
-const PW='fp2024admin';
+let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all';
+const PW='aunippou26';
 const DOWS=['日','月','火','水','木','金','土'];
 
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');}
+let _pageHistory=[];
+function showPage(id, pushHistory=true){
+  const cur=document.querySelector('.page.active');
+  if(pushHistory && cur && cur.id !== id) _pageHistory.push(cur.id);
+  if(_pageHistory.length>10) _pageHistory.shift();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goBack(){
+  const prev=_pageHistory.pop();
+  if(prev){ showPage(prev, false); if(prev==='pg-home')try{renderHomePrevReports();}catch(e){} }
+  else { showPage('pg-home', false); try{renderHomePrevReports();}catch(e){} }
+}
 window.showPage=showPage;
+window.goBack=goBack;
+function switchTab(t){ navTo(t==='input'?'pg-input':'pg-list'); }
+window.switchTab=switchTab;
 
 // ── SIDEBAR ──
 function toggleSb(){_sbOpen?closeSb():openSb();}
 function openSb(){_sbOpen=true;document.getElementById('sidebar').classList.add('open');document.getElementById('sb-overlay').classList.add('show');document.querySelectorAll('.btn-menu').forEach(b=>b.classList.add('active'));}
-function closeSb(){_sbOpen=false;document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('show');document.querySelectorAll('.btn-menu').forEach(b=>b.classList.remove('active'));}
-function navTo(pg){closeSb();if(pg==='pg-carry'){showDateSelectPage();}else if(pg==='pg-admin-login'){showAdminLoginPage();}else{showPage(pg);}if(pg==='pg-stats')renderStats();if(pg==='pg-stores')renderStoreFeats();}
+function closeSb(){
+  _sbOpen=false;
+  const sb=document.getElementById('sidebar');
+  const overlay=document.getElementById('sb-overlay');
+  // 即座に非表示（タップズレ防止）
+  sb.style.transition='none';
+  sb.classList.remove('open');
+  overlay.classList.remove('show');
+  document.querySelectorAll('.btn-menu').forEach(b=>b.classList.remove('active'));
+  // アニメーション復元
+  setTimeout(()=>{ sb.style.transition=''; },50);
+}
+function navTo(pg){
+  closeSb();
+  if(pg==='pg-home'){
+    showPage('pg-home');
+    try{renderHomePrevReports();}catch(e){}
+  } else if(pg==='pg-admin-login'){
+    showAdminLoginPage();
+  } else if(pg==='pg-stats'){
+    showPage('pg-stats');
+    try{renderStats();}catch(e){}
+  } else if(pg==='pg-stores'){
+    showPage('pg-stores');
+    try{renderStoreFeats();}catch(e){}
+  } else if(pg==='pg-kpi'){
+    showPage('pg-kpi');
+    try{renderKpiList();}catch(e){}
+  } else if(pg==='pg-list'){
+    showPage('pg-list');
+    try{filterReports();}catch(e){}
+  } else {
+    showPage(pg);
+  }
+}
 window.toggleSb=toggleSb;window.closeSb=closeSb;window.navTo=navTo;
 
 // ── LOGIN ──
@@ -707,9 +908,221 @@ window.doLogin=doLogin;
 
 function goMain(){
   document.getElementById('sb-uname').textContent=_user.name;
+  document.getElementById('home-uname').textContent=_user.name;
   document.getElementById('in-dir').value=_user.name;
-  showDateSelectPage();
+  renderHomePrevReports();
+  showPage('pg-home');
 }
+
+function renderHomePrevReports(){
+  const c=document.getElementById('home-prev-reports');
+  if(!c)return;
+  const myReports=Object.entries(_reports||{})
+    .filter(([,r])=>r.userName===(_user?.name||''))
+    .sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''))
+    .slice(0,1);
+  if(!myReports.length){
+    c.innerHTML='<div class="ts tc" style="padding:16px;">まだ日報がありません</div>';
+    return;
+  }
+  c.innerHTML=myReports.map(([id,r])=>{
+    const p=r.ach||0;
+    const wdays=(r.workDays&&r.workDays.length)?r.workDays:[r.date||''];
+    const lastDate=wdays[wdays.length-1]||'';
+    const lastDow=lastDate?DOWS[parseDateLocal(lastDate).getDay()]:'';
+    const dayCount=wdays.length;
+    return `<div class="report-card" style="border:2px solid var(--border);margin-bottom:8px;" onclick="continueReport('${id}')">
+      <div class="rc-top">
+        <div class="rc-store">${esc(r.store||'−')}</div>
+        <div class="rc-date">${wdays[0]||''}〜${lastDate}(${lastDow})</div>
+      </div>
+      <div class="rc-meta">
+        <span class="badge b-blue">${esc(r.channel||'−')}</span>
+        <span class="badge ${achBC(p)}">${p}%</span>
+        <span class="badge b-gray">${dayCount}日稼働</span>
+      </div>
+      <div style="font-size:.76rem;color:var(--primary);font-weight:700;margin-top:4px;">▶ この日報に翌日分を追加</div>
+    </div>`;
+  }).join('');
+}
+window.renderHomePrevReports=renderHomePrevReports;
+
+// 新規日報作成
+function startNewReport(){
+  _editingReportId=null;
+  _baseReportId=null;
+  clearFormSilent();
+  _workDays=[];
+  _workDayCount=1;
+  document.getElementById('workday-rows').innerHTML=`
+    <div class="row-inputs" style="margin-bottom:6px;">
+      <div class="row-label">1日目</div>
+      <input class="inp-s" type="date" id="wd-0" style="flex:2;text-align:left;padding:7px 8px;" onchange="onWorkdayChange()"/>
+    </div>`;
+  // 今日の日付をセット
+  const t=new Date();
+  const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  const wd0=document.getElementById('wd-0');
+  if(wd0) wd0.value=today;
+  document.getElementById('in-date').value=today;
+  document.getElementById('in-dir').value=_user?.name||'';
+  document.getElementById('input-page-title').textContent='日報入力（新規）';
+  document.getElementById('workdays-card').style.display='block';
+  onWorkdayChange();
+  renderMikomiInputs();
+  showPage('pg-input');
+}
+window.startNewReport=startNewReport;
+
+// 既存日報を続けて編集（翌日分追加）
+function continueReport(id){
+  const r=_reports[id];
+  if(!r)return;
+  _editingReportId=null; // 新規保存（上書きしない）
+  _baseReportId=id;     // 引用元の日報ID
+  clearFormSilent();
+  // 前回の稼働日程をそのまま引き継ぎ、現在入力中の日を最終日に設定
+  const wdays=(r.workDays&&r.workDays.length)?r.workDays:[r.date||''];
+  _workDays=[...wdays];
+  _workDayCount=wdays.length;
+  // 稼働日をそのまま復元
+  const rows=document.getElementById('workday-rows');
+  if(rows){
+    rows.innerHTML=_workDays.map((dt,i)=>`
+      <div class="row-inputs" style="margin-bottom:6px;">
+        <div class="row-label">${i+1}日目</div>
+        <input class="inp-s" type="date" id="wd-${i}" style="flex:2;text-align:left;padding:7px 8px;" onchange="onWorkdayChange()" value="${dt}"/>
+        ${i>0?`<button type="button" onclick="removeWorkdayRow(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">×</button>`:''}
+      </div>`).join('');
+  }
+  // 現在入力中の日を最終日（24日）に設定
+  window._activeDayIdx=_workDays.length-1;
+  window._activeMobileDayIdx=_workDays.length-1;
+  // フォームに既存データを反映
+  document.getElementById('in-store').value=r.store||'';
+  document.getElementById('in-ch').value=r.channel||'';
+  document.getElementById('in-dir').value=r.director||r.userName||(_user?.name||'');
+  document.getElementById('r-ta').value=r.r_ta||'';
+  document.getElementById('r-tb').value=r.r_tb||'';
+  // ヒヤリハット・コメントは引き継がない（新規入力）
+  document.getElementById('in-hiyari').value='特になし。';
+  document.getElementById('txt-ov').value='';
+  document.getElementById('txt-rs').value='';
+  document.getElementById('al-eff').value='';
+  document.getElementById('other-items').value='';
+  document.getElementById('in-date').value=_workDays[0]||'';
+  document.getElementById('input-page-title').textContent='日報入力（続き）';
+  document.getElementById('workdays-card').style.display='block';
+  onWorkdayChange();
+  renderMikomiInputs();
+  // 既存の各日実績を復元
+  if(r.jisseki){
+    r.jisseki.forEach((j,i)=>{
+      const ja=document.getElementById('j-a-'+i);
+      const jb=document.getElementById('j-b-'+i);
+      if(ja) ja.value=j.a||'';
+      if(jb) jb.value=j.b||'';
+    });
+  }
+  if(r.v_mikomi){
+    r.v_mikomi.forEach((vm,i)=>{
+      const vg=document.getElementById('v-ag-'+i);
+      const vd=document.getElementById('v-ad-'+i);
+      if(vg) vg.value=vm.g||'';
+      if(vd) vd.value=vm.d||'';
+    });
+  }
+  // au/UQ 実績を日別に復元（_mobileDayData）
+  window._mobileDayData={};
+  if(r.au_by_day&&r.uq_by_day){
+    // 日別データが保存されている場合
+    Object.keys(r.au_by_day).forEach(k=>{
+      window._mobileDayData[k]={au:r.au_by_day[k]||[0,0,0,0,0,0,0,0],uq:(r.uq_by_day&&r.uq_by_day[k])||[0,0,0,0,0,0,0,0]};
+    });
+  } else if(r.au||r.uq){
+    // 旧データ互換：全部0番目（当日）に入れる
+    window._mobileDayData[0]={au:r.au||[0,0,0,0,0,0,0,0],uq:r.uq||[0,0,0,0,0,0,0,0]};
+  }
+  // 現在のタブ（最終日）のデータをフォームに表示
+  const lastDayIdx=Math.max(_workDays.length-1,0);
+  window._activeDayIdx=lastDayIdx;
+  window._activeMobileDayIdx=lastDayIdx;
+  loadMobileDayData(lastDayIdx);
+  showPage('pg-input');
+}
+window.continueReport=continueReport;
+
+// 稼働日の変更ハンドラ
+function onWorkdayChange(){
+  try{
+    const days=[];
+    let i=0;
+    while(document.getElementById('wd-'+i)){
+      const v=document.getElementById('wd-'+i).value;
+      if(v) days.push(v);
+      i++;
+    }
+    _workDays=days.length?days:[];
+    _workDayCount=_workDays.length||1;
+    if(_workDays.length>0) document.getElementById('in-date').value=_workDays[0];
+    const prev=document.getElementById('workday-preview');
+    if(prev&&_workDays.length>0){
+      const labels=_workDays.map(dt=>DOWS[parseDateLocal(dt).getDay()]+'曜日');
+      prev.textContent='稼働日：'+labels.join('・');
+      prev.style.display='block';
+    }
+    renderMikomiInputs();
+    calcStats();
+  }catch(e){ console.warn('onWorkdayChange:',e); }
+}
+window.onWorkdayChange=onWorkdayChange;
+
+let _wd_count=1;
+function addWorkdayRow(){
+  try{
+    const rows=document.getElementById('workday-rows');
+    if(!rows)return;
+    const i=rows.querySelectorAll('.row-inputs').length;
+    // 前の日の翌日をデフォルト
+    let defDate='';
+    const prevEl=document.getElementById('wd-'+(i-1));
+    if(prevEl&&prevEl.value){
+      const pd=parseDateLocal(prevEl.value);
+      pd.setDate(pd.getDate()+1);
+      defDate=`${pd.getFullYear()}-${String(pd.getMonth()+1).padStart(2,'0')}-${String(pd.getDate()).padStart(2,'0')}`;
+    }
+    const div=document.createElement('div');
+    div.className='row-inputs';
+    div.style.marginBottom='6px';
+    div.innerHTML=`<div class="row-label">${i+1}日目</div>
+      <input class="inp-s" type="date" id="wd-${i}" style="flex:2;text-align:left;padding:7px 8px;" onchange="onWorkdayChange()" value="${defDate}"/>
+      <button type="button" onclick="removeWorkdayRow(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">×</button>`;
+    rows.appendChild(div);
+    if(defDate) onWorkdayChange();
+  }catch(e){ console.warn('addWorkdayRow:',e); }
+}
+window.addWorkdayRow=addWorkdayRow;
+
+function removeWorkdayRow(idx){
+  try{
+    const rows=document.getElementById('workday-rows');
+    const allRows=[...rows.querySelectorAll('.row-inputs')];
+    if(allRows.length<=1)return;
+    allRows[idx].remove();
+    // idを振り直し
+    [...rows.querySelectorAll('.row-inputs')].forEach((row,i)=>{
+      const inp=row.querySelector('input[type="date"]');
+      const lbl=row.querySelector('.row-label');
+      const btn=row.querySelector('button');
+      if(inp) inp.id='wd-'+i;
+      if(lbl) lbl.textContent=(i+1)+'日目';
+      if(btn&&i===0) btn.remove();
+      if(btn&&i>0) btn.setAttribute('onclick',`removeWorkdayRow(${i})`);
+    });
+    onWorkdayChange();
+  }catch(e){ console.warn('removeWorkdayRow:',e); }
+}
+window.removeWorkdayRow=removeWorkdayRow;
 
 function setTodayDate(){
   const t=new Date();
@@ -751,20 +1164,21 @@ function selectDays(n, el){
 window.selectDays=selectDays;
 
 function updateDsPreview(){
-  const start=document.getElementById('ds-start')?.value;
-  if(!start){document.getElementById('ds-preview').textContent='';return;}
-  const dates=[];
-  for(let i=0;i<_workDayCount;i++){
-    const d=parseDateLocal(start);d.setDate(d.getDate()+i);
-    dates.push(d);
-  }
-  _workDays=dates.map(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
-  const labels=dates.map(d=>DOWS[d.getDay()]+'曜日');
-  document.getElementById('ds-preview').textContent='稼働日：'+labels.join('・');
-
+  try{
+    const start=document.getElementById('ds-start')?.value;
+    const previewEl=document.getElementById('ds-preview');
+    if(!start){if(previewEl)previewEl.textContent='';return;}
+    const dates=[];
+    for(let i=0;i<(_workDayCount||1);i++){
+      const d=parseDateLocal(start);
+      d.setDate(d.getDate()+i);
+      dates.push(d);
+    }
+    _workDays=dates.map(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    const labels=dates.map(d=>DOWS[d.getDay()]+'曜日');
+    if(previewEl) previewEl.textContent='稼働日：'+labels.join('・');
+  }catch(e){ console.warn('updateDsPreview error:',e); }
 }
-
-
 window.updateDsPreview=updateDsPreview;
 document.addEventListener('DOMContentLoaded',()=>{
   const dsStart=document.getElementById('ds-start');
@@ -772,28 +1186,19 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 function confirmDateSelect(){
-  const start=document.getElementById('ds-start')?.value;
-  if(!start){showToast('日付を選択してください');return;}
-  updateDsPreview();
-  clearFormSilent();
-  applyWorkDaysToForm();
-
-  if(_carryMode&&window._latestReport){
-    // 引き継ぎ：前回日報のデータをフォームに反映
-    const d=window._latestReport;
-    _carryData=d;
-    try{
-      document.getElementById('in-store').value=d.store||'';
-      document.getElementById('in-ch').value=d.channel||'';
-      document.getElementById('in-dir').value=d.director||d.userName||(_user?.name||'');
-      document.getElementById('r-ta').value=d.r_ta||'';
-      document.getElementById('r-tb').value=d.r_tb||'';
-    }catch(e){}
-  } else {
+  try{
+    const start=document.getElementById('ds-start')?.value;
+    if(!start){showToast('日付を選択してください');return;}
+    updateDsPreview();
+    clearFormSilent();
+    applyWorkDaysToForm();
     _carryData=null;
     document.getElementById('in-dir').value=_user?.name||'';
+    showPage('pg-input');
+  }catch(e){
+    console.warn('confirmDateSelect error:',e);
+    showToast('エラーが発生しました:'+e.message);
   }
-  showPage('pg-input');
 }
 window.confirmDateSelect=confirmDateSelect;
 
@@ -1062,8 +1467,24 @@ function calcStats(){
   if(nEl) nEl.textContent=`${nokoriA}/${nokoriB}`;
   const el=document.getElementById('ach-disp');
   if(!ta){if(el){el.textContent='- %';el.className='ach-num';}return;}
+  // 全曜日合計の達成率
   const p=Math.round((totalA/ta)*100);
   if(el){el.textContent=p+'%';el.className='ach-num '+(p>=100?'hi':p>=70?'mid':'lo');}
+  // 現在入力中の日の単日進捗
+  const dayEl=document.getElementById('day-ach-disp');
+  if(dayEl){
+    const idx=window._activeDayIdx??Math.max(days.length-1,0);
+    const dayA=gn('j-a-'+idx);
+    const dayTarget=ta>0?Math.round(ta/days.length):0;
+    if(dayTarget>0&&dayA>0){
+      const dayP=Math.round((dayA/dayTarget)*100);
+      const dc=dayP>=100?'var(--green)':dayP>=70?'var(--orange)':'var(--red)';
+      dayEl.textContent=`単日${dayP}%`;
+      dayEl.style.color=dc;
+    } else {
+      dayEl.textContent='';
+    }
+  }
 }
 window.calcStats=calcStats;
 window.calcAuto=calcAuto;
@@ -1143,65 +1564,98 @@ function parseDateLocal(str){
 function buildText(d){
   const wdays=(d.workDays&&d.workDays.length)?d.workDays:(d.date?[d.date]:[]);
   const dayLabels=wdays.map(dt=>DOWS[parseDateLocal(dt).getDay()]+'曜日');
-  const lastLabel=dayLabels.length?dayLabels[dayLabels.length-1]:'当日';
-  const prevDays=wdays.slice(0,-1);
+  const fmt=v=>(v===null||v===undefined||v==='')?'-':String(v);
+  const fmtN=v=>String(+(v||0));
+  const bf=v=>(!v&&v!==0)?'-':(Array.isArray(v)?v.map(x=>(x===''||x===null||x===undefined)?'-':x).join('/'):v);
 
-  // 値が空・0・nullなら'-'を返す（0は0で表示、未入力は-）
-  const fmt=(v)=>(v===null||v===undefined||v==='')?'-':String(v);
-  const fmtN=(v)=>{ const n=+(v||0); return n===0?'0':String(n); };
-
-  // 実績行
+  // ── 実績行（入力値があればそれ、なければ保存済み日報を引用、どちらもなければ○/○）──
   let jissekiLines='';
-  if(d.jisseki&&d.jisseki.length){
-    d.jisseki.forEach((j,i)=>{
-      const lbl=dayLabels[i]||'当日';
+  wdays.forEach((dt,i)=>{
+    const lbl=dayLabels[i]||'当日';
+    const j=d.jisseki&&d.jisseki[i]!=null?d.jisseki[i]:null;
+    const hasVal=j&&(j.a!==undefined&&j.a!==null&&j.a!=='');
+    if(hasVal){
+      // 入力値あり
       const fpDay=d.fp_by_day&&d.fp_by_day[i];
       const fpStr=fpDay?`（内FP獲得${fmtN(fpDay.a)}/${fmtN(fpDay.b)}）`:'';
-      const ja=j.a||j.a===0?fmtN(j.a):'○';
-      const jb=j.b||j.b===0?fmtN(j.b):'○';
-      jissekiLines+=`\n${lbl}：${ja}/${jb}${fpStr}`;
-    });
-  } else {
-    prevDays.forEach((dt,i)=>{
-      const prevR=Object.values(_reports).find(r=>r.date===dt&&r.store===d.store)||{};
-      jissekiLines+=`\n${dayLabels[i]||''} : ${prevR.auto_souhan||'○'}/${prevR.auto_2b||'○'}`;
-    });
-    jissekiLines+=`\n${lastLabel}：${d.auto_souhan||'○'}/${d.auto_2b||'○'}（内FP獲得${fmtN(d.r_fa)}/${fmtN(d.r_fb)}）`;
-  }
+      jissekiLines+=`\n${lbl}：${fmtN(j.a)}/${fmtN(j.b)}${fpStr}`;
+    } else {
+      // 保存済み日報を探す
+      // baseReportId があればIDで直接引用、なければ日付+店舗で検索（フォールバック）
+      let sR=null;
+      if(d.baseReportId && _reports[d.baseReportId]){
+        sR=_reports[d.baseReportId];
+      } else {
+        sR=Object.values(_reports||{}).find(r=>r.date===dt&&r.store===d.store&&r.userName===d.userName);
+      }
+      if(sR){
+        if(sR.jisseki&&sR.jisseki.length){
+          const sj=sR.jisseki[sR.jisseki.length-1]||{};
+          const sfp=sR.fp_by_day&&sR.fp_by_day[sR.fp_by_day.length-1];
+          const fpStr=sfp?`（内FP獲得${fmtN(sfp.a)}/${fmtN(sfp.b)}）`:'';
+          jissekiLines+=`\n${lbl}：${fmtN(sj.a)}/${fmtN(sj.b)}${fpStr}`;
+        } else {
+          jissekiLines+=`\n${lbl}：${fmtN(sR.auto_souhan)}/${fmtN(sR.auto_2b)}（内FP獲得${fmtN(sR.r_fa)}/${fmtN(sR.r_fb)}）`;
+        }
+      } else {
+        jissekiLines+=`\n${lbl}：○/○（内FP獲得○/○）`;
+      }
+    }
+  });
 
-  // 残数
+  // ── 残数（全稼働日の入力値 or 保存済みの合計）──
   let totalJA=0,totalJB=0;
-  if(d.jisseki&&d.jisseki.length){
-    d.jisseki.forEach(j=>{
-      if(j.a!==''&&j.a!==null&&j.a!==undefined) totalJA+=+(j.a||0);
-      if(j.b!==''&&j.b!==null&&j.b!==undefined) totalJB+=+(j.b||0);
-    });
-  } else { totalJA=+(d.auto_souhan||0); totalJB=+(d.auto_2b||0); }
+  wdays.forEach((dt,i)=>{
+    const j=d.jisseki&&d.jisseki[i]!=null?d.jisseki[i]:null;
+    const hasVal=j&&(j.a!==undefined&&j.a!==null&&j.a!=='');
+    if(hasVal){ totalJA+=+(j.a||0); totalJB+=+(j.b||0); }
+    else {
+      // baseReportId があればIDで直接引用、なければ日付+店舗で検索（フォールバック）
+      let sR=null;
+      if(d.baseReportId && _reports[d.baseReportId]){
+        sR=_reports[d.baseReportId];
+      } else {
+        sR=Object.values(_reports||{}).find(r=>r.date===dt&&r.store===d.store&&r.userName===d.userName);
+      }
+      if(sR){
+        if(sR.jisseki&&sR.jisseki.length){ const sj=sR.jisseki[sR.jisseki.length-1]||{}; totalJA+=+(sj.a||0); totalJB+=+(sj.b||0); }
+        else { totalJA+=+(sR.auto_souhan||0); totalJB+=+(sR.auto_2b||0); }
+      }
+    }
+  });
   const nokoriA=Math.max((+(d.r_ta||0))-totalJA,0);
   const nokoriB=Math.max((+(d.r_tb||0))-totalJB,0);
 
-  // 見込み獲得行（○組○台 形式）
+  // ── 見込み獲得行 ──
   let mikomiLines='';
-  if(d.v_mikomi&&d.v_mikomi.length){
-    d.v_mikomi.forEach((vm,i)=>{
-      const lbl=dayLabels[i]||'当日';
-      const g=vm.g||vm.g===0?fmtN(vm.g):'○';
-      const dv=vm.d||vm.d===0?fmtN(vm.d):'○';
-      mikomiLines+=`\n${lbl}獲得 : ${g}組${dv}台`;
-    });
-  } else {
-    mikomiLines+=`\n${lastLabel}獲得 : ${fmtN(d.v_ag)}組${fmtN(d.v_ad)}台`;
-  }
-  const totalG=d.v_ag||'○', totalD=d.v_ad||'○';
-
-  // 内訳（0なら0、未入力なら-）
-  const bf=v=>(!v&&v!==0)?'-':(Array.isArray(v)?v.map(x=>x===''||x===null||x===undefined?'-':x).join('/'):v);
+  let totalGnum=0,totalDnum=0;
+  wdays.forEach((dt,i)=>{
+    const lbl=dayLabels[i]||'当日';
+    const vm=d.v_mikomi&&d.v_mikomi[i]!=null?d.v_mikomi[i]:null;
+    const hasMikomi=vm&&(vm.g!==undefined&&vm.g!==null&&vm.g!=='');
+    if(hasMikomi){
+      mikomiLines+=`\n${lbl}獲得 : ${fmtN(vm.g)}組${fmtN(vm.d)}台`;
+      totalGnum+=+(vm.g||0); totalDnum+=+(vm.d||0);
+    } else {
+      // baseReportId があればIDで直接引用、なければ日付+店舗で検索（フォールバック）
+      let sR=null;
+      if(d.baseReportId && _reports[d.baseReportId]){
+        sR=_reports[d.baseReportId];
+      } else {
+        sR=Object.values(_reports||{}).find(r=>r.date===dt&&r.store===d.store&&r.userName===d.userName);
+      }
+      if(sR&&sR.v_mikomi){ const lv=sR.v_mikomi[sR.v_mikomi.length-1]||{}; mikomiLines+=`\n${lbl}獲得 : ${fmtN(lv.g)}組${fmtN(lv.d)}台`; totalGnum+=+(lv.g||0); totalDnum+=+(lv.d||0); }
+      else if(sR){ mikomiLines+=`\n${lbl}獲得 : ${fmtN(sR.v_ag)}組${fmtN(sR.v_ad)}台`; totalGnum+=+(sR.v_ag||0); totalDnum+=+(sR.v_ad||0); }
+      else { mikomiLines+=`\n${lbl}獲得 : ○組○台`; }
+    }
+  });
+  const totalG=totalGnum||'○', totalD=totalDnum||'○';
 
   return `お疲れ様です。
 ${d.director||'●●'}です。
 本日の日報を下記に記載いたします。
 ⚠️ヒヤリハット報告⚠️
-${d.hiyari||'特に無し。'}
+${d.hiyari||'特になし。'}
 
 ■実績：2Bダウン除き総販/2Bリク除き
 目　標 : ${fmt(d.r_ta)}/${fmt(d.r_tb)}${jissekiLines}
@@ -1305,11 +1759,28 @@ window.doCopy=doCopy;
 async function saveAndCopy(){
   doCopy();
   if(!window._curData)return;
+  let newReportId='';
   try{
-    await _set(_push(_ref(_db,'fp_reports')),{...window._curData,createdAt:Date.now()});
+    if(_editingReportId){
+      await _set(_ref(_db,'fp_reports/'+_editingReportId),{...window._curData,updatedAt:Date.now()});
+      showToast('✅ 日報を更新しました');
+    } else {
+      // baseReportId を保存データに含める
+      const saveData={...window._curData, createdAt:Date.now()};
+      if(_baseReportId) saveData.baseReportId=_baseReportId;
+      const newRef=_push(_ref(_db,'fp_reports'));
+      newReportId=newRef.key;
+      await _set(newRef,saveData);
+      showToast('✅ 日報を保存しました');
+    }
     _savedStore=window._curData.store||'';
+    _savedReportId=newReportId||_editingReportId||'';
+    _savedDate=window._curData.date||'';
+    _editingReportId=null;
     closeModal('modal-preview');
-    document.getElementById('modal-saved').classList.add('open');
+    // FP内訳入力モーダルを表示（KPIデータがある場合）
+    openFpBreakdown(window._curData.date||'', window._curData.store||'');
+    renderHomePrevReports();
   }catch(e){showToast('保存エラー:'+e.message);}
 }
 window.saveAndCopy=saveAndCopy;
@@ -1451,12 +1922,13 @@ function renderStats(){
     goalDiv.innerHTML=`
       <div style="margin-bottom:10px;">
         <div style="font-size:.74rem;font-weight:700;margin-bottom:4px;">総販：${totalSouhan}件 / 目標${goalEntry.a}台（${pctA}%）</div>
-        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctA,100)}%;background:${barColor(pctA)};border-radius:4px;transition:width .5s;"></div></div>
+        <div style="background:var(--bg);border-radius:7px;height:14px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctA,100)}%;background:${barColor(pctA)};border-radius:7px;transition:width .5s;"></div></div>
       </div>
-      <div>
+      <div style="margin-bottom:${goalEntry.memo?'10px':'0'};">
         <div style="font-size:.74rem;font-weight:700;margin-bottom:4px;">2Bリク除き：${total2b}件 / 目標${goalEntry.b}台（${pctB}%）</div>
-        <div style="background:var(--bg);border-radius:4px;height:10px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctB,100)}%;background:${barColor(pctB)};border-radius:4px;transition:width .5s;"></div></div>
-      </div>`;
+        <div style="background:var(--bg);border-radius:7px;height:14px;overflow:hidden;"><div style="height:100%;width:${Math.min(pctB,100)}%;background:${barColor(pctB)};border-radius:7px;transition:width .5s;"></div></div>
+      </div>
+      ${goalEntry.memo?`<div style="margin-top:4px;background:#f8faff;border-radius:8px;padding:9px 12px;font-size:.78rem;line-height:1.7;color:var(--text);border:1px solid var(--border);">${esc(goalEntry.memo)}</div>`:''}`;
   } else if(goalDiv){
     goalDiv.innerHTML='<div class="ts tc" style="padding:8px;">目標未設定（管理者が設定可能）</div>';
   }
@@ -1468,41 +1940,83 @@ function renderStats(){
     if(!byStore[s])byStore[s]={souhan:0,b2:0,cnt:0,achSum:0};
     byStore[s].souhan+=(r.auto_souhan||0);byStore[s].b2+=(r.auto_2b||0);byStore[s].cnt++;byStore[s].achSum+=(r.ach||0);
   });
-  // 達成店舗率
+  // 達成店舗率（週末最終日の総販達成店舗数 ÷ 稼働店舗数）
   const achRateDiv=document.getElementById('achievement-store-rate');
   if(achRateDiv){
-    // 週末(土日)ごとにグループ化してカウント
-    const weekendGroups={};
+    // 週ごとに集計（月曜日キー）
+    const weekGroups={};
+    const allReports=Object.values(_reports||{});
+
+    // filtered の日報から週を特定、その週の全日報を収集
     filtered.forEach(r=>{
       if(!r.date)return;
-      const d=parseDateLocal(r.date),dow=d.getDay();
-      if(dow===0||dow===6){
-        const satDate=dow===6?r.date:(()=>{const sd=parseDateLocal(r.date);sd.setDate(sd.getDate()-1);return `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;})();
-        if(!weekendGroups[satDate])weekendGroups[satDate]={total:0,achieved:0,stores:new Set()};
-        weekendGroups[satDate].stores.add(r.store||'不明');
-        weekendGroups[satDate].total++;
-        if((r.ach||0)>=100)weekendGroups[satDate].achieved++;
-      }
+      const d=parseDateLocal(r.date);
+      const day=d.getDay();
+      const monday=parseDateLocal(r.date);
+      monday.setDate(d.getDate()-(day===0?6:day-1));
+      const wKey=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
+      if(!weekGroups[wKey]) weekGroups[wKey]={monday, reports:[]};
+      weekGroups[wKey].reports.push(r);
     });
-    const weekends=Object.entries(weekendGroups).sort((a,b)=>b[0].localeCompare(a[0]));
-    if(!weekends.length){
-      achRateDiv.innerHTML='<div class="ts tc" style="padding:8px;">土日稼働データなし</div>';
+
+    const weeks=Object.entries(weekGroups).sort((a,b)=>b[0].localeCompare(a[0]));
+    if(!weeks.length){
+      achRateDiv.innerHTML='<div class="ts tc" style="padding:8px;">稼働データなし</div>';
     } else {
-      achRateDiv.innerHTML=weekends.map(([sat,v])=>{
-        const rate=v.total>0?Math.round((v.achieved/v.total)*100):0;
+      achRateDiv.innerHTML=weeks.map(([wKey,wv])=>{
+        // この週に稼働した店舗ごとに「最終日の日報」を特定
+        const storeLatest={}; // store -> 最終日の日報
+        wv.reports.forEach(r=>{
+          const store=r.store||'不明';
+          if(!storeLatest[store]||r.date>storeLatest[store].date){
+            storeLatest[store]=r;
+          }
+        });
+
+        const storeList=Object.entries(storeLatest);
+        const totalStores=storeList.length;
+
+        // 最終日時点で総販が目標100%以上かどうか判定
+        // 最終日の日報のachが100以上 OR 手動計算（jisseki合計/r_ta）
+        const achievedStores=storeList.filter(([store,r])=>{
+          // ach フィールドで判定（総販ベース）
+          return (r.ach||0)>=100;
+        });
+        const achievedCount=achievedStores.length;
+
+        const rate=totalStores>0?Math.ceil((achievedCount/totalStores)*1000)/10:0;
         const bc=rate>=80?'var(--green)':rate>=50?'var(--orange)':'var(--red)';
-        const satDow=DOWS[parseDateLocal(sat).getDay()];
-        const sunDate=parseDateLocal(sat);sunDate.setDate(sunDate.getDate()+1);
-        const sunStr=`${sunDate.getMonth()+1}/${sunDate.getDate()}`;
-        return `<div style="margin-bottom:10px;">
-          <div style="font-size:.76rem;font-weight:700;margin-bottom:4px;">${sat.slice(5).replace('-','/')}(${satDow})〜${sunStr} ／ ${v.achieved}/${v.total}店舗達成（${rate}%）</div>
-          <div style="background:var(--bg);border-radius:4px;height:9px;overflow:hidden;"><div style="height:100%;width:${Math.min(rate,100)}%;background:${bc};border-radius:4px;transition:width .5s;"></div></div>
+
+        const monD=wv.monday;
+        const sunD=parseDateLocal(wKey); sunD.setDate(monD.getDate()+6);
+        const weekLabel=`${monD.getMonth()+1}/${monD.getDate()}(月)〜${sunD.getMonth()+1}/${sunD.getDate()}(日)`;
+
+        // 店舗別詳細
+        const storeRows=storeList.map(([store,r])=>{
+          const ok=(r.ach||0)>=100;
+          const lastDow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">
+            <div style="font-size:.76rem;font-weight:700;">${esc(store)}</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:.68rem;color:var(--sub);">${esc(r.userName||r.director||'')} ${lastDow}</span>
+              <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${ok?'#d1fae5':'#fee2e2'};color:${ok?'var(--green)':'var(--red)'};font-weight:700;">${r.ach||0}%</span>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div style="margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border);">
+          <div style="font-size:.8rem;font-weight:800;margin-bottom:3px;">${weekLabel}</div>
+          <div style="font-size:.8rem;font-weight:800;color:${bc};margin-bottom:6px;">${achievedCount}/${totalStores}店舗達成（${rate}%）</div>
+          <div style="background:var(--bg);border-radius:7px;height:14px;overflow:hidden;margin-bottom:10px;">
+            <div style="height:100%;width:${Math.min(rate,100)}%;background:${bc};border-radius:7px;transition:width .5s;"></div>
+          </div>
+          <div>${storeRows}</div>
         </div>`;
       }).join('');
     }
   }
 
-  const storeC=document.getElementById('stats-store-list');
+    const storeC=document.getElementById('stats-store-list');
   if(storeC){
     if(!Object.keys(byStore).length){storeC.innerHTML='<div class="empty ts">データなし</div>';return;}
     const maxS=Math.max(...Object.values(byStore).map(v=>v.souhan),1);
@@ -1522,31 +2036,49 @@ function renderStats(){
   const byCh={};
   filtered.forEach(r=>{
     const ch=r.channel||'不明';
-    if(!byCh[ch])byCh[ch]={souhan:0,cnt:0,achSum:0};
-    byCh[ch].souhan+=(r.auto_souhan||0);byCh[ch].cnt++;byCh[ch].achSum+=(r.ach||0);
+    if(!byCh[ch])byCh[ch]={souhan:0,b2:0,cnt:0,achSum:0};
+    byCh[ch].souhan+=(r.auto_souhan||0);
+    byCh[ch].b2+=(r.auto_2b||0);
+    byCh[ch].cnt++;
+    byCh[ch].achSum+=(r.ach||0);
   });
   const chC=document.getElementById('stats-ch-list');
   if(chC){
-    if(!Object.keys(byCh).length){chC.innerHTML='<div class="empty ts">データなし</div>';return;}
-    const maxC=Math.max(...Object.values(byCh).map(v=>v.souhan),1);
-    chC.innerHTML=Object.entries(byCh).sort((a,b)=>b[1].souhan-a[1].souhan).map(([ch,v])=>{
-      const avgAch=v.cnt>0?Math.round(v.achSum/v.cnt):0;
-      const bc=avgAch>=100?'var(--green)':avgAch>=70?'var(--orange)':'var(--red)';
-      return `<div class="stat-card">
-        <div class="stat-store">${esc(ch)} <span class="badge b-gray">${v.cnt}回</span></div>
-        <div class="stat-row"><div class="stat-label">総販合計</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.souhan/maxC)*100)}%;background:var(--primary);"></div></div><div class="stat-pct" style="color:var(--primary);">${v.souhan}件</div></div>
-        <div class="stat-row"><div class="stat-label">平均達成率</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(avgAch,100)}%;background:${bc};"></div></div><div class="stat-pct" style="color:${bc};">${avgAch}%</div></div>
-      </div>`;
-    }).join('');
+    if(!Object.keys(byCh).length){chC.innerHTML='<div class="empty ts">データなし</div>';}
+    else {
+      const maxC=Math.max(...Object.values(byCh).map(v=>v.souhan),1);
+      chC.innerHTML=Object.entries(byCh).sort((a,b)=>b[1].souhan-a[1].souhan).map(([ch,v])=>{
+        const avgAch=v.cnt>0?Math.round(v.achSum/v.cnt):0;
+        const bc=avgAch>=100?'var(--green)':avgAch>=70?'var(--orange)':'var(--red)';
+        return `<div class="stat-card">
+          <div class="stat-store">${esc(ch)} <span class="badge b-gray">${v.cnt}件</span></div>
+          <div class="stat-row"><div class="stat-label">総販</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.souhan/maxC)*100)}%;background:var(--primary);"></div></div><div class="stat-pct" style="color:var(--primary);">${v.souhan}件</div></div>
+          <div class="stat-row"><div class="stat-label">2Bリク除き</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((v.b2/maxC)*100)}%;background:#3b82f6;"></div></div><div class="stat-pct" style="color:#3b82f6;">${v.b2}件</div></div>
+          <div class="stat-row"><div class="stat-label">平均達成率</div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(avgAch,100)}%;background:${bc};"></div></div><div class="stat-pct" style="color:${bc};">${avgAch}%</div></div>
+        </div>`;
+      }).join('');
+    }
   }
 }
 window.renderStats=renderStats;
 
+let _statsChannel='all';
 function switchStatsTab(id,el){
   ['st-store','st-channel'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
   document.querySelectorAll('#pg-stats .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
+  // 販路別タブ選択時は絞り込みフィルターを表示
+  const chFilter=document.getElementById('stats-ch-filter');
+  if(chFilter) chFilter.style.display=(id==='st-channel')?'flex':'none';
 }
+function setStatsChannel(ch,el){
+  _statsChannel=ch;
+  document.querySelectorAll('#stats-ch-filter .fchip').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderStats();
+}
+window.switchStatsTab=switchStatsTab;
+window.setStatsChannel=setStatsChannel;
 window.switchStatsTab=switchStatsTab;
 
 document.getElementById('stats-month')?.addEventListener('change',()=>{_weekFilter='all';document.querySelectorAll('#week-filter .fchip').forEach(c=>c.classList.remove('active'));document.querySelector('#week-filter .fchip')?.classList.add('active');renderStats();});
@@ -1560,7 +2092,10 @@ function renderStoreFeats(){
   if(!all.length){c.innerHTML='<div class="empty ts">'+( q?'該当する店舗がありません':'まだ店舗特徴が登録されていません')+'</div>';return;}
   c.innerHTML=all.map(([id,s])=>`
     <div class="store-feat-card" onclick="openStoreFeatEdit('${id}')">
-      <div class="store-feat-name">🏪 ${esc(s.name||'')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="store-feat-name">🏪 ${esc(s.name||'')}</div>
+        ${_isAdmin?`<button type="button" onclick="event.stopPropagation();deleteStoreFeat2('${id}')" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 9px;font-size:.7rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;flex-shrink:0;">削除</button>`:''}
+      </div>
       <div class="store-feat-preview">${esc(s.feature||'')} ${esc(s.manager||'')}</div>
     </div>`).join('');
 }
@@ -1568,7 +2103,7 @@ function renderStoreFeats(){
 function openStoreFeatEdit(id,prefillName=''){
   document.getElementById('sf-id').value=id||'';
   document.getElementById('store-feat-modal-title').textContent=id?'店舗特徴を編集':'店舗特徴を追加';
-  document.getElementById('sf-del-btn').style.display=id?'block':'none';
+  document.getElementById('sf-del-btn').style.display=(id&&_isAdmin)?'block':'none';
   if(id){
     const s=_storeFeats[id];
     document.getElementById('sf-name').value=s?.name||'';
@@ -1598,11 +2133,36 @@ async function saveStoreFeat(){
 }
 window.saveStoreFeat=saveStoreFeat;
 
-async function deleteStoreFeat(){
+function deleteStoreFeat2(id){
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_store_features/'+id));
+      closeModal('modal-confirm-delete');
+      showToast('削除しました');
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+window.deleteStoreFeat2=deleteStoreFeat2;
+
+function deleteStoreFeat(){
   const id=document.getElementById('sf-id').value;
-  if(!confirm('削除しますか？'))return;
-  try{await _remove(_ref(_db,'fp_store_features/'+id));closeModal('modal-store-feat');showToast('削除しました');}
-  catch(e){showToast('エラー:'+e.message);}
+  if(!id)return;
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_store_features/'+id));
+      closeModal('modal-confirm-delete');
+      closeModal('modal-store-feat');
+      showToast('削除しました');
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
 }
 window.deleteStoreFeat=deleteStoreFeat;
 
@@ -1610,10 +2170,20 @@ window.deleteStoreFeat=deleteStoreFeat;
 function showAdminLoginPage(){
   const loggedIn=document.getElementById('admin-logged-in-msg');
   const form=document.getElementById('admin-pw');
-  if(_isAdmin){loggedIn.style.display='block';if(form)form.closest('.card').style.display='none';}
-  else{loggedIn.style.display='none';const c=form?.closest('.card');if(c)c.style.display='block';}
+  if(_isAdmin){
+    loggedIn.style.display='block';
+    if(form)form.closest('.card').style.display='none';
+  } else {
+    loggedIn.style.display='none';
+    const fc=form?.closest('.card');if(fc)fc.style.display='block';
+  }
   showPage('pg-admin-login');
 }
+
+function openAdminLogin(from){
+  showPage('pg-admin-login');
+}
+window.openAdminLogin=openAdminLogin;
 
 function doAdminLogin(){
   if(document.getElementById('admin-pw').value===PW){
@@ -1629,15 +2199,33 @@ function adminLogout(){
   updateAdminUI();showToast('ログアウトしました');
   showCarryPage();
 }
-function updateAdminUI(){const b=document.getElementById('detail-edit-btn');if(b)b.style.display=_isAdmin?'inline-block':'none';}
+function updateAdminUI(){
+  const b=document.getElementById('detail-edit-btn');
+  if(b) b.style.display=_isAdmin?'inline-block':'none';
+  const kb=document.getElementById('kpi-admin-btn-wrap');
+  if(kb) kb.style.display=_isAdmin?'block':'none';
+}
 window.doAdminLogin=doAdminLogin;window.adminLogout=adminLogout;
 
 function switchATab(id,el){
-  ['at-list','at-goal'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
+  ['at-list','at-goal','at-kpi','at-kpi-view'].forEach(t=>{
+    const el2=document.getElementById(t);
+    if(el2)el2.style.display=(t===id)?'block':'none';
+  });
   document.querySelectorAll('#pg-admin .tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  if(id==='at-list')renderAdminList();
-  if(id==='at-goal')renderGoalList();
+  if(el)el.classList.add('active');
+  if(id==='at-list') try{renderAdminList();}catch(e){}
+  if(id==='at-goal') try{renderGoalList();}catch(e){}
+  if(id==='at-kpi') setTimeout(()=>{ try{renderAdminKpiList();}catch(e){} }, 100);
+  if(id==='at-kpi-view'){
+    // 今週の月曜日をデフォルトにセット
+    const t=new Date(),day=t.getDay();
+    const mon=new Date(t); mon.setDate(t.getDate()-(day===0?6:day-1));
+    const monStr=`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+    const startEl=document.getElementById('kpi-view-start');
+    if(startEl&&!startEl.value) startEl.value=monStr;
+    setTimeout(()=>{ try{renderKpiView();}catch(e){} }, 100);
+  }
 }
 window.switchATab=switchATab;
 
@@ -1660,14 +2248,105 @@ function renderAdminList(){
   }).join('');
 }
 window.renderAdminList=renderAdminList;
+function renderAdminKpiList(){
+  const cont=document.getElementById('at-kpi-list');
+  if(!cont)return;
+  const entries=Object.entries(_kpi||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(!entries.length){cont.innerHTML='<div class="empty ts">KPIデータなし</div>';return;}
+  cont.innerHTML=entries.map(([id,k])=>{
+    const memberList=k.members||[{member:k.member||'',role:k.role||'',target:k.target||0}];
+    const dow=k.date?DOWS[parseDateLocal(k.date).getDay()]:'';
+    return `<div class="report-card" style="margin-bottom:8px;">
+      <div class="rc-top">
+        <div class="rc-store">${esc(k.store||'−')}</div>
+        <div class="rc-date">${k.date||'−'}(${dow})</div>
+      </div>
+      <div style="font-size:.76rem;color:var(--sub);margin-bottom:6px;">${memberList.map(m=>`${esc(m.member||'')} ${esc(m.role||'')} ${m.target||0}台`).join(' ／ ')}</div>
+      <div style="display:flex;gap:6px;">
+        <button type="button" onclick="openKpiEdit('${id}')" class="btn-sm" style="flex:1;padding:8px;">編集</button>
+        <button type="button" onclick="deleteKpiById('${id}')" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+window.renderAdminKpiList=renderAdminKpiList;
+
+function deleteKpiById(id){
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_kpi/'+id));
+      closeModal('modal-confirm-delete');
+      showToast('🗑 削除しました');
+      renderAdminKpiList();
+    }catch(e){showToast('エラー:'+e.message);}
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+window.deleteKpiById=deleteKpiById;
+
 
 function openEditFromDetail(){closeModal('modal-detail');openEdit(_curId);}
 function openEdit(id){
   const r=_reports[id];if(!r)return;
   document.getElementById('edit-id').value=id;
+  document.getElementById('edit-store').value=r.store||'';
+  document.getElementById('edit-ch').value=r.channel||'';
+  document.getElementById('edit-dir').value=r.director||r.userName||'';
+  document.getElementById('edit-ta').value=r.r_ta||'';
+  document.getElementById('edit-tb').value=r.r_tb||'';
+  document.getElementById('edit-hiyari').value=r.hiyari||'';
   document.getElementById('edit-ov').value=r.txt_ov||'';
   document.getElementById('edit-rs').value=r.txt_rs||'';
   document.getElementById('edit-al').value=r.al_eff||'';
+  // 実績入力欄を動的生成
+  const wdays=(r.workDays&&r.workDays.length)?r.workDays:[r.date||''];
+  const jWrap=document.getElementById('edit-jisseki-wrap');
+  if(jWrap){
+    jWrap.innerHTML=wdays.map((dt,i)=>{
+      const dow=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'当日';
+      const j=r.jisseki&&r.jisseki[i]?r.jisseki[i]:{};
+      const fp=r.fp_by_day&&r.fp_by_day[i]?r.fp_by_day[i]:{};
+      return `<div style="background:var(--pl);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+        <div style="font-size:.76rem;font-weight:800;color:var(--pd);margin-bottom:6px;">${dow}（${dt}）</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+          <span style="font-size:.72rem;color:var(--sub);width:60px;">総販</span>
+          <input class="inp-s" id="edit-ja-${i}" type="number" min="0" value="${j.a||0}" style="width:70px;"/>
+          <span style="font-size:.72rem;color:var(--sub);">件</span>
+          <span style="font-size:.72rem;color:var(--sub);width:70px;margin-left:8px;">リク抜き</span>
+          <input class="inp-s" id="edit-jb-${i}" type="number" min="0" value="${j.b||0}" style="width:70px;"/>
+          <span style="font-size:.72rem;color:var(--sub);">件</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:.72rem;color:var(--sub);width:60px;">FP獲得</span>
+          <input class="inp-s" id="edit-fa-${i}" type="number" min="0" value="${fp.a||0}" style="width:70px;"/>
+          <span style="font-size:.72rem;color:var(--sub);">台/</span>
+          <input class="inp-s" id="edit-fb-${i}" type="number" min="0" value="${fp.b||0}" style="width:70px;"/>
+          <span style="font-size:.72rem;color:var(--sub);">台</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  // 見込み獲得入力欄
+  const mWrap=document.getElementById('edit-mikomi-wrap');
+  if(mWrap){
+    mWrap.innerHTML=wdays.map((dt,i)=>{
+      const dow=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'当日';
+      const vm=r.v_mikomi&&r.v_mikomi[i]?r.v_mikomi[i]:{};
+      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="font-size:.76rem;font-weight:700;width:50px;">${dow}</span>
+        <input class="inp-s" id="edit-vg-${i}" type="number" min="0" value="${vm.g||0}" style="width:60px;"/>
+        <span style="font-size:.72rem;color:var(--sub);">組/</span>
+        <input class="inp-s" id="edit-vd-${i}" type="number" min="0" value="${vm.d||0}" style="width:60px;"/>
+        <span style="font-size:.72rem;color:var(--sub);">台</span>
+      </div>`;
+    }).join('');
+  }
+  // プレビュー生成
+  const prevEl=document.getElementById('edit-preview-text');
+  if(prevEl) prevEl.textContent=buildText({...r});
   document.getElementById('modal-edit').classList.add('open');
 }
 window.openEditFromDetail=openEditFromDetail;window.openEdit=openEdit;
@@ -1675,47 +2354,111 @@ window.openEditFromDetail=openEditFromDetail;window.openEdit=openEdit;
 async function saveEdit(){
   const id=document.getElementById('edit-id').value,r=_reports[id];if(!r)return;
   try{
-    await _set(_ref(_db,'fp_reports/'+id),{...r,txt_ov:document.getElementById('edit-ov').value,txt_rs:document.getElementById('edit-rs').value,al_eff:document.getElementById('edit-al').value,updatedAt:Date.now()});
+    const wdays=(r.workDays&&r.workDays.length)?r.workDays:[r.date||''];
+    const jisseki=wdays.map((_,i)=>({
+      a:+document.getElementById('edit-ja-'+i)?.value||0,
+      b:+document.getElementById('edit-jb-'+i)?.value||0,
+    }));
+    const fp_by_day=wdays.map((_,i)=>({
+      a:+document.getElementById('edit-fa-'+i)?.value||0,
+      b:+document.getElementById('edit-fb-'+i)?.value||0,
+    }));
+    const v_mikomi=wdays.map((_,i)=>({
+      g:+document.getElementById('edit-vg-'+i)?.value||0,
+      d:+document.getElementById('edit-vd-'+i)?.value||0,
+    }));
+    const ta=+document.getElementById('edit-ta').value||0;
+    const totalSouhan=jisseki.reduce((s,j)=>s+(j.a||0),0);
+    const ach=ta>0?Math.round((totalSouhan/ta)*100):0;
+    const updated={...r,
+      store:document.getElementById('edit-store').value||r.store,
+      channel:document.getElementById('edit-ch').value||r.channel,
+      director:document.getElementById('edit-dir').value||r.director,
+      r_ta:ta||r.r_ta,
+      r_tb:+document.getElementById('edit-tb').value||r.r_tb,
+      hiyari:document.getElementById('edit-hiyari').value,
+      jisseki,fp_by_day,v_mikomi,ach,
+      auto_souhan:totalSouhan,
+      txt_ov:document.getElementById('edit-ov').value,
+      txt_rs:document.getElementById('edit-rs').value,
+      al_eff:document.getElementById('edit-al').value,
+      updatedAt:Date.now()
+    };
+    await _set(_ref(_db,'fp_reports/'+id),updated);
     closeModal('modal-edit');showToast('✅ 更新しました');
-  }catch(e){showToast('エラー:'+e.message);}
+  }catch(e){ showToast('エラー:'+e.message); }
 }
-async function doDelete(){
-  const id=document.getElementById('edit-id').value;
-  if(!confirm('この日報を削除しますか？'))return;
-  try{await _remove(_ref(_db,'fp_reports/'+id));closeModal('modal-edit');showToast('🗑 削除しました');}
-  catch(e){showToast('エラー:'+e.message);}
-}
-async function delReport(id){
-  if(!confirm('この日報を削除しますか？'))return;
-  try{await _remove(_ref(_db,'fp_reports/'+id));showToast('🗑 削除しました');}
-  catch(e){showToast('エラー:'+e.message);}
-}
-window.saveEdit=saveEdit;window.doDelete=doDelete;window.delReport=delReport;
+window.saveEdit=saveEdit;window.doDelete=doDelete;window.delReport=delReport;window.showDeleteConfirm=showDeleteConfirm;
 
 // ── 月次目標 ──
 async function saveGoal(){
   const month=document.getElementById('goal-month').value;
   const a=+document.getElementById('goal-a').value||0;
   const b=+document.getElementById('goal-b').value||0;
+  const memo=document.getElementById('goal-memo')?.value||'';
   if(!month){showToast('対象月を選択してください');return;}
   const key=month.replace('-','');
   try{
-    await _set(_ref(_db,'fp_goals/'+key),{month,a,b,updatedAt:Date.now()});
+    await _set(_ref(_db,'fp_goals/'+key),{month,a,b,memo,updatedAt:Date.now()});
     showToast('✅ 目標を保存しました');renderGoalList();
   }catch(e){showToast('エラー:'+e.message);}
 }
-window.saveGoal=saveGoal;
+function deleteGoal(key){
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_goals/'+key));
+      closeModal('modal-confirm-delete');
+      showToast('削除しました');
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+function editGoal(key){
+  const g=_goals[key]; if(!g)return;
+  document.getElementById('goal-month').value=g.month||'';
+  document.getElementById('goal-a').value=g.a||0;
+  document.getElementById('goal-b').value=g.b||0;
+  document.getElementById('goal-memo').value=g.memo||'';
+  // スクロールして入力欄へ
+  document.getElementById('goal-month').scrollIntoView({behavior:'smooth',block:'center'});
+  showToast('内容を編集して「目標を保存」を押してください');
+}
+window.saveGoal=saveGoal; window.deleteGoal=deleteGoal; window.editGoal=editGoal;
 
 function renderGoalList(){
   const c=document.getElementById('goal-list');if(!c)return;
-  const all=Object.values(_goals).sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  const all=Object.entries(_goals).sort((a,b)=>(b[1].month||'').localeCompare(a[1].month||''));
   if(!all.length){c.innerHTML='<div class="empty ts">目標未設定</div>';return;}
-  c.innerHTML=all.map(g=>`
+  c.innerHTML=all.map(([key,g])=>`
     <div class="card" style="margin-bottom:8px;">
-      <div style="font-weight:800;font-size:.88rem;margin-bottom:5px;">${g.month}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <div style="font-weight:800;font-size:.88rem;">${g.month}</div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" onclick="editGoal('${key}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 9px;font-size:.7rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>
+          <button type="button" onclick="deleteGoal('${key}')" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 9px;font-size:.7rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">削除</button>
+        </div>
+      </div>
       <div class="ts">総販目標：${g.a}台 ／ 2Bリク除き目標：${g.b}台</div>
+      ${g.memo?`<div style="margin-top:6px;font-size:.76rem;color:var(--sub);line-height:1.6;">${esc(g.memo)}</div>`:''}
     </div>`).join('');
 }
+
+// ── 店舗マスタ ──
+async function addStore(){
+  const name=document.getElementById('store-new')?.value?.trim();
+  if(!name){showToast('店舗名を入力してください');return;}
+  try{ await _set(_push(_ref(_db,'fp_stores')),{name,createdAt:Date.now()}); document.getElementById('store-new').value=''; showToast('✅ 追加しました'); }
+  catch(e){showToast('エラー:'+e.message);}
+}
+async function delStore(id){
+  if(!confirm('削除しますか？'))return;
+  try{ await _remove(_ref(_db,'fp_stores/'+id)); showToast('削除しました'); }
+  catch(e){showToast('エラー:'+e.message);}
+}
+window.addStore=addStore; window.delStore=delStore;
 
 // ── utils ──
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -1723,6 +2466,624 @@ window.closeModal=closeModal;
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
+
+
+
+// ── FP獲得内訳入力 ──
+function openFpBreakdown(date, store){
+  // その日・その店舗のKPIメンバーを検索
+  const kpiEntry=Object.values(_kpi||{}).find(k=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.includes(date) && k.store===store;
+  });
+  if(!kpiEntry){
+    // KPIデータなし → 直接savedモーダルへ
+    document.getElementById('modal-saved').classList.add('open');
+    return;
+  }
+  const members=kpiEntry.members||[{member:kpiEntry.member||'',role:kpiEntry.role||'',target:kpiEntry.target||0}];
+  const rows=document.getElementById('fp-breakdown-rows');
+  if(!rows)return;
+
+  // 既存の内訳データを取得（編集時）
+  const existing=Object.entries(_fpBreakdown||{}).find(([,fb])=>fb.date===date&&fb.store===store);
+  const existingData=existing?existing[1].members:[];
+
+  rows.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 80px 80px;gap:6px;margin-bottom:6px;">
+      <div style="font-size:.7rem;font-weight:700;color:var(--sub);">メンバー</div>
+      <div style="font-size:.7rem;font-weight:700;color:var(--sub);text-align:right;">総販</div>
+      <div style="font-size:.7rem;font-weight:700;color:var(--sub);text-align:right;">リク抜き</div>
+    </div>
+    ${members.map((m,i)=>{
+      const ex=existingData.find(e=>e.member===m.member)||{};
+      return `<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:6px;margin-bottom:8px;align-items:center;">
+        <div>
+          <div style="font-size:.82rem;font-weight:700;">${esc(m.member||'')}</div>
+          <div style="font-size:.68rem;color:var(--sub);">${esc(m.role||'')} 目標${m.target||0}台</div>
+        </div>
+        <input class="inp-s" id="fp-souhan-${i}" type="number" min="0" placeholder="0" value="${ex.souhan||''}"/>
+        <input class="inp-s" id="fp-riknuki-${i}" type="number" min="0" placeholder="0" value="${ex.riknuki||''}"/>
+      </div>`;
+    }).join('')}
+  `;
+  // kpiEntryIDを保存
+  document.getElementById('fp-breakdown-rows').dataset.kpiId=Object.keys(_kpi||{}).find(k=>{
+    const kv=_kpi[k];
+    const kDates=kv.dates||[kv.date||''];
+    return kDates.includes(date)&&kv.store===store;
+  })||'';
+  document.getElementById('fp-breakdown-rows').dataset.memberCount=members.length;
+  document.getElementById('fp-breakdown-rows').dataset.members=JSON.stringify(members);
+  document.getElementById('modal-fp-breakdown').classList.add('open');
+}
+window.openFpBreakdown=openFpBreakdown;
+
+async function saveFpBreakdown(){
+  const rows=document.getElementById('fp-breakdown-rows');
+  const count=+(rows?.dataset.memberCount||0);
+  const members=JSON.parse(rows?.dataset.members||'[]');
+  const results=members.map((m,i)=>({
+    member:m.member,
+    role:m.role,
+    target:m.target,
+    souhan:+document.getElementById('fp-souhan-'+i)?.value||0,
+    riknuki:+document.getElementById('fp-riknuki-'+i)?.value||0,
+  }));
+  const data={
+    date:_savedDate,
+    store:_savedStore,
+    reportId:_savedReportId,
+    members:results,
+    updatedAt:Date.now()
+  };
+  try{
+    // date+store をキーとして保存
+    const fbKey=(_savedDate+_savedStore).replace(/[^a-zA-Z0-9]/g,'_');
+    await _set(_ref(_db,'fp_breakdown/'+fbKey),data);
+    showToast('✅ FP内訳を保存しました');
+  }catch(e){ showToast('エラー:'+e.message); }
+  closeModal('modal-fp-breakdown');
+  document.getElementById('modal-saved').classList.add('open');
+}
+window.saveFpBreakdown=saveFpBreakdown;
+
+function skipFpBreakdown(){
+  closeModal('modal-fp-breakdown');
+  document.getElementById('modal-saved').classList.add('open');
+}
+window.skipFpBreakdown=skipFpBreakdown;
+
+
+// ── KPI表示テキスト生成 ──
+function renderKpiView(){
+  const startStr=document.getElementById('kpi-view-start')?.value||'';
+  if(!startStr){document.getElementById('kpi-view-text').textContent='開始日を選択してください';return;}
+
+  // 対象週の全日程を取得（月〜日）
+  const startD=parseDateLocal(startStr);
+  const endD=new Date(startD); endD.setDate(startD.getDate()+6);
+  const endStr=`${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')}`;
+
+  // 対象週のKPIエントリを収集
+  const weekKpi=Object.values(_kpi||{}).filter(k=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d>=startStr&&d<=endStr);
+  });
+
+  if(!weekKpi.length){
+    document.getElementById('kpi-view-text').textContent='対象週のKPIデータがありません';
+    return;
+  }
+
+  // 対象週の日程ラベル（例：5月24日〜25日）
+  const m1=startD.getMonth()+1, d1=startD.getDate();
+  const m2=endD.getMonth()+1, d2=endD.getDate();
+  const dateLabel=m1===m2?`${startD.getFullYear()}年${m1}月${d1}日〜${d2}日`:`${startD.getFullYear()}年${m1}月${d1}日〜${m2}月${d2}日`;
+
+  // 店舗別にグループ化
+  const byStore={};
+  weekKpi.forEach(k=>{
+    const store=k.store||'不明';
+    if(!byStore[store]) byStore[store]=[];
+    byStore[store].push(k);
+  });
+
+  let text=`○日程
+${dateLabel}
+`;
+
+  Object.entries(byStore).forEach(([store,entries])=>{
+    // 全日程を収集
+    const allDates=[];
+    entries.forEach(k=>{ (k.dates||[k.date||'']).forEach(d=>{ if(d&&!allDates.includes(d))allDates.push(d); }); });
+    allDates.sort();
+
+    // 日程のラベル（土/日 など）
+    const dateLabels=allDates.map(d=>DOWS[parseDateLocal(d).getDay()]);
+
+    // 各日のdateMembersを収集
+    const dayDataMap={};
+    allDates.forEach(d=>{
+      const entry=entries.find(k=>(k.dates||[k.date||'']).includes(d));
+      if(entry){
+        dayDataMap[d]=(entry.dateMembers&&entry.dateMembers[d])||entry.members||[];
+      }
+    });
+
+    // 全メンバー名を収集（ユニーク）
+    const allMembers=[];
+    allDates.forEach(d=>{ (dayDataMap[d]||[]).forEach(m=>{ if(m.member&&!allMembers.includes(m.member))allMembers.push(m.member); }); });
+
+    // 各日の合計KPI
+    // キャッチャーは合計から除外
+    const dayTotals=allDates.map(d=>(dayDataMap[d]||[]).filter(m=>m.role!=='キャッチャー').reduce((s,m)=>s+(+(m.target||0)),0));
+    const totalKpi=dayTotals.reduce((s,v)=>s+v,0);
+    const dayTotalsStr=dayTotals.join('/');
+
+    text+=`
+◆${store}
+`;
+    text+=`▪︎FP獲得目標：${totalKpi}件
+`;
+    text+=`　${dateLabels.join('/')}：${dayTotalsStr}
+`;
+    text+=`▪︎メンバー内訳（${dateLabels.join('/')}）
+`;
+
+    allMembers.forEach(member=>{
+      const vals=allDates.map(d=>{
+        const m=(dayDataMap[d]||[]).find(m=>m.member===member);
+        return m?String(m.target||0):'-';
+      });
+      const memberRole=allDates.map(d=>(dayDataMap[d]||[]).find(m=>m.member===member)?.role||'').find(r=>r)||'';
+      const catcherLabel=memberRole==='キャッチャー'?'（着座）':'';
+      text+=`　・${member}${catcherLabel}：${vals.join('/')}
+`;
+    });
+  });
+
+  document.getElementById('kpi-view-text').textContent=text.trim();
+}
+window.renderKpiView=renderKpiView;
+
+function copyKpiView(){
+  const text=document.getElementById('kpi-view-text')?.textContent||'';
+  if(!text){showToast('表示するKPIがありません');return;}
+  navigator.clipboard.writeText(text).then(()=>showToast('✅ コピーしました')).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('✅ コピーしました');
+  });
+}
+window.copyKpiView=copyKpiView;
+
+// ── KPI管理 ──
+window._kpi={};
+
+function setKpiWeek(w,el){
+  try{
+    _kpiWeek=w;
+    document.querySelectorAll('#kpi-week-filter .fchip').forEach(b=>b.classList.remove('active'));
+    if(el)el.classList.add('active');
+    renderKpiList();
+  }catch(e){ console.error('setKpiWeek error:',e); showToast('エラー:'+e.message); }
+}
+window.setKpiWeek=setKpiWeek;
+
+function renderKpiList(){
+  try{
+  // 管理者ボタン表示制御
+  const adminWrap=document.getElementById('kpi-admin-btn-wrap');
+  if(adminWrap) adminWrap.style.display=_isAdmin?'block':'none';
+
+  const month=document.getElementById('kpi-month')?.value||'';
+  let entries=Object.entries(_kpi||{});
+
+  // 月フィルター（dates配列のいずれかの日付が対象月ならOK）
+  if(month) entries=entries.filter(([,k])=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d&&d.startsWith(month));
+  });
+
+  // 週フィルター（dates配列のいずれかの日付が該当週ならOK）
+  if(_kpiWeek!=='all'){
+    entries=entries.filter(([,k])=>{
+      const kDates=k.dates||[k.date||''];
+      return kDates.some(d=>d&&getWeekOfMonth(d)===_kpiWeek);
+    });
+  }
+
+  // 日付順ソート
+  entries=entries.sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+
+  const c=document.getElementById('kpi-list');
+  if(!c)return;
+  if(!entries.length){c.innerHTML='<div class="empty ts">KPIデータなし</div>';return;}
+
+  // 日付×店舗でグループ化
+  const groups={};
+  entries.forEach(([id,k])=>{
+    const kDates=k.dates||[k.date||''];
+    kDates.forEach(kDate=>{
+      const gKey=`${kDate}__${k.store||''}`;
+      if(!groups[gKey]) groups[gKey]={date:kDate,store:k.store,members:[]};
+      const k2={...k,date:kDate}; // 各日付版のkを作成
+    // 日報からFP獲得実績を取得
+    // members配列対応（旧データ互換）
+    // dateMembersから当日のメンバーを取得、なければmembersにフォールバック
+    const memberList=(k.dateMembers&&k.dateMembers[k2.date])||k.members||[{member:k.member||'',role:k.role||'',target:k.target||0}];
+    memberList.forEach(m=>{
+      // fp_breakdownからメンバー別実績を取得
+      const fbKey=(k.date+k.store).replace(/[^a-zA-Z0-9]/g,'_');
+      const fbData=(_fpBreakdown||{})[fbKey];
+      const fbMember=fbData?.members?.find(mb=>mb.member===m.member);
+      let actual=null;
+      if(fbMember&&fbMember.souhan!==undefined){ actual=fbMember.souhan; }
+      else {
+        // フォールバック：日報のr_faを参照
+        const report2=Object.values(_reports||{}).find(r=>
+          r.date===k.date && r.store===k.store && (r.userName===m.member||r.director===m.member)
+        );
+        if(report2) actual=+(report2.r_fa||0);
+      }
+      const achieved=actual!==null&&actual>=+(m.target||0);
+      groups[gKey].members.push({id,k:k2,m,actual,achieved});
+    });
+    }); // kDates.forEach end
+  });
+
+  c.innerHTML=Object.values(groups).map(g=>{
+    const total=g.members.length;
+    const achCount=g.members.filter(m=>m.achieved).length;
+    const achRate=total>0?Math.ceil((achCount/total)*100):0;
+    const bc=achRate>=80?'var(--green)':achRate>=50?'var(--orange)':'var(--red)';
+    const dow=g.date?DOWS[parseDateLocal(g.date).getDay()]:'';
+
+    const memberRows=g.members.map(({id,k,m,actual,achieved})=>{
+      const statusBg=achieved?'#d1fae5':'#fee2e2';
+      const statusCol=achieved?'var(--green)':'var(--red)';
+      const actualStr=actual!==null?`${actual}台`:'未記入';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bg);">
+        <div>
+          <div style="font-size:.82rem;font-weight:700;">${esc(m.member||'')}</div>
+          <div style="font-size:.7rem;color:var(--sub);">${esc(m.role||'')} ／ ${m.role==='キャッチャー'?'着座目標':'目標'}${m.target||0}${m.role==='キャッチャー'?'組':'台'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <div style="font-size:.8rem;font-weight:700;">実績 ${actualStr}</div>
+          <span style="padding:3px 9px;border-radius:10px;background:${isCatcher?'#f3f4f6':statusBg};color:${isCatcher?'var(--sub)':statusCol};font-size:.72rem;font-weight:700;">${isCatcher?'参考':achieved?'達成':'未達'}</span>
+          ${_isAdmin?`<button type="button" onclick="openKpiEdit('${id}')" style="background:var(--pl);border:none;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:700;cursor:pointer;color:var(--pd);font-family:inherit;">編集</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+
+    // 店舗合計FP獲得・KPI目標
+    // キャッチャーは合計から除外
+    const nonCatchers=g.members.filter(mb=>mb.m?.role!=='キャッチャー');
+    const totalTarget=nonCatchers.reduce((s,mb)=>s+(+(mb.m?.target||0)),0);
+    const totalActual=nonCatchers.reduce((s,mb)=>s+(mb.actual!==null?mb.actual:0),0);
+    const storeAch=totalTarget>0?Math.round((totalActual/totalTarget)*100):0;
+    const storeBc=storeAch>=100?'var(--green)':storeAch>=70?'var(--orange)':'var(--red)';
+    return `<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-size:.9rem;font-weight:800;">${esc(g.store||'')}</div>
+          <div style="font-size:.74rem;color:var(--sub);">${g.date||''}(${dow})</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:1rem;font-weight:900;color:${storeBc};">${storeAch}%</div>
+          <div style="font-size:.74rem;color:var(--sub);">FP ${totalActual}台 / 目標${totalTarget}台</div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border-radius:7px;height:12px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;width:${Math.min(storeAch,100)}%;background:${storeBc};border-radius:7px;transition:width .5s;"></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;">
+        ${memberRows}
+      </div>
+    </div>`;
+  }).join('');
+  }catch(e){ console.error('renderKpiList:',e); document.getElementById('kpi-list').innerHTML='<div class="ts">表示エラー:'+e.message+'</div>'; }
+}
+window.renderKpiList=renderKpiList;
+
+function renderKpiDateRows(dates, dateMembersData){
+  // 日程入力欄
+  const wrap=document.getElementById('kpi-dates-wrap');
+  if(wrap){
+    wrap.innerHTML=dates.map((dt,i)=>`
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;" id="kpi-date-row-${i}">
+        <input class="inp-s" type="date" id="kpi-date-${i}" value="${dt}" style="flex:1;text-align:left;padding:8px;" onchange="onKpiDateChange()"/>
+        ${i>0?`<button type="button" onclick="removeKpiDate(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;flex-shrink:0;">×</button>`:'<div style="width:32px;"></div>'}
+      </div>`).join('');
+  }
+  // 日程ごとのメンバー入力欄
+  renderKpiDateMembersWrap(dates, dateMembersData);
+}
+window.renderKpiDateRows=renderKpiDateRows;
+
+function renderKpiDateMembersWrap(dates, dateMembersData){
+  const wrap=document.getElementById('kpi-date-members-wrap');
+  if(!wrap)return;
+  // 空日付でもインデックス順で表示（日付未入力欄も含む）
+  if(!dates.length){wrap.innerHTML='';return;}
+  wrap.innerHTML=dates.map((dt,di)=>{
+    const dow=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'';
+    const existingMembers=(dateMembersData&&(dateMembersData[dt]||dateMembersData['idx_'+di]))||[{member:'',role:'クローザー',target:''}];
+    const memberRows=existingMembers.map((m,mi)=>`
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;">
+        <input class="inp-s" id="kdm-name-${di}-${mi}" placeholder="メンバー名" value="${esc(m.member||'')}" style="flex:2;text-align:left;padding:7px;"/>
+        <select class="inp-s" id="kdm-role-${di}-${mi}" style="flex:1;text-align:left;padding:7px;">
+          <option value="クローザー"${(m.role||'クローザー')==='クローザー'?' selected':''}>クローザー</option>
+          <option value="ディレクター"${m.role==='ディレクター'?' selected':''}>ディレクター</option>
+          <option value="キャッチャー"${m.role==='キャッチャー'?' selected':''}>キャッチャー</option>
+        </select>
+        <input class="inp-s" id="kdm-kpi-${di}-${mi}" type="number" min="0" placeholder="KPI" value="${m.target||''}" style="flex:0 0 52px;" oninput="updateKpiDayTotal(${di})"/>
+        <div class="unit">件</div>
+        ${mi>0?`<button type="button" onclick="removeKpiDateMember(${di},${mi})" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 6px;font-size:.7rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">×</button>`:'<div style="width:26px;"></div>'}
+      </div>`).join('');
+    return `<div style="background:var(--pl);border-radius:10px;padding:11px;margin-bottom:10px;" id="kpi-date-block-${di}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:.82rem;font-weight:800;color:var(--pd);">${dt} (${dow})</div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--pd);">合計 <span id="kpi-day-total-${di}">0</span>台</div>
+      </div>
+      <div id="kpi-date-members-${di}">${memberRows}</div>
+      <button type="button" onclick="addKpiDateMember(${di})" style="width:100%;margin-top:6px;padding:7px;border-radius:7px;border:1.5px dashed var(--pd);background:transparent;font-size:.76rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--pd);">＋ メンバーを追加</button>
+    </div>`;
+  }).join('');
+  // 合計更新
+  dates.forEach((_,di)=>updateKpiDayTotal(di));
+}
+window.renderKpiDateMembersWrap=renderKpiDateMembersWrap;
+
+function updateKpiDayTotal(di){
+  let total=0;
+  let mi=0;
+  while(document.getElementById(`kdm-kpi-${di}-${mi}`)){
+    const role=document.getElementById(`kdm-role-${di}-${mi}`)?.value||'';
+    if(role!=='キャッチャー'){
+      total+=+document.getElementById(`kdm-kpi-${di}-${mi}`).value||0;
+    }
+    mi++;
+  }
+  const el=document.getElementById(`kpi-day-total-${di}`);
+  if(el)el.textContent=total;
+}
+window.updateKpiDayTotal=updateKpiDayTotal;
+
+function addKpiDateMember(di){
+  const members=collectKpiDateMembers(di);
+  members.push({member:'',role:'クローザー',target:''});
+  const dates=collectKpiDates();
+  const dateMembersData={};
+  dates.forEach((dt,i)=>{ dateMembersData[dt]=collectKpiDateMembers(i); });
+  dateMembersData[dates[di]]=members;
+  renderKpiDateMembersWrap(dates, dateMembersData);
+}
+window.addKpiDateMember=addKpiDateMember;
+
+function removeKpiDateMember(di,mi){
+  const dates=collectKpiDates();
+  const dateMembersData={};
+  dates.forEach((dt,i)=>{ dateMembersData[dt]=collectKpiDateMembers(i); });
+  dateMembersData[dates[di]].splice(mi,1);
+  renderKpiDateMembersWrap(dates, dateMembersData);
+}
+window.removeKpiDateMember=removeKpiDateMember;
+
+function collectKpiDateMembers(di){
+  const members=[];
+  let mi=0;
+  while(document.getElementById(`kdm-name-${di}-${mi}`)){
+    members.push({
+      member:document.getElementById(`kdm-name-${di}-${mi}`)?.value?.trim()||'',
+      role:document.getElementById(`kdm-role-${di}-${mi}`)?.value||'クローザー',
+      target:+document.getElementById(`kdm-kpi-${di}-${mi}`)?.value||0,
+    });
+    mi++;
+  }
+  return members;
+}
+
+function collectKpiDates(){
+  const wrap=document.getElementById('kpi-dates-wrap');
+  if(!wrap)return[];
+  const rows=wrap.querySelectorAll('[id^="kpi-date-row-"]');
+  return [...rows].map((_,i)=>document.getElementById('kpi-date-'+i)?.value||'');
+}
+
+function addKpiDate(){
+  const dates=collectKpiDates();
+  let next='';
+  if(dates.length){
+    const last=dates[dates.length-1];
+    if(last){const d=parseDateLocal(last);d.setDate(d.getDate()+1);next=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  }
+  // 既存のメンバーを保持しつつ新しい日程を追加
+  const existingByIdx={};
+  dates.forEach((_,i)=>{ existingByIdx[i]=collectKpiDateMembers(i); });
+  const prevMembers=dates.length>0?(existingByIdx[dates.length-1]||[]):[{member:'',role:'クローザー',target:''}];
+  dates.push(next);
+  const newByDate={};
+  dates.forEach((dt,i)=>{
+    // 最後の日程は前日のメンバー名・役職・KPIをそのまま引き継ぎ
+    newByDate[dt||('idx_'+i)]=i<dates.length-1?(existingByIdx[i]||[{member:'',role:'クローザー',target:''}]):prevMembers.map(m=>({...m}));
+  });
+  renderKpiDateRows(dates, newByDate);
+}
+window.addKpiDate=addKpiDate;
+
+function removeKpiDate(idx){
+  const dates=collectKpiDates();
+  const dateMembersData={};
+  dates.forEach((dt,i)=>{if(i!==idx) dateMembersData[dt]=collectKpiDateMembers(i);});
+  dates.splice(idx,1);
+  renderKpiDateRows(dates, dateMembersData);
+}
+window.removeKpiDate=removeKpiDate;
+
+function onKpiDateChange(){
+  const dates=collectKpiDates();
+  const dateMembersData={};
+  dates.forEach((dt,i)=>{dateMembersData[dt]=collectKpiDateMembers(i);});
+  renderKpiDateMembersWrap(dates, dateMembersData);
+}
+window.onKpiDateChange=onKpiDateChange;
+
+function renderKpiMemberRows(members){
+  const wrap=document.getElementById('kpi-members-wrap');
+  if(!wrap)return;
+  wrap.innerHTML=members.map((m,i)=>`
+    <div style="display:flex;gap:5px;align-items:center;margin-bottom:6px;" id="kpi-member-row-${i}">
+      <input class="inp-s" id="kpi-member-${i}" placeholder="メンバー名" value="${esc(m.member||'')}" style="flex:2;text-align:left;padding:8px;"/>
+      <select class="inp-s" id="kpi-role-${i}" style="flex:1;text-align:left;padding:8px;">
+        <option value="クローザー"${m.role==='クローザー'?' selected':''}>クローザー</option>
+        <option value="ディレクター"${m.role==='ディレクター'?' selected':''}>ディレクター</option>
+      </select>
+      <input class="inp-s" id="kpi-target-${i}" placeholder="KPI" type="number" min="0" value="${m.target||''}" style="flex:1;"/>
+      <div class="unit">台</div>
+      ${i>0?`<button type="button" onclick="removeKpiMember(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;flex-shrink:0;">×</button>`:'<div style="width:32px;"></div>'}
+    </div>`).join('');
+}
+window.renderKpiMemberRows=renderKpiMemberRows;
+
+function addKpiMember(){
+  const wrap=document.getElementById('kpi-members-wrap');
+  const count=wrap?wrap.querySelectorAll('[id^="kpi-member-row-"]').length:1;
+  const members=collectKpiMembers();
+  members.push({member:'',role:'クローザー',target:''});
+  renderKpiMemberRows(members);
+}
+window.addKpiMember=addKpiMember;
+
+function removeKpiMember(idx){
+  const members=collectKpiMembers();
+  members.splice(idx,1);
+  renderKpiMemberRows(members);
+}
+window.removeKpiMember=removeKpiMember;
+
+function collectKpiMembers(){
+  const wrap=document.getElementById('kpi-members-wrap');
+  if(!wrap)return[];
+  const rows=wrap.querySelectorAll('[id^="kpi-member-row-"]');
+  return [...rows].map((_,i)=>({
+    member:document.getElementById('kpi-member-'+i)?.value?.trim()||'',
+    role:document.getElementById('kpi-role-'+i)?.value||'クローザー',
+    target:+document.getElementById('kpi-target-'+i)?.value||0,
+  }));
+}
+
+function openKpiEdit(id){
+  document.getElementById('kpi-edit-id').value=id||'';
+  document.getElementById('kpi-edit-title').textContent=id?'KPIを編集':'KPIを登録';
+  document.getElementById('kpi-del-btn').style.display=id?'block':'none';
+  if(id&&_kpi[id]){
+    const k=_kpi[id];
+    const dates=k.dates||[k.date||''];
+    const dateMembersData=k.dateMembers||{};
+    // 旧データ互換：dateMembersがない場合はmembersを全日程に適用
+    if(!k.dateMembers){
+      const fallback=k.members||[{member:k.member||'',role:k.role||'クローザー',target:k.target||0}];
+      dates.forEach(dt=>{ dateMembersData[dt]=fallback; });
+    }
+    document.getElementById('kpi-store').value=k.store||'';
+    renderKpiDateRows(dates, dateMembersData);
+  } else {
+    const t=new Date();
+    const today=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    document.getElementById('kpi-store').value='';
+    renderKpiDateRows([today],{[today]:[{member:'',role:'クローザー',target:''}]});
+  }
+  document.getElementById('modal-kpi-edit').classList.add('open');
+}
+window.openKpiEdit=openKpiEdit;
+
+async function saveKpi(){
+  const id=document.getElementById('kpi-edit-id').value;
+  const dates=collectKpiDates().filter(d=>d);
+  const store=document.getElementById('kpi-store').value.trim();
+  if(!dates.length||!store){showToast('日程・店舗名は必須です');return;}
+  // 日程ごとのメンバーデータを収集
+  const dateMembers={};
+  dates.forEach((dt,i)=>{ dateMembers[dt]=collectKpiDateMembers(i).filter(m=>m.member); });
+  const hasMembers=Object.values(dateMembers).some(ms=>ms.length>0);
+  if(!hasMembers){showToast('メンバーを1人以上入力してください');return;}
+  // 後方互換：最初の日付のメンバーをmembersとして保存
+  const firstMembers=dateMembers[dates[0]]||[];
+  const data={dates,date:dates[0],store,members:firstMembers,dateMembers,updatedAt:Date.now()};
+  try{
+    if(id){ await _set(_ref(_db,'fp_kpi/'+id),data); }
+    else { await _set(_push(_ref(_db,'fp_kpi')),data); }
+    closeModal('modal-kpi-edit');
+    showToast('✅ 保存しました');
+  }catch(e){showToast('エラー:'+e.message);}
+}
+window.saveKpi=saveKpi;
+
+function deleteKpi(){
+  const id=document.getElementById('kpi-edit-id').value;
+  if(!id)return;
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_kpi/'+id));
+      closeModal('modal-confirm-delete');
+      closeModal('modal-kpi-edit');
+      showToast('🗑 削除しました');
+    }catch(e){showToast('エラー:'+e.message);}
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+window.deleteKpi=deleteKpi;
+
+// KPIページの月選択イベント
+document.getElementById('kpi-month')?.addEventListener('change',()=>{
+  _kpiWeek='all';
+  document.querySelectorAll('#kpi-week-filter .fchip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#kpi-week-filter .fchip')?.classList.add('active');
+  renderKpiList();
+});
+
+// updateAdminUI にKPI登録ボタン表示も追加
+// サイドバーはHTMLのonclickで直接処理
+
+// モーダルをスワイプで閉じる
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  const modal=overlay.querySelector('.modal');
+  if(!modal)return;
+  let startY=0,curY=0,dragging=false;
+  modal.addEventListener('touchstart',e=>{
+    const t=e.touches[0];
+    const rect=modal.getBoundingClientRect();
+    if(t.clientY-rect.top>56)return;
+    startY=t.clientY;curY=t.clientY;dragging=true;
+    modal.style.transition='none';
+  },{passive:true});
+  modal.addEventListener('touchmove',e=>{
+    if(!dragging)return;
+    curY=e.touches[0].clientY;
+    const diff=curY-startY;
+    if(diff<0)return;
+    modal.style.transform=`translateY(${diff}px)`;
+    e.preventDefault();
+  },{passive:false});
+  modal.addEventListener('touchend',()=>{
+    if(!dragging)return;
+    dragging=false;
+    modal.style.transition='transform .3s ease';
+    const diff=curY-startY;
+    if(diff>80){
+      modal.style.transform='translateY(100%)';
+      setTimeout(()=>{overlay.classList.remove('open');modal.style.transform='';modal.style.transition='';},300);
+    } else {
+      modal.style.transform='';modal.style.transition='';
+    }
+  });
+});
 </script>
 </body>
 </html>
