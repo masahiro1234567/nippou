@@ -2327,23 +2327,70 @@ window.switchATab=switchATab;
 
 function renderAdminList(){
   const q=(document.getElementById('adm-search')?.value||'').trim().toLowerCase();
-  const all=Object.entries(_reports).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const all=Object.entries(_reports||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   const filtered=all.filter(([,r])=>!q||(r.store||'').includes(q)||(r.director||r.userName||'').toLowerCase().includes(q));
-  const c=document.getElementById('adm-list');if(!c)return;
-  if(!filtered.length){c.innerHTML='<div class="empty ts">データなし</div>';return;}
-  c.innerHTML=filtered.map(([id,r])=>{
-    const p=r.ach||0,dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
-    return `<div class="report-card">
-      <div class="rc-top"><div class="rc-store">${esc(r.store||'−')}</div><div class="rc-date">${r.date||'−'}(${dow})</div></div>
-      <div class="rc-meta"><span class="badge b-blue">${esc(r.channel||'−')}</span><span class="badge ${achBC(p)}">${p}%</span><span class="badge b-gray">${esc(r.director||r.userName||'−')}</span></div>
-      <div style="display:flex;gap:6px;margin-top:8px;">
-        <button onclick="openEdit('${id}')" class="btn-sm" style="flex:1;padding:8px;">編集</button>
-        <button onclick="delReport('${id}')" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
+  const cont=document.getElementById('adm-list');if(!cont)return;
+  if(!filtered.length){cont.innerHTML='<div class="empty ts">データなし</div>';return;}
+
+  // 同店舗×同週でグループ化
+  const groups={};
+  filtered.forEach(([id,r])=>{
+    if(!r.date)return;
+    const d=parseDateLocal(r.date),day=d.getDay();
+    const mon=parseDateLocal(r.date); mon.setDate(d.getDate()-(day===0?6:day-1));
+    const wKey=`${r.store||''}__${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+    if(!groups[wKey]) groups[wKey]=[];
+    groups[wKey].push([id,r]);
+  });
+
+  cont.innerHTML=Object.values(groups).map(group=>{
+    group.sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+    const [mainId,mainR]=group[0];
+    const p=mainR.ach||0;
+    const dow=mainR.date?DOWS[parseDateLocal(mainR.date).getDay()]:'';
+    const multiDay=group.length>1;
+    const dateOptions=group.map(([id,r])=>{
+      const dw=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
+      return `<option value="${id}">${r.date}(${dw}) ${r.ach||0}%</option>`;
+    }).join('');
+    return `<div class="report-card" style="margin-bottom:8px;" id="adm-rc-${mainId}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <div style="font-weight:800;font-size:.88rem;">${esc(mainR.store||'−')}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+            ${multiDay
+              ? `<select class="inp-s" style="font-size:.7rem;padding:3px 6px;" onchange="switchAdminCard('${mainId}',this.value)">${dateOptions}</select>`
+              : `<span style="font-size:.74rem;color:var(--sub);">${mainR.date||''}(${dow})</span>`
+            }
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge b-blue" id="adm-ch-${mainId}">${esc(mainR.channel||'−')}</span>
+          <span class="badge ${achBC(p)}" id="adm-ach-${mainId}">${p}%</span>
+          <span class="badge b-gray" id="adm-dir-${mainId}">${esc(mainR.director||mainR.userName||'−')}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button type="button" onclick="openEdit('${mainId}')" id="adm-edit-${mainId}" style="flex:1;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>
+        <button type="button" onclick="delReport('${mainId}')" id="adm-del-${mainId}" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
       </div>
     </div>`;
   }).join('');
 }
 window.renderAdminList=renderAdminList;
+
+function switchAdminCard(mainId, newId){
+  const r=_reports[newId];if(!r)return;
+  const p=r.ach||0;
+  document.getElementById('adm-ch-'+mainId).textContent=r.channel||'−';
+  document.getElementById('adm-ach-'+mainId).textContent=p+'%';
+  document.getElementById('adm-ach-'+mainId).className='badge '+achBC(p);
+  document.getElementById('adm-dir-'+mainId).textContent=r.director||r.userName||'−';
+  document.getElementById('adm-edit-'+mainId).setAttribute('onclick',`openEdit('${newId}')`);
+  document.getElementById('adm-del-'+mainId).setAttribute('onclick',`delReport('${newId}')`);
+}
+window.switchAdminCard=switchAdminCard;
+
 function renderAdminKpiList(){
   const cont=document.getElementById('at-kpi-list');
   if(!cont)return;
