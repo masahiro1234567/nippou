@@ -1038,6 +1038,15 @@ function continueReport(id){
       if(vd) vd.value=vm.d||'';
     });
   }
+  // FP獲得数を日別に復元
+  if(r.fp_by_day){
+    r.fp_by_day.forEach((fp,i)=>{
+      const fa=document.getElementById('fp-a-'+i);
+      const fb=document.getElementById('fp-b-'+i);
+      if(fa) fa.value=fp.a||'';
+      if(fb) fb.value=fp.b||'';
+    });
+  }
   // au/UQ 実績を日別に復元（_mobileDayData）
   window._mobileDayData={};
   if(r.au_by_day&&r.uq_by_day){
