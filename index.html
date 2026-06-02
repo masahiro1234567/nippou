@@ -2516,7 +2516,21 @@ function showDeleteConfirm(id, onConfirm){
   btn.parentNode.replaceChild(newBtn,btn);
   newBtn.onclick=async()=>{
     try{
+      const r=(_reports||{})[id];
+      // fp_reports 削除
       await _remove(_ref(_db,'fp_reports/'+id));
+      // fp_breakdown も削除（date+storeキー）
+      if(r&&r.date&&r.store){
+        const fbKey=(r.date+r.store).replace(/[^a-zA-Z0-9]/g,'_');
+        await _remove(_ref(_db,'fp_breakdown/'+fbKey));
+      }
+      // workDaysがある場合は各日のfp_breakdownも削除
+      if(r&&r.workDays&&r.store){
+        for(const d of r.workDays){
+          const fbKey=(d+r.store).replace(/[^a-zA-Z0-9]/g,'_');
+          await _remove(_ref(_db,'fp_breakdown/'+fbKey));
+        }
+      }
       closeModal('modal-confirm-delete');
       showToast('🗑 削除しました');
       if(onConfirm) onConfirm();
