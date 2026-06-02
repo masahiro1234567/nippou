@@ -159,7 +159,6 @@ textarea.inp{resize:vertical;min-height:70px;}
 /* CARRY OVER SCREEN */
 .carry-card{background:var(--card);border-radius:var(--r);border:2px solid var(--primary);padding:18px;margin-bottom:14px;}
 .carry-title{font-size:.92rem;font-weight:800;margin-bottom:6px;color:var(--primary);}
-.carry-info{font-size:.8rem;color:var(--sub);line-height:1.6;}
 
 /* LOADING/TOAST */
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999;}
@@ -755,7 +754,11 @@ textarea.inp{resize:vertical;min-height:70px;}
     </div>
     <div class="modal-body">
       <div class="report-full" id="detail-text"></div>
-      <button class="btn btn-p mt12" onclick="copyDetail()">📋 コピー</button>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-p" onclick="copyDetail()" style="flex:1;">📋 コピー</button>
+        <button class="btn" id="detail-continue-btn" style="flex:1;background:#fff;border:2px solid var(--primary);color:var(--primary);font-weight:700;">▶ 翌日分を追加</button>
+      </div>
+      <button type="button" id="detail-edit-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:var(--pl);color:var(--pd);font-weight:700;cursor:pointer;font-family:inherit;font-size:.84rem;" onclick="openEditFromDetail()">✏️ 編集（管理者）</button>
     </div>
   </div>
 </div>
@@ -1212,22 +1215,6 @@ function onDsDateChange(){
 }
 window.onDsDateChange=onDsDateChange;
 
-function showCarryPage(){
-  const myReports=Object.entries(_reports).filter(([,r])=>r.userName===_user.name).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
-  const latest=myReports.length?myReports[0][1]:null;
-  if(latest){
-    const dow=DOWS[parseDateLocal(latest.date).getDay()];
-    document.getElementById('carry-info').textContent=`前回：${latest.date}(${dow}) ${latest.store||''} 達成率${latest.ach||0}%`;
-    document.getElementById('carry-exists').style.display='block';
-    document.getElementById('carry-none').style.display='none';
-    _carryData=latest;
-  } else {
-    document.getElementById('carry-exists').style.display='none';
-    document.getElementById('carry-none').style.display='block';
-    _carryData=null;
-  }
-  showPage('pg-carry');
-}
 
 function useCarry(){
   try{
@@ -2257,7 +2244,7 @@ function doAdminLogin(){
 function adminLogout(){
   _isAdmin=false;sessionStorage.removeItem('fp_admin');
   updateAdminUI();showToast('ログアウトしました');
-  showCarryPage();
+  showPage('pg-home');
 }
 function updateAdminUI(){
   const b=document.getElementById('detail-edit-btn');
