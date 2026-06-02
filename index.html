@@ -964,7 +964,7 @@ function renderHomePrevReports(){
     const lastDate=wdays[wdays.length-1]||'';
     const lastDow=lastDate?DOWS[parseDateLocal(lastDate).getDay()]:'';
     const dayCount=wdays.length;
-    return `<div class="report-card" style="border:2px solid var(--border);margin-bottom:8px;" onclick="continueReport('${id}')">
+    return `<div class="report-card" style="border:2px solid var(--border);margin-bottom:8px;" onclick="navTo('pg-list')">
       <div class="rc-top">
         <div class="rc-store">${esc(r.store||'−')}</div>
         <div class="rc-date">${wdays[0]||''}〜${lastDate}(${lastDow})</div>
@@ -974,7 +974,7 @@ function renderHomePrevReports(){
         <span class="badge ${achBC(p)}">${p}%</span>
         <span class="badge b-gray">${dayCount}日稼働</span>
       </div>
-      <div style="font-size:.76rem;color:var(--primary);font-weight:700;margin-top:4px;">▶ この日報に翌日分を追加</div>
+      <div style="font-size:.76rem;color:var(--sub);margin-top:4px;">日報確認画面から翌日分を追加できます</div>
     </div>`;
   }).join('');
 }
@@ -1957,6 +1957,14 @@ function openDetail(id){
   document.getElementById('detail-title').textContent=`${r.store||'−'} ${r.date||''}(${dow}) ${r.ach||0}%`;
   document.getElementById('detail-text').textContent=buildText(r);
   document.getElementById('detail-edit-btn').style.display=_isAdmin?'inline-block':'none';
+  // 翌日分追加ボタン
+  const continueBtn=document.getElementById('detail-continue-btn');
+  if(continueBtn){
+    continueBtn.onclick=()=>{
+      closeModal('modal-detail');
+      continueReport(id);
+    };
+  }
   document.getElementById('modal-detail').classList.add('open');
 }
 window.openDetail=openDetail;
