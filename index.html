@@ -867,7 +867,7 @@ updateAdminUI();
 <script>
 window._reports={}; window._storeFeats={}; window._goals={};
 window._user=null; window._isAdmin=false;
-let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all';
+let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all',_statsChannel='all';
 const PW='aunippou26';
 const DOWS=['日','月','火','水','木','金','土'];
 
@@ -2141,7 +2141,6 @@ function renderStats(){
 }
 window.renderStats=renderStats;
 
-let _statsChannel='all';
 function switchStatsTab(id,el){
   ['st-store','st-channel'].forEach(t=>{document.getElementById(t).style.display=(t===id)?'block':'none';});
   document.querySelectorAll('#pg-stats .tab').forEach(t=>t.classList.remove('active'));
@@ -2349,9 +2348,9 @@ function renderAdminList(){
     const p=mainR.ach||0;
     const dow=mainR.date?DOWS[parseDateLocal(mainR.date).getDay()]:'';
     const multiDay=group.length>1;
-    const dateOptions=group.map(([id,r])=>{
+    const dateOptions=group.map(([id,r],gi)=>{
       const dw=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
-      return `<option value="${id}">${r.date}(${dw}) ${r.ach||0}%</option>`;
+      return `<option value="${id}"${gi===0?' selected':''}>${r.date}(${dw}) ${r.ach||0}%</option>`;
     }).join('');
     return `<div class="report-card" style="margin-bottom:8px;" id="adm-rc-${mainId}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
