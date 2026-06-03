@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover">
 <title>FP日報アプリ</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap');
@@ -50,7 +50,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .sb-divider{height:1px;background:var(--border);margin:6px 14px;}
 
 /* BODY */
-.body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 13px 32px;}
+.body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 13px 32px;overscroll-behavior:contain;}
 
 /* CARD */
 .card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh-sm);border:1.5px solid var(--border);padding:14px;margin-bottom:12px;}
@@ -123,7 +123,7 @@ textarea.inp{resize:vertical;min-height:70px;}
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.5);z-index:200;align-items:flex-end;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:transform .3s ease;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:transform .3s ease;overscroll-behavior:contain;}
 .modal-handle{width:34px;height:4px;background:var(--border);border-radius:2px;margin:11px auto 0;}
 .modal-hdr{padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .modal-hdr h3{font-size:.92rem;font-weight:800;}
@@ -176,6 +176,14 @@ textarea.inp{resize:vertical;min-height:70px;}
 .day-btn{padding:10px 20px;border-radius:10px;border:2px solid var(--border);background:#fff;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--sub);transition:all .15s;}
 .day-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;}
 
+/* ── iOS キーボード対応 ── */
+input, select, textarea {
+  /* iOSでのズーム防止 */
+  font-size: max(16px, 1em);
+}
+.inp, .inp-s {
+  font-size: 16px !important; /* iOS自動ズーム防止 */
+}
 /* ── PC対応 ── */
 @media (min-width: 600px) {
   #sidebar { width: 280px; }
@@ -310,7 +318,7 @@ textarea.inp{resize:vertical;min-height:70px;}
       <div class="card-title">🎯 目標</div>
       <div class="row-inputs">
         <div class="row-label">目標台数</div>
-        <input class="inp-s" id="r-ta" placeholder="総販" type="number" min="0" oninput="calcStats()"/>
+        <input class="inp-s" id="r-ta" placeholder="総販" type="number" min="0" oninput="calcStatsDebounced()"/>
         <div class="unit">台</div>
         <div class="row-sep">/</div>
         <input class="inp-s" id="r-tb" placeholder="リク抜き" type="number" min="0" oninput="calcAuto()"/>
@@ -861,6 +869,23 @@ const s=localStorage.getItem('fp_user');
 if(s){window._user=JSON.parse(s);goMain();}else{showPage('pg-login');}
 window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
 updateAdminUI();
+
+// iOS キーボード表示時のスクロール抑制
+(function(){
+  if(!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+  let lastScrollY=0;
+  document.addEventListener('focusin', e=>{
+    if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){
+      lastScrollY=window.scrollY;
+    }
+  }, true);
+  document.addEventListener('focusout', e=>{
+    if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){
+      // キーボードが閉じた後に元の位置に戻す
+      setTimeout(()=>{ window.scrollTo(0, lastScrollY); }, 100);
+    }
+  }, true);
+})();
 </script>
 
 <script>
@@ -1068,27 +1093,30 @@ function continueReport(id){
 window.continueReport=continueReport;
 
 // 稼働日の変更ハンドラ
+let _workdayTimer=null;
 function onWorkdayChange(){
-  try{
-    const days=[];
-    let i=0;
-    while(document.getElementById('wd-'+i)){
-      const v=document.getElementById('wd-'+i).value;
-      if(v) days.push(v);
-      i++;
-    }
-    _workDays=days.length?days:[];
-    _workDayCount=_workDays.length||1;
-    if(_workDays.length>0) document.getElementById('in-date').value=_workDays[0];
-    const prev=document.getElementById('workday-preview');
-    if(prev&&_workDays.length>0){
-      const labels=_workDays.map(dt=>DOWS[parseDateLocal(dt).getDay()]+'曜日');
-      prev.textContent='稼働日：'+labels.join('・');
-      prev.style.display='block';
-    }
-    renderMikomiInputs();
-    calcStats();
-  }catch(e){ console.warn('onWorkdayChange:',e); }
+  // 即座に_workDaysだけ更新（UIのカクつきを防ぐ）
+  const days=[];
+  let i=0;
+  while(document.getElementById('wd-'+i)){
+    const v=document.getElementById('wd-'+i).value;
+    if(v) days.push(v);
+    i++;
+  }
+  _workDays=days.length?days:[];
+  _workDayCount=_workDays.length||1;
+  if(_workDays.length>0) document.getElementById('in-date').value=_workDays[0];
+  const prev=document.getElementById('workday-preview');
+  if(prev&&_workDays.length>0){
+    const labels=_workDays.map(dt=>DOWS[parseDateLocal(dt).getDay()]+'曜日');
+    prev.textContent='稼働日：'+labels.join('・');
+    prev.style.display='block';
+  }
+  // renderMikomiInputs と calcStats はdebounce（300ms待って実行）
+  clearTimeout(_workdayTimer);
+  _workdayTimer=setTimeout(()=>{
+    try{ renderMikomiInputs(); calcStats(); }catch(e){ console.warn(e); }
+  },300);
 }
 window.onWorkdayChange=onWorkdayChange;
 
@@ -1322,10 +1350,10 @@ function renderMikomiInputs(){
         <div style="font-size:.74rem;font-weight:800;color:var(--pd);margin-bottom:6px;">${lbl}</div>
         <div class="row-inputs" style="margin-bottom:6px;">
           <div class="row-label" style="font-size:.7rem;">総販/2Bリク除き</div>
-          <input class="inp-s" id="j-a-${i}" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+          <input class="inp-s" id="j-a-${i}" placeholder="0" type="number" min="0" oninput="calcStatsDebounced()"/>
           <div class="unit">件</div>
           <div class="row-sep">/</div>
-          <input class="inp-s" id="j-b-${i}" placeholder="0" type="number" min="0" oninput="calcStats()"/>
+          <input class="inp-s" id="j-b-${i}" placeholder="0" type="number" min="0" oninput="calcStatsDebounced()"/>
           <div class="unit">件</div>
         </div>
         <div class="row-inputs" style="margin-bottom:0;">
@@ -1458,6 +1486,9 @@ function calcAutoForActiveDay(){
 window.calcAutoForActiveDay=calcAutoForActiveDay;
 
 // 実績欄手入力時：残数・達成率のみ更新（実績欄は上書きしない）
+let _calcTimer=null;
+function calcStatsDebounced(){ clearTimeout(_calcTimer); _calcTimer=setTimeout(calcStats,200); }
+window.calcStatsDebounced=calcStatsDebounced;
 function calcStats(){
   const days=_workDays.length?_workDays:[''];
   let totalA=0,totalB=0;
