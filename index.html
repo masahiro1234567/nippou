@@ -1097,54 +1097,7 @@ function navTo(pg){
 window.toggleSb=toggleSb;window.closeSb=closeSb;window.navTo=navTo;
 
 // ── LOGIN ──
-async function doLogin(){
-  const name=document.getElementById('login-name').value.trim();
-  const email=document.getElementById('login-email').value.trim().toLowerCase();
-  const pass=document.getElementById('login-pass').value;
-  if(!name||!email||!pass){showToast('全ての項目を入力してください');return;}
-  if(pass!=='orinavi.au'){showToast('パスコードが違います');return;}
-  // Firebaseからユーザー一覧を取得して認証
-  try{
-    const snap=await _get(_ref(_db,'fp_users'));
-    const users={};
-    snap.forEach(c=>{users[c.key]=c.val();});
-    // メアドで検索
-    let userEntry=Object.entries(users).find(([,u])=>u.email&&u.email.toLowerCase()===email);
-    let uid, userData;
-    if(!userEntry){
-      // ユーザーが未登録の場合：fp_usersが空なら自動登録、そうでなければ拒否
-      const hasUsers=Object.keys(users).length>0;
-      if(hasUsers){
-        showToast('登録されていません。管理者に連絡してください');return;
-      }
-      // 初回のみ自動登録（fp_usersが空の場合）
-      const newRef=_push(_ref(_db,'fp_users'));
-      uid=newRef.key;
-      userData={name,email,permission:'edit'};
-      await _set(newRef,userData);
-    } else {
-      [uid,userData]=userEntry;
-    }
-    if(userData.permission==='disabled'){
-      showToast('このアカウントはログインが禁止されています');return;
-    }
-    // ログイン成功
-    window._user={name:userData.name||name, email, uid, permission:userData.permission||'edit'};
-    window._userPermission=userData.permission||'edit';
-    // ログイン履歴を保存
-    await _set(_push(_ref(_db,'fp_login_logs')),{
-      uid, name:userData.name||name, email,
-      loginAt:Date.now(),
-      loginAtStr:new Date().toLocaleString('ja-JP')
-    });
-    // ユーザー情報更新（最終ログイン日時）
-    await _set(_ref(_db,'fp_users/'+uid+'/lastLogin'),Date.now());
-    try{ localStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
-    try{ sessionStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
-    goMain();
-  }catch(e){ showToast('エラー:'+e.message); }
-}
-window.doLogin=doLogin;
+
 
 function goMain(){
   document.getElementById('sb-uname').textContent=_user.name;
@@ -2984,6 +2937,48 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 window.closeModal=closeModal;
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+async function doLogin(){
+  const name=document.getElementById('login-name').value.trim();
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  if(!name||!email||!pass){showToast('全ての項目を入力してください');return;}
+  if(pass!=='orinavi.au'){showToast('パスコードが違います');return;}
+  if(!window._get){showToast('初期化中です。少し待って再試行してください');return;}
+  try{
+    const snap=await _get(_ref(_db,'fp_users'));
+    const users={};
+    snap.forEach(c=>{users[c.key]=c.val();});
+    let userEntry=Object.entries(users).find(([,u])=>u.email&&u.email.toLowerCase()===email);
+    let uid, userData;
+    if(!userEntry){
+      const hasUsers=Object.keys(users).length>0;
+      if(hasUsers){showToast('登録されていません。管理者に連絡してください');return;}
+      const newRef=_push(_ref(_db,'fp_users'));
+      uid=newRef.key;
+      userData={name,email,permission:'edit'};
+      await _set(newRef,userData);
+    } else {
+      [uid,userData]=userEntry;
+    }
+    if(userData.permission==='disabled'){showToast('このアカウントはログインが禁止されています');return;}
+    window._user={name:userData.name||name,email,uid,permission:userData.permission||'edit'};
+    window._userPermission=userData.permission||'edit';
+    await _set(_push(_ref(_db,'fp_login_logs')),{
+      uid,name:userData.name||name,email,
+      loginAt:Date.now(),
+      loginAtStr:new Date().toLocaleString('ja-JP')
+    });
+    await _set(_ref(_db,'fp_users/'+uid+'/lastLogin'),Date.now());
+    try{localStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
+    try{sessionStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
+    goMain();
+  }catch(e){
+    console.error('doLoginエラー:',e);
+    showToast('エラー:'+e.message);
+  }
+}
+window.doLogin=doLogin;
+
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
 
 
