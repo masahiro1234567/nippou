@@ -214,6 +214,7 @@ input, select, textarea {
     <button type="button" class="sb-item" onclick="closeSb();navTo('pg-stats');"><span class="sb-item-icon">📊</span>実績確認</button>
     <button type="button" class="sb-item" onclick="closeSb();navTo('pg-stores');"><span class="sb-item-icon">🏪</span>店舗特徴</button>
     <button type="button" class="sb-item" onclick="closeSb();navTo('pg-kpi');"><span class="sb-item-icon">🎯</span>KPI</button>
+    <button type="button" class="sb-item" onclick="closeSb();navTo('pg-personal');"><span class="sb-item-icon">📈</span>個人実績</button>
     <div class="sb-divider"></div>
     <button type="button" class="sb-item" onclick="closeSb();navTo('pg-admin-login');"><span class="sb-item-icon">🔐</span>管理者ログイン</button>
   </div>
@@ -538,6 +539,37 @@ input, select, textarea {
   </div>
 </div>
 
+<!-- ══ 個人実績 ══ -->
+<div class="page" id="pg-personal">
+  <div class="hdr">
+    <div class="logo"><div class="logo-mark">FP<br>日報</div><h1>個人実績</h1></div>
+    <div class="hdr-right">
+      <div id="personal-admin-badge" style="display:none;" class="admin-badge">管理者ログイン中</div>
+      <button class="btn-back" onclick="goBack()">← 戻る</button>
+      <button class="btn-menu" id="menu-personal" onclick="toggleSb()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="body">
+    <div class="form-group">
+      <label>対象月</label>
+      <input class="inp" type="month" id="personal-month" onchange="renderPersonal()"/>
+    </div>
+    <div class="filter-bar" style="margin-bottom:12px;">
+      <button class="fchip active" onclick="setPersonalWeek('all',this)">全体</button>
+      <button class="fchip" onclick="setPersonalWeek(1,this)">第1週</button>
+      <button class="fchip" onclick="setPersonalWeek(2,this)">第2週</button>
+      <button class="fchip" onclick="setPersonalWeek(3,this)">第3週</button>
+      <button class="fchip" onclick="setPersonalWeek(4,this)">第4週</button>
+      <button class="fchip" onclick="setPersonalWeek(5,this)">第5週</button>
+    </div>
+    <div id="personal-list"></div>
+    <!-- 管理者用：個人実績登録ボタン -->
+    <div id="personal-admin-wrap" style="display:none;margin-top:12px;">
+      <button class="btn btn-p" onclick="openPersonalEdit(null)" style="width:100%;">＋ 個人実績を登録</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 店舗特徴 ══ -->
 <div class="page" id="pg-stores">
   <div class="hdr">
@@ -668,14 +700,35 @@ input, select, textarea {
     </div>
     <div id="at-kpi" style="display:none;">
       <div class="section-title">KPI登録・管理</div>
-      <button type="button" class="btn btn-p" style="margin-bottom:12px;" onclick="openKpiEdit(null)">＋ KPIを登録</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <input class="inp" type="month" id="at-kpi-month" onchange="renderAdminKpiList()" style="flex:1;"/>
+      </div>
+      <div class="filter-bar" id="at-kpi-week-filter" style="margin-bottom:10px;">
+        <button class="fchip active" onclick="setAdminKpiWeek('all',this)">全体</button>
+        <button class="fchip" onclick="setAdminKpiWeek(1,this)">第1週</button>
+        <button class="fchip" onclick="setAdminKpiWeek(2,this)">第2週</button>
+        <button class="fchip" onclick="setAdminKpiWeek(3,this)">第3週</button>
+        <button class="fchip" onclick="setAdminKpiWeek(4,this)">第4週</button>
+        <button class="fchip" onclick="setAdminKpiWeek(5,this)">第5週</button>
+      </div>
+      <button type="button" class="btn btn-p" style="margin-bottom:12px;width:100%;" onclick="openKpiEditForWeek()">＋ この週のKPIを登録</button>
       <div id="at-kpi-list"></div>
     </div>
     <div id="at-kpi-result" style="display:none;">
       <div class="section-title">稼働実績・KPI達成率</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <input class="inp" id="kpi-result-search" placeholder="🔍 名前・店舗名で検索" oninput="renderKpiResult()" style="flex:1;min-width:150px;"/>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <input class="inp" type="month" id="kpi-result-month" onchange="renderKpiResult()" style="flex:1;"/>
+        <button class="btn btn-p" style="flex:0 0 auto;padding:8px 14px;font-size:.78rem;" onclick="renderKpiResult()">🔄 更新</button>
       </div>
+      <div class="filter-bar" style="margin-bottom:8px;">
+        <button class="fchip active" onclick="setKpiResultWeek('all',this)">全体</button>
+        <button class="fchip" onclick="setKpiResultWeek(1,this)">第1週</button>
+        <button class="fchip" onclick="setKpiResultWeek(2,this)">第2週</button>
+        <button class="fchip" onclick="setKpiResultWeek(3,this)">第3週</button>
+        <button class="fchip" onclick="setKpiResultWeek(4,this)">第4週</button>
+        <button class="fchip" onclick="setKpiResultWeek(5,this)">第5週</button>
+      </div>
+      <input class="inp" id="kpi-result-search" placeholder="🔍 名前・店舗名で検索" oninput="renderKpiResult()" style="margin-bottom:8px;"/>
       <div class="filter-bar" id="kpi-result-filter" style="margin-bottom:8px;">
         <button class="fchip active" onclick="setKpiResultFilter('all',this)">全て</button>
         <button class="fchip" onclick="setKpiResultFilter('member',this)">メンバー別</button>
@@ -714,6 +767,37 @@ input, select, textarea {
         <button class="btn btn-p" onclick="saveFpBreakdown()">保存して次へ</button>
         <button class="btn btn-gray" onclick="skipFpBreakdown()">スキップ</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：個人実績登録 ══ -->
+<div class="modal-overlay" id="modal-personal-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3 id="personal-edit-title">個人実績を登録</h3><button class="btn-close" onclick="closeModal('modal-personal-edit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="personal-edit-id"/>
+      <div class="form-group"><label>名前 <span class="req">*</span></label><input class="inp" id="pe-name" placeholder="例：服部将大"/></div>
+      <div class="form-group"><label>役職</label>
+        <select class="inp" id="pe-role">
+          <option value="クローザー">クローザー</option>
+          <option value="ディレクター">ディレクター</option>
+          <option value="キャッチャー">キャッチャー</option>
+        </select>
+      </div>
+      <div class="form-group"><label>店舗名</label><input class="inp" id="pe-store" placeholder="例：エディオン泉北店"/></div>
+      <div class="form-group"><label>日付 <span class="req">*</span></label><input class="inp" type="date" id="pe-date"/></div>
+      <div class="form-group"><label>KPI目標</label><div style="display:flex;gap:6px;align-items:center;"><input class="inp" type="number" min="0" id="pe-target" placeholder="0"/><span class="unit">件</span></div></div>
+      <div class="form-group"><label>FP獲得実績</label><div style="display:flex;gap:6px;align-items:center;"><input class="inp" type="number" min="0" id="pe-actual" placeholder="0" oninput="calcPersonalAch()"/><span class="unit">件</span></div></div>
+      <div class="form-group"><label>総販</label><div style="display:flex;gap:6px;align-items:center;"><input class="inp" type="number" min="0" id="pe-souhan" placeholder="0"/><span class="unit">件</span></div></div>
+      <div class="form-group"><label>メモ</label><textarea class="inp" id="pe-memo" rows="2" placeholder="自由記述"></textarea></div>
+      <div id="pe-ach-display" style="text-align:center;font-size:1.2rem;font-weight:900;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-p" onclick="savePersonal()">保存</button>
+        <button class="btn btn-gray" onclick="closeModal('modal-personal-edit')">キャンセル</button>
+      </div>
+      <button type="button" id="personal-del-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:#fee2e2;color:#dc2626;font-weight:700;cursor:pointer;font-family:inherit;" onclick="deletePersonal()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -862,6 +946,7 @@ window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=r
 onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});filterReports();renderHiyari();renderStats();renderAdminList();});
 onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});renderStoreFeats();});
 onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});renderGoalList();renderStats();});
+onValue(ref(db,'fp_personal'),snap=>{window._personalData={};snap.forEach(c=>{window._personalData[c.key]=c.val();});try{renderPersonal();}catch(e){}});
 onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
 onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
 document.getElementById('loading').style.display='none';
@@ -891,7 +976,7 @@ updateAdminUI();
 <script>
 window._reports={}; window._storeFeats={}; window._goals={};
 window._user=null; window._isAdmin=false;
-let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all',_statsChannel='all';
+let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all',_statsChannel='all',_kpiResultWeek='all',_adminKpiWeek='all',_personalWeek='all';
 const PW='aunippou26';
 const DOWS=['日','月','火','水','木','金','土'];
 
@@ -902,6 +987,17 @@ function showPage(id, pushHistory=true){
   if(_pageHistory.length>10) _pageHistory.shift();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  if(id==='pg-personal'){
+    const t=new Date();
+    const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+    const pmEl=document.getElementById('personal-month');
+    if(pmEl&&!pmEl.value) pmEl.value=ym;
+    // 管理者ボタン表示
+    document.getElementById('personal-admin-wrap').style.display=_isAdmin?'block':'none';
+    const pab=document.getElementById('personal-admin-badge');
+    if(pab) pab.style.display=_isAdmin?'flex':'none';
+    setTimeout(()=>{ try{renderPersonal();}catch(e){} },100);
+  }
 }
 function goBack(){
   const prev=_pageHistory.pop();
@@ -2291,6 +2387,8 @@ function updateAdminUI(){
   if(b) b.style.display=_isAdmin?'inline-block':'none';
   const kb=document.getElementById('kpi-admin-btn-wrap');
   if(kb) kb.style.display=_isAdmin?'block':'none';
+  const paw=document.getElementById('personal-admin-wrap');
+  if(paw) paw.style.display=_isAdmin?'block':'none';
   // 全ページの戻るボタン左に管理者バッジを表示
   document.querySelectorAll('.admin-badge').forEach(el=>el.remove());
   if(_isAdmin){
@@ -2313,8 +2411,20 @@ function switchATab(id,el){
   if(el)el.classList.add('active');
   if(id==='at-list') try{renderAdminList();}catch(e){}
   if(id==='at-goal') try{renderGoalList();}catch(e){}
-  if(id==='at-kpi') setTimeout(()=>{ try{renderAdminKpiList();}catch(e){} }, 100);
-  if(id==='at-kpi-result') setTimeout(()=>{ try{renderKpiResult();}catch(e){} },100);
+  if(id==='at-kpi'){
+    const t3=new Date();
+    const ym3=`${t3.getFullYear()}-${String(t3.getMonth()+1).padStart(2,'0')}`;
+    const akEl=document.getElementById('at-kpi-month');
+    if(akEl&&!akEl.value) akEl.value=ym3;
+    setTimeout(()=>{ try{renderAdminKpiList();}catch(e){} },100);
+  }
+  if(id==='at-kpi-result'){
+    const t2=new Date();
+    const ym2=`${t2.getFullYear()}-${String(t2.getMonth()+1).padStart(2,'0')}`;
+    const rmEl=document.getElementById('kpi-result-month');
+    if(rmEl&&!rmEl.value) rmEl.value=ym2;
+    setTimeout(()=>{ try{renderKpiResult();}catch(e){} },100);
+  }
   if(id==='at-kpi-view'){
     // 今週の月曜日をデフォルトにセット
     const t=new Date(),day=t.getDay();
@@ -2396,37 +2506,87 @@ window.switchAdminCard=switchAdminCard;
 function renderAdminKpiList(){
   const cont=document.getElementById('at-kpi-list');
   if(!cont)return;
-  const entries=Object.entries(_kpi||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const month=document.getElementById('at-kpi-month')?.value||'';
+  let entries=Object.entries(_kpi||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  // 月フィルター
+  if(month) entries=entries.filter(([,k])=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d&&d.startsWith(month));
+  });
+  // 週フィルター
+  if(_adminKpiWeek!=='all') entries=entries.filter(([,k])=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d&&getWeekOfMonth(d)===_adminKpiWeek);
+  });
   if(!entries.length){cont.innerHTML='<div class="empty ts">KPIデータなし</div>';return;}
-  cont.innerHTML=entries.map(([id,k])=>{
-    const allDates=k.dates||[k.date||''];
-    // 日程ごとの合計KPI
-    let grandTotal=0;
-    const dayTotals=allDates.map(d=>{
-      const members=(k.dateMembers&&k.dateMembers[d])||k.members||[];
-      const t=members.filter(m=>m.role!=='キャッチャー').reduce((s,m)=>s+(+(m.target||0)),0);
-      grandTotal+=t;
-      const dow=d?DOWS[parseDateLocal(d).getDay()]:'';
-      return `${dow}:${t}件`;
-    });
-    const firstDow=allDates[0]?DOWS[parseDateLocal(allDates[0]).getDay()]:'';
-    // 最初のメンバーリスト
-    const firstMembers=(k.dateMembers&&k.dateMembers[allDates[0]])||k.members||[];
-    return `<div class="report-card" style="margin-bottom:8px;">
-      <div class="rc-top">
-        <div class="rc-store">${esc(k.store||'−')}</div>
-        <div class="rc-date">${allDates[0]||'−'}(${firstDow})${allDates.length>1?`〜${allDates[allDates.length-1].slice(5)}`:''}}</div>
+  // 週でグループ化
+  const weekGroups={};
+  entries.forEach(([id,k])=>{
+    const d=parseDateLocal(k.date||k.dates?.[0]||'');
+    if(!d){return;}
+    const day=d.getDay();
+    const mon=new Date(d); mon.setDate(d.getDate()-(day===0?6:day-1));
+    const wLabel=`${d.getFullYear()}年${d.getMonth()+1}月 第${getWeekOfMonth(k.date||k.dates?.[0]||'')}週`;
+    if(!weekGroups[wLabel]) weekGroups[wLabel]=[];
+    weekGroups[wLabel].push([id,k]);
+  });
+    cont.innerHTML=Object.entries(weekGroups).map(([wLabel,wEntries])=>{
+    const isOpen=true;
+    const wTotal=wEntries.reduce((s,[,k])=>{
+      const allDates=k.dates||[k.date||''];
+      return s+allDates.reduce((s2,d)=>{
+        const mems=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+        return s2+mems.filter(m=>m.role!=='キャッチャー').reduce((s3,m)=>s3+(+(m.target||0)),0);
+      },0);
+    },0);
+    const wId='wg-'+wLabel.replace(/[^a-zA-Z0-9]/g,'_');
+    const storeCards=wEntries.map(([id,k])=>{
+      const allDates=k.dates||[k.date||''];
+      let grandTotal=0;
+      const dayTotals=allDates.map(d=>{
+        const mems=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+        const t=mems.filter(m=>m.role!=='キャッチャー').reduce((s,m)=>s+(+(m.target||0)),0);
+        grandTotal+=t;
+        const dow=d?DOWS[parseDateLocal(d).getDay()]:'';
+        return `${dow}:${t}件`;
+      });
+      const firstMembers=(k.dateMembers&&k.dateMembers[allDates[0]])||k.members||[];
+      return `<div style="background:var(--bg);border-radius:10px;padding:10px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="font-weight:800;font-size:.86rem;">${esc(k.store||'−')}</div>
+          <div style="font-size:.76rem;font-weight:700;color:var(--pd);">合計${grandTotal}件（${dayTotals.join('　')}）</div>
+        </div>
+        <div style="font-size:.7rem;color:var(--sub);margin-bottom:6px;">${firstMembers.filter(m=>m.role!=='キャッチャー').map(m=>`${esc(m.member||'')} ${m.target||0}件`).join(' ／ ')}</div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" onclick="openKpiEdit('${id}')" style="flex:1;padding:6px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>
+          <button type="button" onclick="deleteKpiById('${id}')" style="flex:1;padding:6px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleAdminKpiWeek('${wId}')">
+        <div style="font-weight:800;font-size:.9rem;">${wLabel}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:.76rem;font-weight:700;color:var(--pd);">合計${wTotal}件 / ${wEntries.length}店舗</span>
+          <span id="${wId}-arrow" style="font-size:.8rem;color:var(--sub);">▼</span>
+        </div>
       </div>
-      <div style="font-size:.8rem;font-weight:800;color:var(--pd);margin-bottom:3px;">合計${grandTotal}件　（${dayTotals.join('　')}）</div>
-      <div style="font-size:.72rem;color:var(--sub);margin-bottom:8px;">${firstMembers.filter(m=>m.role!=='キャッチャー').map(m=>`${esc(m.member||'')} ${esc(m.role||'')} ${m.target||0}件`).join(' ／ ')}</div>
-      <div style="display:flex;gap:6px;">
-        <button type="button" onclick="openKpiEdit('${id}')" class="btn-sm" style="flex:1;padding:8px;">編集</button>
-        <button type="button" onclick="deleteKpiById('${id}')" style="flex:1;padding:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">削除</button>
-      </div>
+      <div id="${wId}" style="margin-top:8px;">${storeCards}</div>
     </div>`;
   }).join('');
 }
 window.renderAdminKpiList=renderAdminKpiList;
+
+function toggleAdminKpiWeek(wId){
+  const el=document.getElementById(wId);
+  const arrow=document.getElementById(wId+'-arrow');
+  if(!el)return;
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'block':'none';
+  if(arrow) arrow.textContent=isHidden?'▼':'▶';
+}
+window.toggleAdminKpiWeek=toggleAdminKpiWeek;
+
 
 function deleteKpiById(id){
   const msg=document.getElementById('confirm-delete-msg');
@@ -2448,9 +2608,81 @@ window.deleteKpiById=deleteKpiById;
 
 
 function openEditFromDetail(){closeModal('modal-detail');openEdit(_curId);}
+function openEditFromDetail(){
+  const id=_curDetailId;
+  openEdit(id);
+}
+window.openEditFromDetail=openEditFromDetail;
+
 function openEdit(id){
   const r=_reports[id];if(!r)return;
-  document.getElementById('edit-id').value=id;
+  // モーダルではなく日報登録フォームを編集モードで開く
+  _editingReportId=id;
+  _baseReportId=r.baseReportId||null;
+  // フォームに値をセット（continueReport流用）
+  clearFormSilent();
+  // 基本情報
+  const chEl=document.getElementById('in-ch');
+  if(chEl) chEl.value=r.channel||'';
+  document.getElementById('in-store').value=r.store||'';
+  document.getElementById('in-dir').value=r.director||r.userName||'';
+  document.getElementById('in-ta').value=r.r_ta||'';
+  document.getElementById('in-tb').value=r.r_tb||'';
+  // 稼働日程
+  const wdays=r.workDays&&r.workDays.length?r.workDays:[r.date||''];
+  _workDays=[...wdays];
+  _workDayCount=wdays.length;
+  // 稼働日入力欄を再構築
+  const wrap=document.getElementById('workday-rows');
+  if(wrap){
+    wrap.innerHTML=wdays.map((dt,i)=>`
+      <div class="workday-row" id="wdr-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <input class="inp-s" id="wd-${i}" type="date" value="${dt}" onchange="onWorkdayChange()" style="flex:1;text-align:left;padding:8px;"/>
+        ${i>0?`<button type="button" onclick="removeWorkday(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">×</button>`:''}
+      </div>`).join('');
+    onWorkdayChange();
+  }
+  // 実績データ復元
+  setTimeout(()=>{
+    if(r.jisseki){
+      r.jisseki.forEach((j,i)=>{
+        const a=document.getElementById('j-a-'+i);
+        const b=document.getElementById('j-b-'+i);
+        if(a) a.value=j.a||'';
+        if(b) b.value=j.b||'';
+      });
+    }
+    if(r.fp_by_day){
+      r.fp_by_day.forEach((fp,i)=>{
+        const fa=document.getElementById('fp-a-'+i);
+        const fb=document.getElementById('fp-b-'+i);
+        if(fa) fa.value=fp.a||'';
+        if(fb) fb.value=fp.b||'';
+      });
+    }
+    // 他社実績
+    if(r.v_other){
+      ['sb','dc','ym','rk'].forEach(k=>{
+        ['n','m','p','c'].forEach((t,ti)=>{
+          const el=document.getElementById(`o-${k}-${ti}`);
+          if(el&&r.v_other[k]) el.value=r.v_other[k][ti]||0;
+        });
+      });
+    }
+    // テキスト
+    document.getElementById('in-hiyari').value=r.hiyari||'';
+    document.getElementById('in-ov').value=r.txt_ov||'';
+    document.getElementById('in-rs').value=r.txt_rs||'';
+    document.getElementById('in-al').value=r.al_eff||'';
+    calcStats();
+  },300);
+  // ページタイトルを「日報編集」に
+  const title=document.getElementById('input-page-title');
+  if(title) title.textContent='日報編集';
+  closeModal('modal-edit');
+  closeModal('modal-detail');
+  showPage('pg-input');
+}
   document.getElementById('edit-store').value=r.store||'';
   document.getElementById('edit-ch').value=r.channel||'';
   document.getElementById('edit-dir').value=r.director||r.userName||'';
@@ -2966,10 +3198,20 @@ function renderKpiResult(){
   const cont=document.getElementById('kpi-result-list');
   if(!cont)return;
   const q=(document.getElementById('kpi-result-search')?.value||'').trim().toLowerCase();
+  const resultMonth=document.getElementById('kpi-result-month')?.value||'';
 
   // fp_breakdownから全実績を収集
-  const breakdown=Object.values(_fpBreakdown||{});
-  const kpiEntries=Object.values(_kpi||{});
+  let kpiEntries=Object.values(_kpi||{});
+  // 月フィルター
+  if(resultMonth) kpiEntries=kpiEntries.filter(k=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d&&d.startsWith(resultMonth));
+  });
+  // 週フィルター
+  if(_kpiResultWeek!=='all') kpiEntries=kpiEntries.filter(k=>{
+    const kDates=k.dates||[k.date||''];
+    return kDates.some(d=>d&&getWeekOfMonth(d)===_kpiResultWeek);
+  });
 
   // メンバーごとの集計
   const memberStats={};
@@ -3095,6 +3337,154 @@ function renderKpiResult(){
   }
 }
 window.renderKpiResult=renderKpiResult;
+
+// ── 稼働実績 週フィルター ──
+function setKpiResultWeek(w,el){
+  _kpiResultWeek=w;
+  document.querySelectorAll('#at-kpi-result .filter-bar .fchip').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderKpiResult();
+}
+window.setKpiResultWeek=setKpiResultWeek;
+
+// ── 管理者KPIタブ 週フィルター ──
+function setAdminKpiWeek(w,el){
+  _adminKpiWeek=w;
+  document.querySelectorAll('#at-kpi-week-filter .fchip').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderAdminKpiList();
+}
+window.setAdminKpiWeek=setAdminKpiWeek;
+
+// この週のKPI登録ボタン
+function openKpiEditForWeek(){
+  // 選択中の月・週からデフォルト日付を計算
+  const month=document.getElementById('at-kpi-month')?.value||'';
+  openKpiEdit(null, month, _adminKpiWeek);
+}
+window.openKpiEditForWeek=openKpiEditForWeek;
+
+// ── 個人実績 ──
+
+function setPersonalWeek(w,el){
+  _personalWeek=w;
+  document.querySelectorAll('#pg-personal .filter-bar .fchip').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderPersonal();
+}
+window.setPersonalWeek=setPersonalWeek;
+
+function renderPersonal(){
+  const month=document.getElementById('personal-month')?.value||'';
+  const cont=document.getElementById('personal-list');
+  if(!cont)return;
+  let entries=Object.entries(_personalData||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  if(month) entries=entries.filter(([,p])=>(p.date||'').startsWith(month));
+  if(_personalWeek!=='all') entries=entries.filter(([,p])=>p.date&&getWeekOfMonth(p.date)===_personalWeek);
+  // 自分のデータのみ（一般ユーザー）または全員（管理者）
+  if(!_isAdmin) entries=entries.filter(([,p])=>p.name===_user.name);
+  if(!entries.length){cont.innerHTML='<div class="empty ts">データなし</div>';return;}
+  cont.innerHTML=entries.map(([id,p])=>{
+    const target=+(p.target||0);
+    const actual=+(p.actual||0);
+    const pct=target>0?Math.round((actual/target)*100):null;
+    const bc=pct===null?'var(--sub)':pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+    const dow=p.date?DOWS[parseDateLocal(p.date).getDay()]:'';
+    return `<div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="font-weight:800;font-size:.88rem;">${esc(p.name||'−')}</div>
+          <div style="font-size:.72rem;color:var(--sub);">${esc(p.role||'')} ${esc(p.store||'')} ${p.date||''}(${dow})</div>
+        </div>
+        <div style="text-align:right;">
+          ${pct!==null?`<div style="font-size:1rem;font-weight:900;color:${bc};">${pct}%</div>`:''}
+          <div style="font-size:.72rem;color:var(--sub);">FP ${actual}件 / 目標${target}件</div>
+        </div>
+      </div>
+      ${target>0?`<div style="background:var(--bg);border-radius:7px;height:10px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:${Math.min(pct,100)}%;background:${bc};border-radius:7px;"></div></div>`:''}
+      ${p.memo?`<div style="font-size:.74rem;color:var(--sub);margin-bottom:6px;">${esc(p.memo)}</div>`:''}
+      ${_isAdmin?`<button type="button" onclick="openPersonalEdit('${id}')" style="width:100%;padding:7px;background:var(--pl);color:var(--pd);border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>`:''}
+    </div>`;
+  }).join('');
+}
+window.renderPersonal=renderPersonal;
+
+function openPersonalEdit(id){
+  const p=id?(_personalData||{})[id]:null;
+  document.getElementById('personal-edit-id').value=id||'';
+  document.getElementById('personal-edit-title').textContent=id?'個人実績を編集':'個人実績を登録';
+  document.getElementById('pe-name').value=p?p.name:(_user.name||'');
+  document.getElementById('pe-role').value=p?p.role:'クローザー';
+  document.getElementById('pe-store').value=p?p.store:'';
+  document.getElementById('pe-date').value=p?p.date:'';
+  document.getElementById('pe-target').value=p?p.target:'';
+  document.getElementById('pe-actual').value=p?p.actual:'';
+  document.getElementById('pe-souhan').value=p?p.souhan:'';
+  document.getElementById('pe-memo').value=p?p.memo:'';
+  document.getElementById('personal-del-btn').style.display=id?'block':'none';
+  document.getElementById('pe-ach-display').textContent='';
+  calcPersonalAch();
+  document.getElementById('modal-personal-edit').classList.add('open');
+}
+window.openPersonalEdit=openPersonalEdit;
+
+function calcPersonalAch(){
+  const target=+document.getElementById('pe-target')?.value||0;
+  const actual=+document.getElementById('pe-actual')?.value||0;
+  const el=document.getElementById('pe-ach-display');
+  if(!el)return;
+  if(target>0){
+    const pct=Math.round((actual/target)*100);
+    const col=pct>=100?'var(--green)':pct>=70?'var(--orange)':'var(--red)';
+    el.textContent=pct+'%';
+    el.style.color=col;
+  } else { el.textContent=''; }
+}
+window.calcPersonalAch=calcPersonalAch;
+
+async function savePersonal(){
+  const id=document.getElementById('personal-edit-id').value;
+  const name=document.getElementById('pe-name').value.trim();
+  const date=document.getElementById('pe-date').value;
+  if(!name||!date){showToast('名前と日付は必須です');return;}
+  const data={
+    name, date,
+    role:document.getElementById('pe-role').value,
+    store:document.getElementById('pe-store').value.trim(),
+    target:+document.getElementById('pe-target').value||0,
+    actual:+document.getElementById('pe-actual').value||0,
+    souhan:+document.getElementById('pe-souhan').value||0,
+    memo:document.getElementById('pe-memo').value.trim(),
+    updatedAt:Date.now()
+  };
+  try{
+    if(id){ await _set(_ref(_db,'fp_personal/'+id),data); }
+    else { await _set(_push(_ref(_db,'fp_personal')),data); }
+    closeModal('modal-personal-edit');
+    showToast('✅ 保存しました');
+  }catch(e){ showToast('エラー:'+e.message); }
+}
+window.savePersonal=savePersonal;
+
+async function deletePersonal(){
+  const id=document.getElementById('personal-edit-id').value;
+  if(!id)return;
+  const msg=document.getElementById('confirm-delete-msg');
+  if(msg) msg.innerHTML='この個人実績を削除しますか？<br><span class="ts">削除したデータは元に戻せません</span>';
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_personal/'+id));
+      closeModal('modal-confirm-delete');
+      closeModal('modal-personal-edit');
+      showToast('🗑 削除しました');
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+window.deletePersonal=deletePersonal;
 // ── KPI管理 ──
 window._kpi={};
 
@@ -3465,7 +3855,7 @@ function collectKpiMembers(){
   }));
 }
 
-function openKpiEdit(id){
+function openKpiEdit(id, defaultMonth, defaultWeek){
   document.getElementById('kpi-edit-id').value=id||'';
   document.getElementById('kpi-edit-title').textContent=id?'KPIを編集':'KPIを登録';
   document.getElementById('kpi-del-btn').style.display=id?'block':'none';
