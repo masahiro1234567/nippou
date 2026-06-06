@@ -988,15 +988,17 @@ function showPage(id, pushHistory=true){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id==='pg-personal'){
-    const t=new Date();
-    const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
-    const pmEl=document.getElementById('personal-month');
-    if(pmEl&&!pmEl.value) pmEl.value=ym;
-    // 管理者ボタン表示
-    document.getElementById('personal-admin-wrap').style.display=_isAdmin?'block':'none';
-    const pab=document.getElementById('personal-admin-badge');
-    if(pab) pab.style.display=_isAdmin?'flex':'none';
-    setTimeout(()=>{ try{renderPersonal();}catch(e){} },100);
+    try{
+      const t=new Date();
+      const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+      const pmEl=document.getElementById('personal-month');
+      if(pmEl&&!pmEl.value) pmEl.value=ym;
+      const paw=document.getElementById('personal-admin-wrap');
+      if(paw) paw.style.display=_isAdmin?'block':'none';
+      const pab=document.getElementById('personal-admin-badge');
+      if(pab) pab.style.display=_isAdmin?'flex':'none';
+      setTimeout(()=>{ try{renderPersonal();}catch(e){} },100);
+    }catch(e){ console.warn('pg-personal init:',e); }
   }
 }
 function goBack(){
