@@ -950,8 +950,10 @@ onValue(ref(db,'fp_personal'),snap=>{window._personalData={};snap.forEach(c=>{wi
 onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
 onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
 document.getElementById('loading').style.display='none';
-const s=localStorage.getItem('fp_user');
-if(s){window._user=JSON.parse(s);goMain();}else{showPage('pg-login');}
+let s=null;
+try{ s=localStorage.getItem('fp_user'); }catch(e){}
+if(!s){ try{ s=sessionStorage.getItem('fp_user'); }catch(e){} }
+if(s){try{window._user=JSON.parse(s);goMain();}catch(e){showPage('pg-login');}}else{showPage('pg-login');}
 window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
 updateAdminUI();
 
@@ -1056,7 +1058,8 @@ function doLogin(){
   const name=document.getElementById('login-name').value.trim();
   if(!name){showToast('名前を入力してください');return;}
   window._user={name};
-  localStorage.setItem('fp_user',JSON.stringify(_user));
+  try{ localStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
+  try{ sessionStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
   goMain();
 }
 window.doLogin=doLogin;
