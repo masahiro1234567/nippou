@@ -224,10 +224,12 @@ input, select, textarea {
 <div class="page active" id="pg-login">
   <div class="hdr"><div class="logo"><div class="logo-mark">FP<br>日報</div><h1>FP 日報アプリ</h1></div></div>
   <div class="body">
-    <div style="text-align:center;padding:22px 0 26px;"><div style="font-size:2.2rem;margin-bottom:7px;">📋</div><div class="fw8" style="font-size:1rem;">はじめまして！</div><div class="ts mt8">名前を登録してください<br>次回から自動ログインされます</div></div>
+    <div style="text-align:center;padding:22px 0 26px;"><div style="font-size:2.2rem;margin-bottom:7px;">📋</div><div class="fw8" style="font-size:1rem;">FP日報アプリ</div><div class="ts mt8">名前・メールアドレス・パスコードを入力してください</div></div>
     <div class="card">
       <div class="form-group"><label>名前 <span class="req">*</span></label><input class="inp" id="login-name" placeholder="例：山田 太郎"/></div>
-      <button class="btn btn-p mt8" onclick="doLogin()">登録してはじめる</button>
+      <div class="form-group"><label>メールアドレス <span class="req">*</span></label><input class="inp" type="email" id="login-email" placeholder="例：yamada@example.com"/></div>
+      <div class="form-group"><label>パスコード <span class="req">*</span></label><input class="inp" type="password" id="login-pass" placeholder="パスコードを入力"/></div>
+      <button class="btn btn-p mt8" onclick="doLogin()">ログイン</button>
     </div>
   </div>
 </div>
@@ -680,6 +682,7 @@ input, select, textarea {
       <button class="tab" onclick="switchATab('at-kpi',this)">KPI登録</button>
       <button class="tab" onclick="switchATab('at-kpi-view',this)">KPI表示</button>
       <button class="tab" onclick="switchATab('at-kpi-result',this)">稼働実績</button>
+      <button class="tab" onclick="switchATab('at-users',this)">ユーザー管理</button>
     </div>
     <div id="at-list">
       <div class="section-title">日報一覧（編集・削除可）</div>
@@ -737,6 +740,15 @@ input, select, textarea {
       </div>
       <div id="kpi-result-list"></div>
     </div>
+    <div id="at-users" style="display:none;">
+      <div class="section-title">ユーザー管理</div>
+      <button class="btn btn-p" style="margin-bottom:12px;width:100%;" onclick="openUserEdit(null)">＋ ユーザーを登録</button>
+      <div class="section-title" style="font-size:.8rem;margin-bottom:6px;">📋 ログイン履歴</div>
+      <div id="login-log-list" style="max-height:180px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:8px;margin-bottom:12px;font-size:.72rem;"></div>
+      <div class="section-title" style="font-size:.8rem;margin-bottom:6px;">👥 登録ユーザー</div>
+      <div id="user-list"></div>
+    </div>
+
     <div id="at-kpi-view" style="display:none;">
       <div class="section-title">KPI表示</div>
       <div class="form-group">
@@ -798,6 +810,31 @@ input, select, textarea {
         <button class="btn btn-gray" onclick="closeModal('modal-personal-edit')">キャンセル</button>
       </div>
       <button type="button" id="personal-del-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:#fee2e2;color:#dc2626;font-weight:700;cursor:pointer;font-family:inherit;" onclick="deletePersonal()">🗑 削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ モーダル：ユーザー編集 ══ -->
+<div class="modal-overlay" id="modal-user-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr"><h3 id="user-edit-title">ユーザーを登録</h3><button class="btn-close" onclick="closeModal('modal-user-edit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="user-edit-id"/>
+      <div class="form-group"><label>名前 <span class="req">*</span></label><input class="inp" id="ue-name" placeholder="例：山田 太郎"/></div>
+      <div class="form-group"><label>メールアドレス <span class="req">*</span></label><input class="inp" type="email" id="ue-email" placeholder="例：yamada@example.com"/></div>
+      <div class="form-group"><label>権限 <span class="req">*</span></label>
+        <select class="inp" id="ue-permission">
+          <option value="edit">編集・登録可能</option>
+          <option value="readonly">閲覧のみ</option>
+          <option value="disabled">ログイン不可</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-p" onclick="saveUser()">保存</button>
+        <button class="btn btn-gray" onclick="closeModal('modal-user-edit')">キャンセル</button>
+      </div>
+      <button type="button" id="user-del-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:#fee2e2;color:#dc2626;font-weight:700;cursor:pointer;font-family:inherit;" onclick="deleteUser()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -931,7 +968,7 @@ input, select, textarea {
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, onValue, push, set, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+import { getDatabase, ref, onValue, push, set, remove, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 const app = initializeApp({
   apiKey:"AIzaSyDzhKiWLngKPLL85L8JyBkOQCWztLoSMwI",
   authDomain:"nippou-data-base.firebaseapp.com",
@@ -942,10 +979,12 @@ const app = initializeApp({
   appId:"1:516171183375:web:bffa959ef109da150aba7a"
 });
 const db=getDatabase(app);
-window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=remove;
+window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=remove;window._get=get;
 onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});filterReports();renderHiyari();renderStats();renderAdminList();});
 onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});renderStoreFeats();});
 onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});renderGoalList();renderStats();});
+onValue(ref(db,'fp_users'),snap=>{window._fpUsers={};snap.forEach(c=>{window._fpUsers[c.key]=c.val();});try{renderUserList();}catch(e){}});
+onValue(ref(db,'fp_login_logs'),snap=>{window._loginLogs={};snap.forEach(c=>{window._loginLogs[c.key]=c.val();});try{renderUserList();}catch(e){}});
 onValue(ref(db,'fp_personal'),snap=>{window._personalData={};snap.forEach(c=>{window._personalData[c.key]=c.val();});try{renderPersonal();}catch(e){}});
 onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
 onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
@@ -953,7 +992,11 @@ document.getElementById('loading').style.display='none';
 let s=null;
 try{ s=localStorage.getItem('fp_user'); }catch(e){}
 if(!s){ try{ s=sessionStorage.getItem('fp_user'); }catch(e){} }
-if(s){try{window._user=JSON.parse(s);goMain();}catch(e){showPage('pg-login');}}else{showPage('pg-login');}
+if(s){try{
+  window._user=JSON.parse(s);
+  window._userPermission=window._user.permission||'edit';
+  goMain();
+}catch(e){showPage('pg-login');}}else{showPage('pg-login');}
 window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
 updateAdminUI();
 
@@ -1054,13 +1097,52 @@ function navTo(pg){
 window.toggleSb=toggleSb;window.closeSb=closeSb;window.navTo=navTo;
 
 // ── LOGIN ──
-function doLogin(){
+async function doLogin(){
   const name=document.getElementById('login-name').value.trim();
-  if(!name){showToast('名前を入力してください');return;}
-  window._user={name};
-  try{ localStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
-  try{ sessionStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
-  goMain();
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  if(!name||!email||!pass){showToast('全ての項目を入力してください');return;}
+  if(pass!=='orinavi.au'){showToast('パスコードが違います');return;}
+  // Firebaseからユーザー一覧を取得して認証
+  try{
+    const snap=await _get(_ref(_db,'fp_users'));
+    const users={};
+    snap.forEach(c=>{users[c.key]=c.val();});
+    // メアドで検索
+    let userEntry=Object.entries(users).find(([,u])=>u.email&&u.email.toLowerCase()===email);
+    let uid, userData;
+    if(!userEntry){
+      // ユーザーが未登録の場合：fp_usersが空なら自動登録、そうでなければ拒否
+      const hasUsers=Object.keys(users).length>0;
+      if(hasUsers){
+        showToast('登録されていません。管理者に連絡してください');return;
+      }
+      // 初回のみ自動登録（fp_usersが空の場合）
+      const newRef=_push(_ref(_db,'fp_users'));
+      uid=newRef.key;
+      userData={name,email,permission:'edit'};
+      await _set(newRef,userData);
+    } else {
+      [uid,userData]=userEntry;
+    }
+    if(userData.permission==='disabled'){
+      showToast('このアカウントはログインが禁止されています');return;
+    }
+    // ログイン成功
+    window._user={name:userData.name||name, email, uid, permission:userData.permission||'edit'};
+    window._userPermission=userData.permission||'edit';
+    // ログイン履歴を保存
+    await _set(_push(_ref(_db,'fp_login_logs')),{
+      uid, name:userData.name||name, email,
+      loginAt:Date.now(),
+      loginAtStr:new Date().toLocaleString('ja-JP')
+    });
+    // ユーザー情報更新（最終ログイン日時）
+    await _set(_ref(_db,'fp_users/'+uid+'/lastLogin'),Date.now());
+    try{ localStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
+    try{ sessionStorage.setItem('fp_user',JSON.stringify(_user)); }catch(e){}
+    goMain();
+  }catch(e){ showToast('エラー:'+e.message); }
 }
 window.doLogin=doLogin;
 
@@ -1890,6 +1972,7 @@ function doCopy(){
 window.doCopy=doCopy;
 
 async function saveAndCopy(){
+  if(!checkPermission()) return;
   doCopy();
   if(!window._curData)return;
   let newReportId='';
@@ -2408,7 +2491,7 @@ function updateAdminUI(){
 window.doAdminLogin=doAdminLogin;window.adminLogout=adminLogout;
 
 function switchATab(id,el){
-  ['at-list','at-goal','at-kpi','at-kpi-view','at-kpi-result'].forEach(t=>{
+  ['at-list','at-goal','at-kpi','at-kpi-view','at-kpi-result','at-users'].forEach(t=>{
     const el2=document.getElementById(t);
     if(el2)el2.style.display=(t===id)?'block':'none';
   });
@@ -2423,6 +2506,7 @@ function switchATab(id,el){
     if(akEl&&!akEl.value) akEl.value=ym3;
     setTimeout(()=>{ try{renderAdminKpiList();}catch(e){} },100);
   }
+  if(id==='at-users') setTimeout(()=>{ try{renderUserList();}catch(e){} },100);
   if(id==='at-kpi-result'){
     const t2=new Date();
     const ym2=`${t2.getFullYear()}-${String(t2.getMonth()+1).padStart(2,'0')}`;
@@ -3490,6 +3574,100 @@ async function deletePersonal(){
   document.getElementById('modal-confirm-delete').classList.add('open');
 }
 window.deletePersonal=deletePersonal;
+
+// ── ユーザー管理 ──
+function renderUserList(){
+  // ログイン履歴
+  const logCont=document.getElementById('login-log-list');
+  if(logCont){
+    const logs=Object.values(_loginLogs||{}).sort((a,b)=>b.loginAt-a.loginAt).slice(0,30);
+    if(!logs.length) logCont.innerHTML='<div class="ts">履歴なし</div>';
+    else logCont.innerHTML=logs.map(l=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);">
+      <span style="font-weight:700;">${esc(l.name||'')}</span>
+      <span style="color:var(--sub);margin-left:6px;">${esc(l.email||'')}</span>
+      <span style="color:var(--sub);margin-left:6px;">${l.loginAtStr||''}</span>
+    </div>`).join('');
+  }
+  // ユーザー一覧
+  const cont=document.getElementById('user-list');
+  if(!cont)return;
+  const entries=Object.entries(_fpUsers||{}).sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
+  if(!entries.length){cont.innerHTML='<div class="empty ts">登録ユーザーなし</div>';return;}
+  const permLabel={'edit':'編集・登録可','readonly':'閲覧のみ','disabled':'ログイン不可'};
+  const permColor={'edit':'var(--green)','readonly':'var(--orange)','disabled':'var(--red)'};
+  cont.innerHTML=entries.map(([id,u])=>`<div class="card" style="margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div>
+        <div style="font-weight:800;font-size:.88rem;">${esc(u.name||'')}</div>
+        <div style="font-size:.72rem;color:var(--sub);">${esc(u.email||'')}</div>
+        ${u.lastLogin?`<div style="font-size:.68rem;color:var(--sub);">最終ログイン：${new Date(u.lastLogin).toLocaleString('ja-JP')}</div>`:''}
+      </div>
+      <div style="text-align:right;">
+        <span style="font-size:.74rem;font-weight:700;color:${permColor[u.permission||'edit']||'var(--sub)'};">${permLabel[u.permission||'edit']||u.permission}</span>
+      </div>
+    </div>
+    <button type="button" onclick="openUserEdit('${id}')" style="width:100%;padding:7px;background:var(--pl);color:var(--pd);border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>
+  </div>`).join('');
+}
+window.renderUserList=renderUserList;
+
+function openUserEdit(id){
+  const u=id?(_fpUsers||{})[id]:null;
+  document.getElementById('user-edit-id').value=id||'';
+  document.getElementById('user-edit-title').textContent=id?'ユーザーを編集':'ユーザーを登録';
+  document.getElementById('ue-name').value=u?u.name:'';
+  document.getElementById('ue-email').value=u?u.email:'';
+  document.getElementById('ue-permission').value=u?u.permission||'edit':'edit';
+  document.getElementById('user-del-btn').style.display=id?'block':'none';
+  document.getElementById('modal-user-edit').classList.add('open');
+}
+window.openUserEdit=openUserEdit;
+
+async function saveUser(){
+  const id=document.getElementById('user-edit-id').value;
+  const name=document.getElementById('ue-name').value.trim();
+  const email=document.getElementById('ue-email').value.trim().toLowerCase();
+  const permission=document.getElementById('ue-permission').value;
+  if(!name||!email){showToast('名前とメアドは必須です');return;}
+  const data={name,email,permission,updatedAt:Date.now()};
+  try{
+    if(id){ await _set(_ref(_db,'fp_users/'+id),{...(_fpUsers||{})[id],...data}); }
+    else { await _set(_push(_ref(_db,'fp_users')),data); }
+    closeModal('modal-user-edit');
+    showToast('✅ 保存しました');
+  }catch(e){ showToast('エラー:'+e.message); }
+}
+window.saveUser=saveUser;
+
+async function deleteUser(){
+  const id=document.getElementById('user-edit-id').value;
+  if(!id)return;
+  const msg=document.getElementById('confirm-delete-msg');
+  if(msg) msg.innerHTML='このユーザーを削除しますか？<br><span class="ts">削除したデータは元に戻せません</span>';
+  const btn=document.getElementById('confirm-delete-btn');
+  const newBtn=btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn,btn);
+  newBtn.onclick=async()=>{
+    try{
+      await _remove(_ref(_db,'fp_users/'+id));
+      closeModal('modal-confirm-delete');
+      closeModal('modal-user-edit');
+      showToast('🗑 削除しました');
+    }catch(e){ showToast('エラー:'+e.message); }
+  };
+  document.getElementById('modal-confirm-delete').classList.add('open');
+}
+window.deleteUser=deleteUser;
+
+// 閲覧のみユーザーの書き込み制限
+function checkPermission(){
+  if(window._userPermission==='readonly'){
+    showToast('閲覧のみのアカウントです');
+    return false;
+  }
+  return true;
+}
+window.checkPermission=checkPermission;
 // ── KPI管理 ──
 window._kpi={};
 
