@@ -2730,10 +2730,10 @@ function openEdit(id){
       });
     }
     // テキスト
-    document.getElementById('in-hiyari').value=r.hiyari||'';
-    document.getElementById('in-ov').value=r.txt_ov||'';
-    document.getElementById('in-rs').value=r.txt_rs||'';
-    document.getElementById('in-al').value=r.al_eff||'';
+  const hiyariEl=document.getElementById('in-hiyari');if(hiyariEl)hiyariEl.value=r.hiyari||'';
+    const ovEl=document.getElementById('in-ov');if(ovEl)ovEl.value=r.txt_ov||'';
+    const rsEl=document.getElementById('in-rs');if(rsEl)rsEl.value=r.txt_rs||'';
+    const alEl=document.getElementById('in-al');if(alEl)alEl.value=r.al_eff||'';
     calcStats();
   },300);
   // ページタイトルを「日報編集」に
