@@ -2673,7 +2673,7 @@ function openEditFromDetail(){
   openEdit(_curId);
 }
 window.openEditFromDetail=openEditFromDetail;
-
+window.openEdit=openEdit;
 function openEdit(id){
   const r=_reports[id];if(!r)return;
   // モーダルではなく日報登録フォームを編集モードで開く
