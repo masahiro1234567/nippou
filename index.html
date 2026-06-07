@@ -4308,7 +4308,7 @@ document.getElementById('kpi-month')?.addEventListener('change',()=>{
 // updateAdminUI にKPI登録ボタン表示も追加
 // サイドバーはHTMLのonclickで直接処理
 // ── Firebase データ監視 ──
-onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});try{filterReports();}catch(e){}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){}try{renderDashboard();}catch(e){}});
+onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});console.log('fp_reports読み込み件数:',Object.keys(window._reports).length);try{filterReports();}catch(e){console.error('filterReports:',e);}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){console.error('renderAdminList:',e);}try{renderDashboard();}catch(e){}});
 onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});try{renderStoreList();}catch(e){}});
 onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});try{renderGoalList();}catch(e){}try{renderStats();}catch(e){}});
 onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
