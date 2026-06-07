@@ -980,14 +980,6 @@ const app = initializeApp({
 });
 const db=getDatabase(app);
 window._db=db;window._ref=ref;window._push=push;window._set=set;window._remove=remove;window._get=get;
-onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});filterReports();renderHiyari();renderStats();renderAdminList();});
-onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});renderStoreFeats();});
-onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});renderGoalList();renderStats();});
-onValue(ref(db,'fp_users'),snap=>{window._fpUsers={};snap.forEach(c=>{window._fpUsers[c.key]=c.val();});try{renderUserList();}catch(e){}});
-onValue(ref(db,'fp_login_logs'),snap=>{window._loginLogs={};snap.forEach(c=>{window._loginLogs[c.key]=c.val();});try{renderUserList();}catch(e){}});
-onValue(ref(db,'fp_personal'),snap=>{window._personalData={};snap.forEach(c=>{window._personalData[c.key]=c.val();});try{renderPersonal();}catch(e){}});
-onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
-onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
 document.getElementById('loading').style.display='none';
 let s=null;
 try{ s=localStorage.getItem('fp_user'); }catch(e){}
@@ -4117,6 +4109,15 @@ document.getElementById('kpi-month')?.addEventListener('change',()=>{
 
 // updateAdminUI にKPI登録ボタン表示も追加
 // サイドバーはHTMLのonclickで直接処理
+// ── Firebase データ監視 ──
+onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});try{filterReports();}catch(e){}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){}});
+onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});try{renderStoreList();}catch(e){}});
+onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});try{renderGoalList();}catch(e){}try{renderStats();}catch(e){}});
+onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
+onValue(ref(db,'fp_kpi'),snap=>{window._kpi={};snap.forEach(c=>{window._kpi[c.key]=c.val();});try{renderKpiList();}catch(e){}try{renderAdminKpiList();}catch(e){}});
+onValue(ref(db,'fp_personal'),snap=>{window._personalData={};snap.forEach(c=>{window._personalData[c.key]=c.val();});try{renderPersonal();}catch(e){}});
+onValue(ref(db,'fp_users'),snap=>{window._fpUsers={};snap.forEach(c=>{window._fpUsers[c.key]=c.val();});try{renderUserList();}catch(e){}});
+onValue(ref(db,'fp_login_logs'),snap=>{window._loginLogs={};snap.forEach(c=>{window._loginLogs[c.key]=c.val();});try{renderUserList();}catch(e){}});
 
 // モーダルをスワイプで閉じる
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
