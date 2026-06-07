@@ -265,6 +265,26 @@ input, select, textarea {
     <button type="button" onclick="navTo('pg-admin-login')" style="width:100%;background:#fff;color:var(--sub);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:.86rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;">
       🔐 管理者ログイン
     </button>
+    <!-- 個人ダッシュボード -->
+    <div style="margin-top:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-weight:800;font-size:.9rem;">📊 個人ダッシュボード</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input class="inp-s" type="month" id="dash-month" onchange="renderDashboard()" style="font-size:.72rem;padding:4px 8px;"/>
+          <button class="btn-ghost" style="font-size:.72rem;padding:4px 8px;" onclick="renderDashboard()">🔄</button>
+        </div>
+      </div>
+      <div class="filter-bar" style="margin-bottom:8px;">
+        <button class="fchip active" onclick="setDashWeek('all',this)">全体</button>
+        <button class="fchip" onclick="setDashWeek(1,this)">第1週</button>
+        <button class="fchip" onclick="setDashWeek(2,this)">第2週</button>
+        <button class="fchip" onclick="setDashWeek(3,this)">第3週</button>
+        <button class="fchip" onclick="setDashWeek(4,this)">第4週</button>
+        <button class="fchip" onclick="setDashWeek(5,this)">第5週</button>
+      </div>
+      <input class="inp" id="dash-search" placeholder="🔍 メンバー名で検索" oninput="renderDashboard()" style="margin-bottom:10px;font-size:.82rem;"/>
+      <div id="dashboard-list"></div>
+    </div>
 
 
   </div>
@@ -459,6 +479,9 @@ input, select, textarea {
     <div class="hdr-right"><button class="btn-back" onclick="goBack()">← 戻る</button><button class="btn-menu" id="menu-list" onclick="toggleSb()"><span></span><span></span><span></span></button></div>
   </div>
   <div class="body">
+    <div class="form-group" style="margin-bottom:8px;">
+      <input class="inp" type="month" id="list-month" placeholder="対象月（空欄=全て）" onchange="filterReports()" style="font-size:.82rem;"/>
+    </div>
     <div class="tab-bar">
       <button class="tab active" onclick="switchListTab('lt-all',this)">全て</button>
       <button class="tab" onclick="switchListTab('lt-hiyari',this)">⚠️ ヒヤリハット</button>
@@ -1013,7 +1036,7 @@ updateAdminUI();
 <script>
 window._reports={}; window._storeFeats={}; window._goals={};
 window._user=null; window._isAdmin=false;
-let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all',_statsChannel='all',_kpiResultWeek='all',_adminKpiWeek='all',_personalWeek='all';
+let _fCh='',_fAch='',_curId=null,_sbOpen=false,_carryData=null,_savedStore='',_carryMode=false,_editingReportId=null,_baseReportId=null,_savedReportId='',_savedDate='',_kpiWeek='all',_statsChannel='all',_kpiResultWeek='all',_adminKpiWeek='all',_personalWeek='all',_dashWeek='all';
 const PW='aunippou26';
 const DOWS=['日','月','火','水','木','金','土'];
 
@@ -1096,7 +1119,13 @@ function goMain(){
   document.getElementById('home-uname').textContent=_user.name;
   document.getElementById('in-dir').value=_user.name;
   renderHomePrevReports();
+  // ダッシュボードの月を今月にセット
+  const t=new Date();
+  const ym=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+  const dmEl=document.getElementById('dash-month');
+  if(dmEl&&!dmEl.value) dmEl.value=ym;
   showPage('pg-home');
+  setTimeout(()=>{ try{renderDashboard();}catch(e){} },300);
 }
 
 function renderHomePrevReports(){
@@ -1979,12 +2008,14 @@ function achBC(p){return p>=100?'b-green':p>=70?'b-orange':'b-red';}
 
 function filterReports(){
   const q=(document.getElementById('list-search')?.value||'').trim().toLowerCase();
-  const all=Object.entries(_reports).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const listMonth=document.getElementById('list-month')?.value||'';
+  const all=Object.entries(_reports||{}).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   const filtered=all.filter(([,r])=>{
+    const mOk=!listMonth||(r.date||'').startsWith(listMonth);
     const qOk=!q||(r.store||'').includes(q)||(r.director||'').toLowerCase().includes(q);
     const cOk=!_fCh||r.channel===_fCh;
     const aOk=!_fAch||(_fAch==='hi'&&r.ach>=100)||(_fAch==='mid'&&r.ach>=70&&r.ach<100)||(_fAch==='lo'&&r.ach<70);
-    return qOk&&cOk&&aOk;
+    return mOk&&qOk&&cOk&&aOk;
   });
   const c=document.getElementById('report-list');if(!c)return;
   if(!filtered.length){c.innerHTML='<div class="empty"><div style="font-size:2rem;margin-bottom:8px;">📭</div><p>日報がありません</p></div>';return;}
@@ -3605,6 +3636,148 @@ function checkPermission(){
   return true;
 }
 window.checkPermission=checkPermission;
+
+// ── 個人ダッシュボード ──
+function setDashWeek(w,el){
+  _dashWeek=w;
+  document.querySelectorAll('#pg-home .filter-bar .fchip').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderDashboard();
+}
+window.setDashWeek=setDashWeek;
+
+function renderDashboard(){
+  const cont=document.getElementById('dashboard-list');
+  if(!cont)return;
+  const month=document.getElementById('dash-month')?.value||'';
+  const q=(document.getElementById('dash-search')?.value||'').trim();
+
+  // 全メンバーを収集（KPIと日報から）
+  const memberMap={}; // name -> {reports:[], kpiEntries:[], personalData:[]}
+
+  // 日報からメンバー収集（ディレクターがいる現場）
+  Object.values(_reports||{}).forEach(r=>{
+    if(!r.date)return;
+    if(month&&!r.date.startsWith(month))return;
+    if(_dashWeek!=='all'&&getWeekOfMonth(r.date)!==_dashWeek)return;
+    const name=r.director||r.userName||'';
+    if(!name)return;
+    if(!memberMap[name]) memberMap[name]={name,reports:[],kpiDays:[],personalData:[]};
+    memberMap[name].reports.push(r);
+  });
+
+  // KPIからメンバー収集（クローザー・キャッチャー）
+  Object.values(_kpi||{}).forEach(k=>{
+    const allDates=k.dates||[k.date||''];
+    allDates.forEach(d=>{
+      if(!d)return;
+      if(month&&!d.startsWith(month))return;
+      if(_dashWeek!=='all'&&getWeekOfMonth(d)!==_dashWeek)return;
+      const members=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+      members.forEach(m=>{
+        if(!m.member)return;
+        if(!memberMap[m.member]) memberMap[m.member]={name:m.member,reports:[],kpiDays:[],personalData:[]};
+        memberMap[m.member].kpiDays.push({date:d,store:k.store,target:+(m.target||0),role:m.role});
+      });
+    });
+  });
+
+  // 個人実績データ収集
+  Object.values(_personalData||{}).forEach(p=>{
+    if(!p.name)return;
+    if(month&&!(p.date||'').startsWith(month))return;
+    if(_dashWeek!=='all'&&getWeekOfMonth(p.date||'')!==_dashWeek)return;
+    if(!memberMap[p.name]) memberMap[p.name]={name:p.name,reports:[],kpiDays:[],personalData:[]};
+    memberMap[p.name].personalData.push(p);
+  });
+
+  // 検索フィルター
+  let members=Object.values(memberMap);
+  if(q) members=members.filter(m=>m.name.includes(q));
+  // 管理者でない場合は自分のみ
+  if(!_isAdmin) members=members.filter(m=>m.name===(_user?.name||''));
+
+  if(!members.length){
+    cont.innerHTML='<div class="empty ts">データなし</div>';
+    return;
+  }
+
+  cont.innerHTML=members.map(m=>{
+    // ディレクターがいる現場：日報から計算
+    const hasReports=m.reports.length>0;
+    let totalSouhan=0, totalFP=0, workDays=0, totalTarget=0, totalActual=0;
+
+    if(hasReports){
+      m.reports.forEach(r=>{
+        const wdays=r.workDays&&r.workDays.length?r.workDays:[r.date||''];
+        workDays+=wdays.length;
+        if(r.jisseki) r.jisseki.forEach(j=>{ totalSouhan+=+(j.a||0); });
+        else totalSouhan+=+(r.auto_souhan||0);
+        if(r.fp_by_day) r.fp_by_day.forEach(fp=>{ totalFP+=+(fp.a||0); });
+        else totalFP+=+(r.r_fa||0);
+      });
+    }
+
+    // クローザー/キャッチャーのみ：KPI+個人実績から計算
+    if(m.kpiDays.length>0){
+      m.kpiDays.filter(d=>d.role!=='キャッチャー').forEach(d=>{
+        totalTarget+=d.target;
+        workDays++;
+        // fp_breakdownから実績取得
+        const fbKey=(d.date+d.store).replace(/[^a-zA-Z0-9]/g,'_');
+        const fbData=(_fpBreakdown||{})[fbKey];
+        const fbMember=fbData?.members?.find(mb=>mb.member===m.name);
+        if(fbMember){
+          const dayEntry=fbMember.days?.find(dd=>dd.date===d.date);
+          totalActual+=dayEntry?dayEntry.souhan||0:fbMember.souhan||0;
+          totalSouhan+=dayEntry?dayEntry.souhan||0:fbMember.souhan||0;
+        }
+      });
+      m.personalData.forEach(p=>{
+        if(p.role!=='キャッチャー'){
+          totalActual+=+(p.actual||0);
+          totalSouhan+=+(p.souhan||0);
+        }
+      });
+    }
+
+    // KPIがある場合の達成率
+    const kpiTarget=totalTarget||(m.kpiDays.filter(d=>d.role!=='キャッチャー').reduce((s,d)=>s+d.target,0));
+    const kpiActual=totalActual||totalFP;
+    const kpiAch=kpiTarget>0?Math.round((kpiActual/kpiTarget)*100):null;
+    const achCol=kpiAch===null?'var(--sub)':kpiAch>=100?'var(--green)':kpiAch>=70?'var(--orange)':'var(--red)';
+
+    // 日販（稼働日数で割る）
+    const actualWorkDays=Math.max(workDays,1);
+    const nissin=Math.round((totalSouhan/actualWorkDays)*10)/10;
+
+    return `<div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:800;font-size:.9rem;">${esc(m.name)}</div>
+          <div style="font-size:.7rem;color:var(--sub);">稼働${workDays}日</div>
+        </div>
+        ${kpiAch!==null?`<div style="text-align:right;"><div style="font-size:1.1rem;font-weight:900;color:${achCol};">${kpiAch}%</div><div style="font-size:.68rem;color:var(--sub);">${kpiActual}/${kpiTarget}件</div></div>`:''}
+      </div>
+      ${kpiAch!==null?`<div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:${Math.min(kpiAch,100)}%;background:${achCol};border-radius:6px;transition:width .5s;"></div></div>`:''}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:var(--pl);border-radius:8px;padding:8px 4px;">
+          <div style="font-size:.68rem;color:var(--sub);">総販</div>
+          <div style="font-size:.9rem;font-weight:800;color:var(--primary);">${totalSouhan}<span style="font-size:.62rem;">件</span></div>
+        </div>
+        <div style="background:var(--pl);border-radius:8px;padding:8px 4px;">
+          <div style="font-size:.68rem;color:var(--sub);">FP獲得</div>
+          <div style="font-size:.9rem;font-weight:800;color:var(--pd);">${totalFP||kpiActual}<span style="font-size:.62rem;">件</span></div>
+        </div>
+        <div style="background:var(--pl);border-radius:8px;padding:8px 4px;">
+          <div style="font-size:.68rem;color:var(--sub);">日販</div>
+          <div style="font-size:.9rem;font-weight:800;color:var(--green);">${nissin}<span style="font-size:.62rem;">件</span></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+window.renderDashboard=renderDashboard;
 // ── KPI管理 ──
 window._kpi={};
 
@@ -4053,7 +4226,7 @@ document.getElementById('kpi-month')?.addEventListener('change',()=>{
 // updateAdminUI にKPI登録ボタン表示も追加
 // サイドバーはHTMLのonclickで直接処理
 // ── Firebase データ監視 ──
-onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});try{filterReports();}catch(e){}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){}});
+onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});try{filterReports();}catch(e){}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){}try{renderDashboard();}catch(e){}});
 onValue(ref(db,'fp_store_features'),snap=>{window._storeFeats={};snap.forEach(c=>{window._storeFeats[c.key]=c.val();});try{renderStoreList();}catch(e){}});
 onValue(ref(db,'fp_goals'),snap=>{window._goals={};snap.forEach(c=>{window._goals[c.key]=c.val();});try{renderGoalList();}catch(e){}try{renderStats();}catch(e){}});
 onValue(ref(db,'fp_breakdown'),snap=>{window._fpBreakdown={};snap.forEach(c=>{window._fpBreakdown[c.key]=c.val();});});
