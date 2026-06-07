@@ -4349,6 +4349,18 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
     }
   });
 });
+  // ── 初期化処理 ──
+document.getElementById('loading').style.display='none';
+let s=null;
+try{ s=localStorage.getItem('fp_user'); }catch(e){}
+if(!s){ try{ s=sessionStorage.getItem('fp_user'); }catch(e){} }
+if(s){try{
+  window._user=JSON.parse(s);
+  window._userPermission=window._user.permission||'edit';
+  goMain();
+}catch(e){showPage('pg-login');}}else{showPage('pg-login');}
+window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
+updateAdminUI();
 </script>
 </body>
 </html>
