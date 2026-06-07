@@ -2684,10 +2684,10 @@ function openEdit(id){
   // 基本情報
   const chEl=document.getElementById('in-ch');
   if(chEl) chEl.value=r.channel||'';
-  document.getElementById('in-store').value=r.store||'';
-  document.getElementById('in-dir').value=r.director||r.userName||'';
-  document.getElementById('in-ta').value=r.r_ta||'';
-  document.getElementById('in-tb').value=r.r_tb||'';
+  const storeEl=document.getElementById('in-store');if(storeEl)storeEl.value=r.store||'';
+  const dirEl=document.getElementById('in-dir');if(dirEl)dirEl.value=r.director||r.userName||'';
+  const taEl=document.getElementById('in-ta');if(taEl)taEl.value=r.r_ta||'';
+  const tbEl=document.getElementById('in-tb');if(tbEl)tbEl.value=r.r_tb||'';
   // 稼働日程
   const wdays=r.workDays&&r.workDays.length?r.workDays:[r.date||''];
   _workDays=[...wdays];
