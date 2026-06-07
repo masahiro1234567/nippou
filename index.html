@@ -2717,63 +2717,6 @@ function openEdit(id){
   closeModal('modal-detail');
   showPage('pg-input');
 }
-  document.getElementById('edit-store').value=r.store||'';
-  document.getElementById('edit-ch').value=r.channel||'';
-  document.getElementById('edit-dir').value=r.director||r.userName||'';
-  document.getElementById('edit-ta').value=r.r_ta||'';
-  document.getElementById('edit-tb').value=r.r_tb||'';
-  document.getElementById('edit-hiyari').value=r.hiyari||'';
-  document.getElementById('edit-ov').value=r.txt_ov||'';
-  document.getElementById('edit-rs').value=r.txt_rs||'';
-  document.getElementById('edit-al').value=r.al_eff||'';
-  // 実績入力欄を動的生成
-  const wdays=(r.workDays&&r.workDays.length)?r.workDays:[r.date||''];
-  const jWrap=document.getElementById('edit-jisseki-wrap');
-  if(jWrap){
-    jWrap.innerHTML=wdays.map((dt,i)=>{
-      const dow=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'当日';
-      const j=r.jisseki&&r.jisseki[i]?r.jisseki[i]:{};
-      const fp=r.fp_by_day&&r.fp_by_day[i]?r.fp_by_day[i]:{};
-      return `<div style="background:var(--pl);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
-        <div style="font-size:.76rem;font-weight:800;color:var(--pd);margin-bottom:6px;">${dow}（${dt}）</div>
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-          <span style="font-size:.72rem;color:var(--sub);width:60px;">総販</span>
-          <input class="inp-s" id="edit-ja-${i}" type="number" min="0" value="${j.a||0}" style="width:70px;"/>
-          <span style="font-size:.72rem;color:var(--sub);">件</span>
-          <span style="font-size:.72rem;color:var(--sub);width:70px;margin-left:8px;">リク抜き</span>
-          <input class="inp-s" id="edit-jb-${i}" type="number" min="0" value="${j.b||0}" style="width:70px;"/>
-          <span style="font-size:.72rem;color:var(--sub);">件</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <span style="font-size:.72rem;color:var(--sub);width:60px;">FP獲得</span>
-          <input class="inp-s" id="edit-fa-${i}" type="number" min="0" value="${fp.a||0}" style="width:70px;"/>
-          <span style="font-size:.72rem;color:var(--sub);">台/</span>
-          <input class="inp-s" id="edit-fb-${i}" type="number" min="0" value="${fp.b||0}" style="width:70px;"/>
-          <span style="font-size:.72rem;color:var(--sub);">台</span>
-        </div>
-      </div>`;
-    }).join('');
-  }
-  // 見込み獲得入力欄
-  const mWrap=document.getElementById('edit-mikomi-wrap');
-  if(mWrap){
-    mWrap.innerHTML=wdays.map((dt,i)=>{
-      const dow=dt?DOWS[parseDateLocal(dt).getDay()]+'曜日':'当日';
-      const vm=r.v_mikomi&&r.v_mikomi[i]?r.v_mikomi[i]:{};
-      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-        <span style="font-size:.76rem;font-weight:700;width:50px;">${dow}</span>
-        <input class="inp-s" id="edit-vg-${i}" type="number" min="0" value="${vm.g||0}" style="width:60px;"/>
-        <span style="font-size:.72rem;color:var(--sub);">組/</span>
-        <input class="inp-s" id="edit-vd-${i}" type="number" min="0" value="${vm.d||0}" style="width:60px;"/>
-        <span style="font-size:.72rem;color:var(--sub);">台</span>
-      </div>`;
-    }).join('');
-  }
-  // プレビュー生成
-  const prevEl=document.getElementById('edit-preview-text');
-  if(prevEl) prevEl.textContent=buildText({...r});
-  document.getElementById('modal-edit').classList.add('open');
-}
 window.openEditFromDetail=openEditFromDetail;window.openEdit=openEdit;
 
 async function saveEdit(){
