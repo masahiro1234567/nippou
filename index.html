@@ -225,11 +225,18 @@ input, select, textarea {
   <div class="hdr"><div class="logo"><div class="logo-mark">FP<br>日報</div><h1>FP 日報アプリ</h1></div></div>
   <div class="body">
     <div style="text-align:center;padding:22px 0 26px;"><div style="font-size:2.2rem;margin-bottom:7px;">📋</div><div class="fw8" style="font-size:1rem;">FP日報アプリ</div><div class="ts mt8">名前・メールアドレス・パスコードを入力してください</div></div>
-    <div class="card">
+    <div class="card" id="login-form-card">
       <div class="form-group"><label>名前 <span class="req">*</span></label><input class="inp" id="login-name" placeholder="例：山田 太郎"/></div>
       <div class="form-group"><label>メールアドレス <span class="req">*</span></label><input class="inp" type="email" id="login-email" placeholder="例：yamada@example.com"/></div>
       <div class="form-group"><label>パスコード <span class="req">*</span></label><input class="inp" type="password" id="login-pass" placeholder="パスコードを入力"/></div>
-      <button class="btn btn-p mt8" onclick="doLogin()">ログイン</button>
+      <button class="btn btn-p mt8" onclick="doLogin()">ログイン / アクセス申請</button>
+    </div>
+    <!-- 申請中画面 -->
+    <div class="card" id="login-pending-card" style="display:none;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:8px;">⏳</div>
+      <div style="font-weight:800;margin-bottom:6px;">アクセス申請中</div>
+      <div class="ts">管理者が承認するまでお待ちください。<br>承認後に再度ログインしてください。</div>
+      <button class="btn btn-gray mt8" onclick="showLoginForm()">戻る</button>
     </div>
   </div>
 </div>
@@ -765,7 +772,10 @@ input, select, textarea {
     </div>
     <div id="at-users" style="display:none;">
       <div class="section-title">ユーザー管理</div>
-      <button class="btn btn-p" style="margin-bottom:12px;width:100%;" onclick="openUserEdit(null)">＋ ユーザーを登録</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn btn-p" style="flex:1;" onclick="openUserEdit(null)">＋ ユーザーを登録</button>
+        <button class="btn" style="flex:1;background:var(--pl);color:var(--pd);font-weight:700;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-size:.8rem;" onclick="importUsersFromReports()">📥 日報から一括登録</button>
+      </div>
       <div class="section-title" style="font-size:.8rem;margin-bottom:6px;">📋 ログイン履歴</div>
       <div id="login-log-list" style="max-height:180px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:8px;margin-bottom:12px;font-size:.72rem;"></div>
       <div class="section-title" style="font-size:.8rem;margin-bottom:6px;">👥 登録ユーザー</div>
@@ -2903,52 +2913,75 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 window.closeModal=closeModal;
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+function showLoginForm(){
+  document.getElementById('login-form-card').style.display='block';
+  document.getElementById('login-pending-card').style.display='none';
+}
+window.showLoginForm=showLoginForm;
+
 async function doLogin(){
   const name=document.getElementById('login-name').value.trim();
   const email=document.getElementById('login-email').value.trim().toLowerCase();
   const pass=document.getElementById('login-pass').value;
   if(!name||!email||!pass){showToast('全ての項目を入力してください');return;}
   if(pass!=='orinavi.au'){showToast('パスコードが違います');return;}
-  // ユーザー情報をセット（Firebase認証は後でバックグラウンド処理）
-  window._user={name,email,permission:'edit'};
-  window._userPermission='edit';
-  try{localStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
-  try{sessionStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
-  // バックグラウンドでFirebase登録・ログイン履歴保存
-  (async()=>{
-    try{
-      if(!window._get) return;
-      const snap=await _get(_ref(_db,'fp_users'));
-      const users={};
-      snap.forEach(c=>{users[c.key]=c.val();});
-      let userEntry=Object.entries(users).find(([,u])=>u.email&&u.email.toLowerCase()===email);
-      let uid, userData;
-      if(!userEntry){
-        const newRef=_push(_ref(_db,'fp_users'));
-        uid=newRef.key;
-        userData={name,email,permission:'edit'};
-        await _set(newRef,userData);
-      } else {
-        [uid,userData]=userEntry;
-        if(userData.permission==='disabled'){
-          showToast('このアカウントはログインが禁止されています');
-          window._user=null;
-          try{localStorage.removeItem('fp_user');}catch(e){}
-          showPage('pg-login');
-          return;
-        }
-        window._user={name:userData.name||name,email,uid,permission:userData.permission||'edit'};
-        window._userPermission=userData.permission||'edit';
-        try{localStorage.setItem('fp_user',JSON.stringify(window._user));}catch(e){}
+  if(!window._get){showToast('初期化中です。少し待って再試行してください');return;}
+  try{
+    const snap=await _get(_ref(_db,'fp_users'));
+    const users={};
+    snap.forEach(c=>{users[c.key]=c.val();});
+    // メアドで検索、なければ名前で検索（旧データ対応）
+    let userEntry=Object.entries(users).find(([,u])=>u.email&&u.email.toLowerCase()===email);
+    if(!userEntry) userEntry=Object.entries(users).find(([,u])=>!u.email&&u.name===name);
+    if(!userEntry){
+      // 新規申請
+      const hasUsers=Object.keys(users).length>0;
+      if(hasUsers){
+        // 申請として登録（pending状態）
+        await _set(_push(_ref(_db,'fp_users')),{
+          name,email,permission:'pending',createdAt:Date.now()
+        });
+        document.getElementById('login-form-card').style.display='none';
+        document.getElementById('login-pending-card').style.display='block';
+        showToast('アクセスを申請しました。管理者の承認をお待ちください');
+        return;
       }
-      await _set(_push(_ref(_db,'fp_login_logs')),{
-        uid:uid||'',name:userData.name||name,email,
-        loginAt:Date.now(),loginAtStr:new Date().toLocaleString('ja-JP')
-      });
-      if(uid) await _set(_ref(_db,'fp_users/'+uid+'/lastLogin'),Date.now());
-    }catch(e){console.warn('バックグラウンド処理エラー:',e);}
-  })();
-  goMain();
+      // 初回のみ自動承認（fp_usersが空）
+      const newRef=_push(_ref(_db,'fp_users'));
+      await _set(newRef,{name,email,permission:'edit',createdAt:Date.now()});
+      const [uid2,ud2]=[newRef.key,{name,email,permission:'edit'}];
+      window._user={name,email,uid:uid2,permission:'edit'};
+      window._userPermission='edit';
+      try{localStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
+      goMain();
+      return;
+    }
+    const [uid,userData]=userEntry;
+    if(userData.permission==='disabled'){showToast('このアカウントはログインが禁止されています');return;}
+    if(userData.permission==='pending'){
+      document.getElementById('login-form-card').style.display='none';
+      document.getElementById('login-pending-card').style.display='block';
+      showToast('まだ承認されていません。管理者にご確認ください');
+      return;
+    }
+    // メアドが空の旧ユーザーの場合はメアドを更新
+    if(!userData.email&&email){
+      await _set(_ref(_db,'fp_users/'+uid+'/email'),email);
+    }
+    window._user={name:userData.name||name,email,uid,permission:userData.permission||'edit'};
+    window._userPermission=userData.permission||'edit';
+    try{localStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
+    try{sessionStorage.setItem('fp_user',JSON.stringify(_user));}catch(e){}
+    await _set(_push(_ref(_db,'fp_login_logs')),{
+      uid,name:userData.name||name,email,
+      loginAt:Date.now(),loginAtStr:new Date().toLocaleString('ja-JP')
+    });
+    await _set(_ref(_db,'fp_users/'+uid+'/lastLogin'),Date.now());
+    goMain();
+  }catch(e){
+    console.error('doLoginエラー:',e);
+    showToast('エラー:'+e.message);
+  }
 }
 window.doLogin=doLogin;
 
@@ -3561,8 +3594,14 @@ function renderUserList(){
   if(!cont)return;
   const entries=Object.entries(_fpUsers||{}).sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
   if(!entries.length){cont.innerHTML='<div class="empty ts">登録ユーザーなし</div>';return;}
-  const permLabel={'edit':'編集・登録可','readonly':'閲覧のみ','disabled':'ログイン不可'};
-  const permColor={'edit':'var(--green)','readonly':'var(--orange)','disabled':'var(--red)'};
+  const permLabel={'edit':'編集・登録可','readonly':'閲覧のみ','disabled':'ログイン不可','pending':'申請中'};
+  const permColor={'edit':'var(--green)','readonly':'var(--orange)','disabled':'var(--red)','pending':'#f59e0b'};
+  // 申請中ユーザーを上に表示
+  entries.sort((a,b)=>{
+    if(a[1].permission==='pending'&&b[1].permission!=='pending') return -1;
+    if(b[1].permission==='pending'&&a[1].permission!=='pending') return 1;
+    return (a[1].name||'').localeCompare(b[1].name||'');
+  });
   cont.innerHTML=entries.map(([id,u])=>`<div class="card" style="margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
       <div>
@@ -3574,10 +3613,44 @@ function renderUserList(){
         <span style="font-size:.74rem;font-weight:700;color:${permColor[u.permission||'edit']||'var(--sub)'};">${permLabel[u.permission||'edit']||u.permission}</span>
       </div>
     </div>
-    <button type="button" onclick="openUserEdit('${id}')" style="width:100%;padding:7px;background:var(--pl);color:var(--pd);border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>
+    <div style="display:flex;gap:6px;">
+      ${u.permission==='pending'?`<button type="button" onclick="approveUser('${id}')" style="flex:1;padding:7px;background:#d1fae5;color:#065f46;border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">✅ 承認</button>`:''}
+      <button type="button" onclick="openUserEdit('${id}')" style="flex:1;padding:7px;background:var(--pl);color:var(--pd);border:none;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;">編集</button>
+    </div>
   </div>`).join('');
 }
 window.renderUserList=renderUserList;
+
+// 日報から名前を収集してユーザー一括登録
+async function importUsersFromReports(){
+  const names=new Set();
+  Object.values(_reports||{}).forEach(r=>{
+    if(r.director) names.add(r.director.trim());
+    if(r.userName) names.add(r.userName.trim());
+  });
+  Object.values(_kpi||{}).forEach(k=>{
+    const allDates=k.dates||[k.date||''];
+    allDates.forEach(d=>{
+      const mems=(k.dateMembers&&k.dateMembers[d])||k.members||[];
+      mems.forEach(m=>{ if(m.member) names.add(m.member.trim()); });
+    });
+  });
+  if(!names.size){showToast('日報・KPIデータがありません');return;}
+  // 既存ユーザーと重複チェック
+  const existing=Object.values(_fpUsers||{}).map(u=>(u.name||'').trim());
+  const newNames=[...names].filter(n=>n&&!existing.includes(n));
+  if(!newNames.length){showToast('新規ユーザーはいません（全員登録済み）');return;}
+  try{
+    for(const name of newNames){
+      await _set(_push(_ref(_db,'fp_users')),{
+        name, email:'', permission:'edit', createdAt:Date.now(), importedFromReports:true
+      });
+    }
+    showToast(`✅ ${newNames.length}件登録しました: ${newNames.join('、')}`);
+  }catch(e){ showToast('エラー:'+e.message); }
+}
+window.importUsersFromReports=importUsersFromReports;
+
 
 function openUserEdit(id){
   const u=id?(_fpUsers||{})[id]:null;
@@ -3606,6 +3679,15 @@ async function saveUser(){
   }catch(e){ showToast('エラー:'+e.message); }
 }
 window.saveUser=saveUser;
+
+async function approveUser(id){
+  try{
+    await _set(_ref(_db,'fp_users/'+id+'/permission'),'edit');
+    showToast('✅ 承認しました');
+  }catch(e){ showToast('エラー:'+e.message); }
+}
+window.approveUser=approveUser;
+
 
 async function deleteUser(){
   const id=document.getElementById('user-edit-id').value;
