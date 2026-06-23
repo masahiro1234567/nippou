@@ -920,7 +920,7 @@ input, select, textarea {
         <button class="btn btn-p" onclick="copyDetail()" style="flex:1;">📋 コピー</button>
         <button class="btn" id="detail-continue-btn" style="flex:1;background:#fff;border:2px solid var(--primary);color:var(--primary);font-weight:700;">▶ 翌日分を追加</button>
       </div>
-      <button type="button" id="detail-edit-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:var(--pl);color:var(--pd);font-weight:700;cursor:pointer;font-family:inherit;font-size:.84rem;" onclick="openEditFromDetail()">✏️ 編集（管理者）</button>
+      <button type="button" id="detail-edit-btn-bottom" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:var(--pl);color:var(--pd);font-weight:700;cursor:pointer;font-family:inherit;font-size:.84rem;" onclick="openEditFromDetail()">✏️ 編集</button>
     </div>
   </div>
 </div>
@@ -957,7 +957,7 @@ input, select, textarea {
         <button class="btn btn-p" onclick="saveEdit()">保存</button>
         <button class="btn btn-gray" onclick="closeModal('modal-edit')">キャンセル</button>
       </div>
-      <button type="button" class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;width:100%;" onclick="doDelete()">🗑 削除</button>
+      <button type="button" id="edit-del-btn" class="btn mt8" style="background:#fee2e2;color:#dc2626;font-weight:700;width:100%;" onclick="doDelete()">🗑 削除</button>
     </div>
   </div>
 </div>
@@ -1162,8 +1162,83 @@ function startNewReport(){
   onWorkdayChange();
   renderMikomiInputs();
   showPage('pg-input');
+  setTimeout(()=>tryRestoreDraft(),200);
 }
 window.startNewReport=startNewReport;
+
+// ── 下書き自動保存（操作を中断しても続きから書ける） ──
+const DRAFT_KEY='fp_draft_v1';
+const DRAFT_MAX_AGE=1000*60*60*24; // 24時間
+function collectDraftRaw(){
+  const data={};
+  document.querySelectorAll('#pg-input input, #pg-input textarea, #pg-input select').forEach(el=>{
+    if(el.id) data[el.id]=el.value;
+  });
+  data._workDays=[..._workDays];
+  data._mobileDayData=window._mobileDayData||{};
+  data._activeDayIdx=window._activeDayIdx;
+  data._activeMobileDayIdx=window._activeMobileDayIdx;
+  data._editingReportId=_editingReportId;
+  data._baseReportId=_baseReportId;
+  return data;
+}
+let _draftTimer=null;
+function scheduleDraftSave(){
+  clearTimeout(_draftTimer);
+  _draftTimer=setTimeout(()=>{
+    try{
+      saveMobileDayData(window._activeDayIdx??0);
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({data:collectDraftRaw(), ts:Date.now()}));
+    }catch(e){ console.warn('draft save error:',e); }
+  }, 600);
+}
+window.scheduleDraftSave=scheduleDraftSave;
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+window.clearDraft=clearDraft;
+
+function tryRestoreDraft(){
+  try{
+    const raw=localStorage.getItem(DRAFT_KEY);
+    if(!raw) return;
+    const parsed=JSON.parse(raw);
+    if(!parsed||!parsed.data) return;
+    if(Date.now()-parsed.ts>DRAFT_MAX_AGE){ clearDraft(); return; }
+    if(!confirm('前回の入力途中のデータがあります。復元しますか？')){ clearDraft(); return; }
+    const data=parsed.data;
+    if(data._workDays&&data._workDays.length){
+      _workDays=[...data._workDays];
+      _workDayCount=_workDays.length;
+      const rows=document.getElementById('workday-rows');
+      if(rows){
+        rows.innerHTML=_workDays.map((dt,i)=>`
+          <div class="row-inputs" style="margin-bottom:6px;">
+            <div class="row-label">${i+1}日目</div>
+            <input class="inp-s" type="date" id="wd-${i}" style="flex:2;text-align:left;padding:7px 8px;" onchange="onWorkdayChange()" value="${dt}"/>
+            ${i>0?`<button type="button" onclick="removeWorkdayRow(${i})" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;font-weight:700;cursor:pointer;color:#dc2626;font-family:inherit;">×</button>`:''}
+          </div>`).join('');
+      }
+    }
+    window._mobileDayData=data._mobileDayData||{};
+    if(typeof data._editingReportId!=='undefined') _editingReportId=data._editingReportId;
+    if(typeof data._baseReportId!=='undefined') _baseReportId=data._baseReportId;
+    onWorkdayChange();
+    setTimeout(()=>{
+      Object.keys(data).forEach(k=>{
+        if(k.startsWith('_'))return;
+        const el=document.getElementById(k);
+        if(el) el.value=data[k];
+      });
+      if(typeof data._activeDayIdx==='number') window._activeDayIdx=data._activeDayIdx;
+      if(typeof data._activeMobileDayIdx==='number') window._activeMobileDayIdx=data._activeMobileDayIdx;
+      const idx=data._activeMobileDayIdx||0;
+      loadMobileDayData(idx);
+      calcMikomiTotal();
+      calcStats();
+      showToast('✅ 前回の入力を復元しました');
+    },450);
+  }catch(e){ console.warn('draft restore error:',e); }
+}
+window.tryRestoreDraft=tryRestoreDraft;
 
 // 既存日報を続けて編集（翌日分追加）
 function continueReport(id){
@@ -1474,6 +1549,20 @@ function renderMikomiInputs(){
   const days=(_workDays.length?_workDays:[''])
     .filter(dt=>{ if(!dt||seen.has(dt))return false; seen.add(dt); return true; });
 
+  // 再生成で消えないよう、既存の入力値を退避
+  const _prevJ={},_prevFp={},_prevV={};
+  let _pi=0;
+  while(document.getElementById('j-a-'+_pi)){
+    _prevJ[_pi]={a:document.getElementById('j-a-'+_pi).value,b:document.getElementById('j-b-'+_pi)?.value||''};
+    _prevFp[_pi]={a:document.getElementById('fp-a-'+_pi)?.value||'',b:document.getElementById('fp-b-'+_pi)?.value||''};
+    _pi++;
+  }
+  let _vi=0;
+  while(document.getElementById('v-ag-'+_vi)){
+    _prevV[_vi]={g:document.getElementById('v-ag-'+_vi).value,d:document.getElementById('v-ad-'+_vi)?.value||''};
+    _vi++;
+  }
+
   // 「現在入力中の日」ボタン生成
   const activeDayBtns=document.getElementById('active-day-btns');
   if(activeDayBtns){
@@ -1554,6 +1643,20 @@ function renderMikomiInputs(){
       <div class="unit">台</div>
     </div>`;
   }
+  // 退避していた入力値を復元（稼働日追加・削除で消えないように）
+  Object.keys(_prevJ).forEach(i=>{
+    const ja=document.getElementById('j-a-'+i); if(ja&&_prevJ[i].a!=='') ja.value=_prevJ[i].a;
+    const jb=document.getElementById('j-b-'+i); if(jb&&_prevJ[i].b!=='') jb.value=_prevJ[i].b;
+  });
+  Object.keys(_prevFp).forEach(i=>{
+    const fa=document.getElementById('fp-a-'+i); if(fa&&_prevFp[i].a!=='') fa.value=_prevFp[i].a;
+    const fb=document.getElementById('fp-b-'+i); if(fb&&_prevFp[i].b!=='') fb.value=_prevFp[i].b;
+  });
+  Object.keys(_prevV).forEach(i=>{
+    const vg=document.getElementById('v-ag-'+i); if(vg&&_prevV[i].g!=='') vg.value=_prevV[i].g;
+    const vd=document.getElementById('v-ad-'+i); if(vd&&_prevV[i].d!=='') vd.value=_prevV[i].d;
+  });
+  calcMikomiTotal();
   calcAuto();
 }
 
@@ -1623,8 +1726,9 @@ function loadMobileDayData(idx){
   const d=window._mobileDayData[idx];
   d.au.forEach((v,i)=>{ const el=document.getElementById('au'+i); if(el)el.value=v||''; });
   d.uq.forEach((v,i)=>{ const el=document.getElementById('uq'+i); if(el)el.value=v||''; });
-  // 読み込み後に自動計算も更新
-  calcAutoForActiveDay();
+  // au/UQに値が入っている日のみ自動計算で上書き（手入力した実績を消さないように）
+  const hasMobileData=d.au.some(v=>+v>0)||d.uq.some(v=>+v>0);
+  if(hasMobileData){ calcAutoForActiveDay(); }
 }
 
 // au+UQ → 選択中の日の実績欄のみ上書き
@@ -1972,6 +2076,7 @@ async function saveAndCopy(){
     _savedReportId=newReportId||_editingReportId||'';
     _savedDate=window._curData.date||'';
     _editingReportId=null;
+    clearDraft();
     closeModal('modal-preview');
     // FP内訳入力モーダルを表示（KPIデータがある場合）
     openFpBreakdown(window._curData.date||'', window._curData.store||'');
@@ -2116,7 +2221,12 @@ function openDetail(id){
   const dow=r.date?DOWS[parseDateLocal(r.date).getDay()]:'';
   document.getElementById('detail-title').textContent=`${r.store||'−'} ${r.date||''}(${dow}) ${r.ach||0}%`;
   document.getElementById('detail-text').textContent=buildText(r);
-  document.getElementById('detail-edit-btn').style.display=_isAdmin?'inline-block':'none';
+  // 管理者、または自分自身が作成した日報なら編集可能
+  const canEdit=_isAdmin||(window._userPermission!=='readonly'&&_user&&(r.userName===_user.name||r.director===_user.name));
+  const editBtn=document.getElementById('detail-edit-btn');
+  if(editBtn) editBtn.style.display=canEdit?'inline-block':'none';
+  const editBtnBottom=document.getElementById('detail-edit-btn-bottom');
+  if(editBtnBottom) editBtnBottom.style.display=canEdit?'block':'none';
   // 翌日分追加ボタン
   const continueBtn=document.getElementById('detail-continue-btn');
   if(continueBtn){
@@ -2704,6 +2814,8 @@ function openEdit(id){
   const r=_reports[id];if(!r)return;
   _editingReportId=id;
   _baseReportId=r.baseReportId||null;
+  const delBtn=document.getElementById('edit-del-btn');
+  if(delBtn) delBtn.style.display=_isAdmin?'block':'none';
   clearFormSilent();
   // 基本情報
   const chEl=document.getElementById('in-ch');if(chEl)chEl.value=r.channel||'';
@@ -4344,6 +4456,13 @@ if(s){try{
 }catch(e){showPage('pg-login');}}else{showPage('pg-login');}
 window._isAdmin=sessionStorage.getItem('fp_admin')==='1';
 updateAdminUI();
+
+// 入力中の下書きを自動保存
+const _pgInputEl=document.getElementById('pg-input');
+if(_pgInputEl){
+  _pgInputEl.addEventListener('input', scheduleDraftSave);
+  _pgInputEl.addEventListener('change', scheduleDraftSave);
+}
 
 // ── Firebase データ監視 ──
 onValue(ref(db,'fp_reports'),snap=>{window._reports={};snap.forEach(c=>{window._reports[c.key]=c.val();});console.log('fp_reports読み込み件数:',Object.keys(window._reports).length);try{filterReports();}catch(e){console.error('filterReports:',e);}try{renderHiyari();}catch(e){}try{renderStats();}catch(e){}try{renderAdminList();}catch(e){console.error('renderAdminList:',e);}try{renderDashboard();}catch(e){}});
