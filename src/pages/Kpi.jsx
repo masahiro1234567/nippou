@@ -238,23 +238,29 @@ export default function Kpi() {
               <input className="inp" style={{ flex: 1, marginRight: 8 }} placeholder="店舗名" value={editing.store} onChange={(e) => setEditing({ ...editing, store: e.target.value })} />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div
-                onClick={() => setEditing({ ...editing, mode: editing.mode === 'souhan' ? 'riku' : 'souhan' })}
-                style={{ display: 'flex', border: '1.5px solid var(--border)', borderRadius: 8, overflow: 'hidden', width: 128, cursor: 'pointer' }}
-              >
-                <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'souhan' ? 'var(--primary)' : '#fff', color: editing.mode === 'souhan' ? '#fff' : 'var(--sub)' }}>総販</div>
-                <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'riku' ? 'var(--primary)' : '#fff', color: editing.mode === 'riku' ? '#fff' : 'var(--sub)' }}>リク抜き</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '.7rem', color: 'var(--sub)', marginBottom: 4 }}>カウント方式</div>
+                <div
+                  onClick={() => setEditing({ ...editing, mode: editing.mode === 'souhan' ? 'riku' : 'souhan' })}
+                  style={{ display: 'flex', border: '1.5px solid var(--border)', borderRadius: 8, overflow: 'hidden', width: 128, cursor: 'pointer' }}
+                >
+                  <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'souhan' ? 'var(--primary)' : '#fff', color: editing.mode === 'souhan' ? '#fff' : 'var(--sub)' }}>総販</div>
+                  <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'riku' ? 'var(--primary)' : '#fff', color: editing.mode === 'riku' ? '#fff' : 'var(--sub)' }}>リク抜き</div>
+                </div>
               </div>
-              <input
-                className="inp"
-                style={{ width: 80 }}
-                type="text"
-                inputMode="numeric"
-                placeholder="現場全体の目標"
-                value={editing.overallTarget}
-                onChange={(e) => setEditing({ ...editing, overallTarget: e.target.value })}
-              />
+              <div style={{ flex: '0 0 100px' }}>
+                <div style={{ fontSize: '.7rem', color: 'var(--sub)', marginBottom: 4 }}>現場全体の目標</div>
+                <input
+                  className="inp"
+                  style={{ width: '100%', boxSizing: 'border-box', textAlign: 'right' }}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={editing.overallTarget}
+                  onChange={(e) => setEditing({ ...editing, overallTarget: e.target.value })}
+                />
+              </div>
             </div>
 
             {editing.dates.map((dt) => (
