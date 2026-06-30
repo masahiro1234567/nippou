@@ -15,7 +15,7 @@ export default function Home() {
   const { isAdmin } = useAuth();
   return (
     <Layout title="FP日報アプリ">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+      <div className="home-menu-grid">
         {MENU.map((m) => (
           <Link
             key={m.to}

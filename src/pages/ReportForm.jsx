@@ -493,7 +493,7 @@ ${blankText(txtRs)}
     <Layout title={editingId ? '日報編集' : '日報入力'} showBack>
       <div className="card">
         <button className="btn btn-outline" onClick={() => setShowLineBox(!showLineBox)}>
-          {showLineBox ? '閉じる' : '📋 LINE案件指示書から自動入力'}
+          {showLineBox ? '閉じる' : '📋 詳細から自動入力'}
         </button>
         {showLineBox && (
           <div style={{ marginTop: 10 }}>
@@ -694,7 +694,7 @@ ${blankText(txtRs)}
         {['Softbank', 'docomo', 'Ymobile', '楽天'].map((lbl, i) => (
           <div key={lbl} style={{ marginBottom: 8 }}>
             <div className="ts" style={{ marginBottom: 3 }}>{lbl}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 4 }}>
               {[0, 1, 2, 3].map((j) => (
                 <input
                   key={j}
@@ -792,7 +792,7 @@ function BreakdownRow({ label, values, onChange }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div className="ts" style={{ marginBottom: 3 }}>{label}（接客/着座/成約組/成約台）</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 4 }}>
         {values.map((v, i) => (
           <input
             key={i}
