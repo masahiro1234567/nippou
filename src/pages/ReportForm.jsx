@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useFirebaseList } from '../lib/useFirebaseList';
+import { parseLineBrief, classifyMembers } from '../lib/lineParser';
 import Layout from '../components/Layout';
 
 const DOWS = ['日', '月', '火', '水', '木', '金', '土'];
 const CHANNELS = ['イオン', 'エディオン', 'ジョーシン', 'ケーズデンキ', 'ヤマダ', 'コジマ', 'その他'];
-const AU_LABELS = ['純新規', 'MNP(UQ⇒au)', 'MNP(SB⇒au)', 'MNP(DCM⇒au)', 'MNP(YM⇒au)', 'MNP(楽天⇒au)', 'MNP(その他⇒au)', '機種変更'];
-const UQ_LABELS = ['純新規', 'MNP(au⇒UQ)', 'MNP(SB⇒UQ)', 'MNP(DCM⇒UQ)', 'MNP(YM⇒UQ)', 'MNP(楽天⇒UQ)', 'MNP(その他⇒UQ)', '機種変更'];
 
 function todayStr() {
   const t = new Date();
@@ -24,42 +23,77 @@ function parseDateLocal(str) {
 function dowLabel(dateStr) {
   return dateStr ? DOWS[parseDateLocal(dateStr).getDay()] + '曜日' : '当日';
 }
-function emptyDay() {
-  return { au: Array(8).fill(0), uq: Array(8).fill(0), jissekiA: '', jissekiB: '', fpA: '', fpB: '', mikomiG: '', mikomiD: '' };
+function detectChannel(storeName) {
+  return CHANNELS.find((c) => c !== 'その他' && storeName.includes(c)) || '';
+}
+
+function emptyAuUq() {
+  return Array(8).fill('');
+}
+function emptyDayPerf() {
+  return { au: emptyAuUq(), uq: emptyAuUq(), fpA: '', fpB: '' };
 }
 function calcSouhanRiku(au, uq) {
-  const auTotal = au.reduce((a, b) => a + (+b || 0), 0);
-  const uqTotal = uq.reduce((a, b) => a + (+b || 0), 0) - (+uq[1] || 0);
+  const n = (v) => +v || 0;
+  const auTotal = au.reduce((a, b) => a + n(b), 0);
+  const uqTotal = uq.reduce((a, b) => a + n(b), 0) - n(uq[1]);
   const souhan = auTotal + uqTotal;
-  const riku = souhan - ((+au[1] || 0) + (+au[7] || 0) + (+uq[7] || 0));
+  const riku = souhan - (n(au[1]) + n(au[7]) + n(uq[7]));
   return { souhan, riku };
 }
+function blank(v, mark = '○') {
+  return v === '' || v === null || v === undefined ? mark : v;
+}
+function blankText(v) {
+  return v && v.trim() !== '' ? v : '-';
+}
 
-const DRAFT_KEY = 'fp_draft_v2';
+const DRAFT_KEY = 'fp_draft_v3';
 
 export default function ReportForm() {
-  const { id } = useParams(); // 編集時の既存レポートID
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user, canEditReport } = useAuth();
   const showToast = useToast();
   const { data: reports } = useFirebaseList('fp_reports');
+  const { data: fpUsers } = useFirebaseList('fp_users');
 
   const [workDays, setWorkDays] = useState([todayStr()]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [store, setStore] = useState('');
   const [channel, setChannel] = useState('');
+  const [channelAuto, setChannelAuto] = useState(true);
   const [director, setDirector] = useState(user?.name || '');
-  const [hiyari, setHiyari] = useState('');
+  const [hiyari, setHiyari] = useState('特に無し。');
   const [targetA, setTargetA] = useState('');
   const [targetB, setTargetB] = useState('');
-  const [days, setDays] = useState([emptyDay()]);
+
+  const [dayPerf, setDayPerf] = useState([emptyDayPerf()]);
+  const [mikomi, setMikomi] = useState([{ g: '', d: '' }]);
+
+  const [ank, setAnk] = useState('');
+  const [bFp, setBFp] = useState(['', '', '', '']);
+  const [bFc, setBFc] = useState(['', '', '', '']);
+  const [bPop, setBPop] = useState(['', '', '', '']);
+  const [bTa, setBTa] = useState(['', '', '', '']);
+  const [bFuri, setBFuri] = useState(['', '', '', '']);
+  const [ft, setFt] = useState(['', '', '', '', '']);
+  const [ld, setLd] = useState(['', '']);
+  const [other, setOther] = useState('');
+  const [al, setAl] = useState([['', ''], ['', ''], ['', ''], ['', '']]);
+  const [alEff, setAlEff] = useState('');
+  const [ot, setOt] = useState([['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
   const [txtOv, setTxtOv] = useState('');
   const [txtRs, setTxtRs] = useState('');
+
   const [showPreview, setShowPreview] = useState(false);
   const [editingId, setEditingId] = useState(id || null);
   const [restoredOnce, setRestoredOnce] = useState(false);
+  const [lineText, setLineText] = useState('');
+  const [showLineBox, setShowLineBox] = useState(false);
+  const [lineParsed, setLineParsed] = useState(null);
+  const [dupModal, setDupModal] = useState(null);
 
-  // 既存日報を編集モードで開いた場合に復元
   useEffect(() => {
     if (!id || !reports[id]) return;
     const r = reports[id];
@@ -72,29 +106,36 @@ export default function ReportForm() {
     setWorkDays(wd);
     setStore(r.store || '');
     setChannel(r.channel || '');
+    setChannelAuto(false);
     setDirector(r.director || r.userName || '');
     setHiyari(r.hiyari || '');
     setTargetA(r.r_ta || '');
     setTargetB(r.r_tb || '');
+    setDayPerf(wd.map((_, i) => ({
+      au: (r.au_by_day && r.au_by_day[i]) || emptyAuUq(),
+      uq: (r.uq_by_day && r.uq_by_day[i]) || emptyAuUq(),
+      fpA: r.fp_by_day?.[i]?.a ?? '',
+      fpB: r.fp_by_day?.[i]?.b ?? '',
+    })));
+    setMikomi(wd.map((_, i) => ({ g: r.v_mikomi?.[i]?.g ?? '', d: r.v_mikomi?.[i]?.d ?? '' })));
+    setAnk(r.ank ?? '');
+    setBFp(r.b_fp || ['', '', '', '']);
+    setBFc(r.b_fc || ['', '', '', '']);
+    setBPop(r.b_pop || ['', '', '', '']);
+    setBTa(r.b_ta || ['', '', '', '']);
+    setBFuri(r.b_furi || ['', '', '', '']);
+    setFt(r.ft || ['', '', '', '', '']);
+    setLd(r.ld || ['', '']);
+    setOther(r.other || '');
+    setAl(r.al || [['', ''], ['', ''], ['', ''], ['', '']]);
+    setAlEff(r.al_eff || '');
+    setOt(r.ot || [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
     setTxtOv(r.txt_ov || '');
     setTxtRs(r.txt_rs || '');
-    setDays(
-      wd.map((_, i) => ({
-        au: (r.au_by_day && r.au_by_day[i]) || Array(8).fill(0),
-        uq: (r.uq_by_day && r.uq_by_day[i]) || Array(8).fill(0),
-        jissekiA: r.jisseki?.[i]?.a ?? '',
-        jissekiB: r.jisseki?.[i]?.b ?? '',
-        fpA: r.fp_by_day?.[i]?.a ?? '',
-        fpB: r.fp_by_day?.[i]?.b ?? '',
-        mikomiG: r.v_mikomi?.[i]?.g ?? '',
-        mikomiD: r.v_mikomi?.[i]?.d ?? '',
-      }))
-    );
     setActiveIdx(wd.length - 1);
     setEditingId(id);
   }, [id, reports]);
 
-  // 新規作成時：下書きの復元提案（1回だけ）
   useEffect(() => {
     if (id || restoredOnce) return;
     setRestoredOnce(true);
@@ -111,14 +152,27 @@ export default function ReportForm() {
         setWorkDays(d.workDays || [todayStr()]);
         setStore(d.store || '');
         setChannel(d.channel || '');
+        setChannelAuto(d.channelAuto ?? true);
         setDirector(d.director || user?.name || '');
-        setHiyari(d.hiyari || '');
+        setHiyari(d.hiyari ?? '特に無し。');
         setTargetA(d.targetA || '');
         setTargetB(d.targetB || '');
-        setDays(d.days && d.days.length ? d.days : [emptyDay()]);
+        setDayPerf(d.dayPerf && d.dayPerf.length ? d.dayPerf : [emptyDayPerf()]);
+        setMikomi(d.mikomi && d.mikomi.length ? d.mikomi : [{ g: '', d: '' }]);
+        setAnk(d.ank ?? '');
+        setBFp(d.bFp || ['', '', '', '']);
+        setBFc(d.bFc || ['', '', '', '']);
+        setBPop(d.bPop || ['', '', '', '']);
+        setBTa(d.bTa || ['', '', '', '']);
+        setBFuri(d.bFuri || ['', '', '', '']);
+        setFt(d.ft || ['', '', '', '', '']);
+        setLd(d.ld || ['', '']);
+        setOther(d.other || '');
+        setAl(d.al || [['', ''], ['', ''], ['', ''], ['', '']]);
+        setAlEff(d.alEff || '');
+        setOt(d.ot || [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
         setTxtOv(d.txtOv || '');
         setTxtRs(d.txtRs || '');
-        setActiveIdx(Math.max((d.days?.length || 1) - 1, 0));
         showToast('✅ 前回の入力を復元しました');
       } else {
         localStorage.removeItem(DRAFT_KEY);
@@ -129,21 +183,34 @@ export default function ReportForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 下書き自動保存（編集中は保存しない）
   useEffect(() => {
     if (editingId) return;
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(
           DRAFT_KEY,
-          JSON.stringify({ ts: Date.now(), data: { workDays, store, channel, director, hiyari, targetA, targetB, days, txtOv, txtRs } })
+          JSON.stringify({
+            ts: Date.now(),
+            data: { workDays, store, channel, channelAuto, director, hiyari, targetA, targetB, dayPerf, mikomi, ank, bFp, bFc, bPop, bTa, bFuri, ft, ld, other, al, alEff, ot, txtOv, txtRs },
+          })
         );
       } catch (e) {
         /* ignore */
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [workDays, store, channel, director, hiyari, targetA, targetB, days, txtOv, txtRs, editingId]);
+  }, [workDays, store, channel, channelAuto, director, hiyari, targetA, targetB, dayPerf, mikomi, ank, bFp, bFc, bPop, bTa, bFuri, ft, ld, other, al, alEff, ot, txtOv, txtRs, editingId]);
+
+  useEffect(() => {
+    if (!channelAuto) return;
+    const detected = detectChannel(store);
+    if (detected) setChannel(detected);
+  }, [store, channelAuto]);
+
+  function handleChannelChange(v) {
+    setChannel(v);
+    setChannelAuto(false);
+  }
 
   function addWorkday() {
     const last = workDays[workDays.length - 1];
@@ -151,13 +218,15 @@ export default function ReportForm() {
     d.setDate(d.getDate() + 1);
     const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     setWorkDays([...workDays, next]);
-    setDays([...days, emptyDay()]); // 既存の日のデータはそのまま残る
+    setDayPerf([...dayPerf, emptyDayPerf()]);
+    setMikomi([...mikomi, { g: '', d: '' }]);
     setActiveIdx(workDays.length);
   }
   function removeWorkday(idx) {
     if (workDays.length <= 1) return;
     setWorkDays(workDays.filter((_, i) => i !== idx));
-    setDays(days.filter((_, i) => i !== idx));
+    setDayPerf(dayPerf.filter((_, i) => i !== idx));
+    setMikomi(mikomi.filter((_, i) => i !== idx));
     setActiveIdx(Math.max(0, idx - 1));
   }
   function updateWorkdayDate(idx, value) {
@@ -166,76 +235,191 @@ export default function ReportForm() {
     setWorkDays(next);
   }
 
-  function updateDay(idx, patch) {
-    setDays((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));
-  }
-  function updateMobile(idx, type, mi, value) {
-    setDays((prev) =>
+  function updateMobile(type, mi, value) {
+    setDayPerf((prev) =>
       prev.map((d, i) => {
-        if (i !== idx) return d;
+        if (i !== activeIdx) return d;
         const arr = [...d[type]];
-        arr[mi] = value === '' ? '' : +value;
-        const nd = { ...d, [type]: arr };
-        const au = type === 'au' ? arr : d.au;
-        const uq = type === 'uq' ? arr : d.uq;
-        const hasMobileData = au.some((v) => +v > 0) || uq.some((v) => +v > 0);
-        if (hasMobileData) {
-          const { souhan, riku } = calcSouhanRiku(au, uq);
-          nd.jissekiA = souhan;
-          nd.jissekiB = riku;
-        }
-        return nd;
+        arr[mi] = value;
+        return { ...d, [type]: arr };
       })
     );
   }
+  function updateFp(which, value) {
+    setDayPerf((prev) => prev.map((d, i) => (i === activeIdx ? { ...d, [which]: value } : d)));
+  }
+  function updateMikomi(idx, patch) {
+    setMikomi((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
+  }
+
+  const cur = dayPerf[activeIdx] || emptyDayPerf();
+  const curCalc = useMemo(() => calcSouhanRiku(cur.au, cur.uq), [cur]);
 
   const totals = useMemo(() => {
-    const totalA = days.reduce((s, d) => s + (+d.jissekiA || 0), 0);
-    const totalB = days.reduce((s, d) => s + (+d.jissekiB || 0), 0);
+    const sums = dayPerf.map((d) => calcSouhanRiku(d.au, d.uq));
+    const totalA = sums.reduce((s, x) => s + x.souhan, 0);
+    const totalB = sums.reduce((s, x) => s + x.riku, 0);
     const ta = +targetA || 0;
     const tb = +targetB || 0;
-    const ach = ta > 0 ? Math.round((totalA / ta) * 100) : 0;
-    return { totalA, totalB, nokoriA: Math.max(ta - totalA, 0), nokoriB: Math.max(tb - totalB, 0), ach };
-  }, [days, targetA, targetB]);
+    return {
+      totalA,
+      totalB,
+      nokoriA: Math.max(ta - totalA, 0),
+      nokoriB: Math.max(tb - totalB, 0),
+      ach: ta > 0 ? Math.round((totalA / ta) * 100) : 0,
+      sums,
+    };
+  }, [dayPerf, targetA, targetB]);
+
+  function handleParseLine() {
+    const parsed = parseLineBrief(lineText);
+    setLineParsed(parsed);
+    if (parsed.store) {
+      setStore(parsed.store);
+      setChannelAuto(true);
+    }
+    if (parsed.target) setTargetA(parsed.target);
+    if (parsed.dates.length) {
+      setWorkDays(parsed.dates);
+      setDayPerf(parsed.dates.map(() => emptyDayPerf()));
+      setMikomi(parsed.dates.map(() => ({ g: '', d: '' })));
+      setActiveIdx(parsed.dates.length - 1);
+    }
+    showToast('✅ 案件指示書を読み取りました（実績の数字は別途入力してください）');
+  }
+
+  const registeredNames = useMemo(() => Object.values(fpUsers).map((u) => u.name).filter(Boolean), [fpUsers]);
 
   function buildText() {
-    const dayLabels = workDays.map(dowLabel);
-    const jissekiLines = workDays
-      .map((dt, i) => `${dayLabels[i]}：${days[i].jissekiA || 0}/${days[i].jissekiB || 0}（内FP獲得${days[i].fpA || 0}/${days[i].fpB || 0}）`)
+    const wdays = workDays;
+    const dayLabels = wdays.map(dowLabel);
+
+    const jissekiLines = wdays
+      .map((dt, i) => {
+        const calc = totals.sums[i] || { souhan: '', riku: '' };
+        const dp = dayPerf[i] || emptyDayPerf();
+        const hasAny = dp.au.some((v) => v !== '') || dp.uq.some((v) => v !== '');
+        if (!hasAny) return `${dayLabels[i]} : ○/○（内FP獲得○/○）`;
+        return `${dayLabels[i]} : ${calc.souhan}/${calc.riku}（内FP獲得${blank(dp.fpA)}/${blank(dp.fpB)}）`;
+      })
       .join('\n');
-    const mikomiLines = workDays.map((dt, i) => `${dayLabels[i]}獲得 : ${days[i].mikomiG || 0}組${days[i].mikomiD || 0}台`).join('\n');
-    const totalG = days.reduce((s, d) => s + (+d.mikomiG || 0), 0);
-    const totalD = days.reduce((s, d) => s + (+d.mikomiD || 0), 0);
+
+    const mikomiLines = wdays
+      .map((dt, i) => {
+        const m = mikomi[i] || { g: '', d: '' };
+        const has = m.g !== '' && m.d !== '';
+        return `${dayLabels[i]}獲得 : ${has ? `${m.g}組${m.d}台` : '-'}`;
+      })
+      .join('\n');
+    const totalG = mikomi.reduce((s, m) => s + (+m.g || 0), 0);
+    const totalD = mikomi.reduce((s, m) => s + (+m.d || 0), 0);
+    const hasMikomiTotal = mikomi.some((m) => m.g !== '' && m.d !== '');
+
+    const cur0 = dayPerf[0] || emptyDayPerf();
 
     return `お疲れ様です。
 ${director || '●●'}です。
 本日の日報を下記に記載いたします。
+
 ⚠️ヒヤリハット報告⚠️
-${hiyari || '特になし。'}
+${blankText(hiyari)}
 
 ■実績：2Bダウン除き総販/2Bリク除き
-目　標 : ${targetA || '-'}/${targetB || '-'}
+目　標 : ${blank(targetA)}/${blank(targetB)}
 ${jissekiLines}
-残数：${totals.nokoriA}/${totals.nokoriB}
+残　数：${targetA && targetB ? `${totals.nokoriA}/${totals.nokoriB}` : '○/○'}
 
-■店舗様見込み獲得（${totalG}組/${totalD}台）
+■店舗様見込み獲得（${hasMikomiTotal ? `${totalG}組/${totalD}台` : '○組/○台'}）
 ※常勤様の当日獲得は除く
 ${mikomiLines}
 
+■内訳（接客組/着座組/成約組/成約台数）
+アンケート枚数（全体） : ${blank(ank)}枚
+アンケート（内FP）　 : ${bFp.map((v) => blank(v)).join('/')}
+フリーキャッチ　  　 : ${bFc.map((v) => blank(v)).join('/')}
+什器/POP                  : ${bPop.map((v) => blank(v)).join('/')}
+家電/TA                     : ${bTa.map((v) => blank(v)).join('/')}
+振り（常勤/他）　　   : ${bFuri.map((v) => blank(v)).join('/')}
+※フリーキャッチの接客組は「足を止めた数」
+※アンケートの着座組は「見積りを出した数」
+
+■au mobile実績
+純新規獲得件数：${blank(cur0.au[0], 0)}件
+MNP(UQ⇒au)：${blank(cur0.au[1], 0)}件
+MNP(SB⇒au)：${blank(cur0.au[2], 0)}件
+MNP(DCM⇒au)：${blank(cur0.au[3], 0)}件
+MNP(YM⇒au)：${blank(cur0.au[4], 0)}件
+MNP(楽天⇒au)：${blank(cur0.au[5], 0)}件
+MNP(その他⇒au)：${blank(cur0.au[6], 0)}件
+機種変更獲得件数：${blank(cur0.au[7], 0)}件
+
+■UQ mobile実績
+純新規獲得件数：${blank(cur0.uq[0], 0)}件
+MNP(au⇒UQ)：${blank(cur0.uq[1], 0)}件
+MNP(SB⇒UQ)：${blank(cur0.uq[2], 0)}件
+MNP(DCM⇒UQ)：${blank(cur0.uq[3], 0)}件
+MNP(YM⇒UQ)：${blank(cur0.uq[4], 0)}件
+MNP(楽天⇒UQ)：${blank(cur0.uq[5], 0)}件
+MNP(その他⇒UQ)：${blank(cur0.uq[6], 0)}件
+機種変更件数：${blank(cur0.uq[7], 0)}件
+
+■FTTH実績
+auひかり　：${blank(ft[0])}件
+BIGLOBE光：${blank(ft[1])}件
+eo光：${blank(ft[2])}件
+CATV : ${blank(ft[3])}件
+WiMAX ：${blank(ft[4])}件
+
+■ライフデザイン実績
+auでんき　　：${blank(ld[0])}件
+auPayカード：${blank(ld[1])}件
+
+■その他獲得商材
+${blankText(other)}
+
+■アライアンス協業
+❶振り組数/成約組数
+KDDI→eo : ${blank(al[0][0])}/${blank(al[0][1])}
+eo→KDDI : ${blank(al[1][0])}/${blank(al[1][1])}
+KDDI→CATV : ${blank(al[2][0])}/${blank(al[2][1])}
+CATV→KDDI : ${blank(al[3][0])}/${blank(al[3][1])}
+
+❷アライアンス様連携（eo/CATV）取組み工夫
+${blankText(alEff)}
+
+■他社実績 
+(純新規/MNP/番号移行/機変)
+※他社取扱がない場合は「ー」を記入ください。
+Softbank：${ot[0].join('/')}
+docomo：${ot[1].join('/')}
+Ymobile：${ot[2].join('/')}
+楽天：${ot[3].join('/')}
+
 ■全体総括（活動内容/集客状況/他社状況）
-${txtOv || ''}
+${blankText(txtOv)}
 
 ■【達成：達成理由】【未達：改善策】
-${txtRs || ''}
+${blankText(txtRs)}
+
+■【添付】着座管理シート貼付
 
 ご確認の程、よろしくお願いいたします。`;
   }
 
-  async function handleSave() {
-    if (!store || !workDays[0]) {
-      showToast('店舗名は必須です');
-      return;
-    }
+  async function findDuplicate() {
+    const date = workDays[0];
+    const matches = Object.entries(reports).filter(
+      ([rid, r]) =>
+        rid !== editingId &&
+        r.date === date &&
+        r.store === store &&
+        r.userName === user?.name &&
+        r.userEmail === user?.email
+    );
+    return matches.length ? matches[0][0] : null;
+  }
+
+  async function doSave(deleteExistingId) {
     const payload = {
       date: workDays[0],
       workDays,
@@ -243,22 +427,38 @@ ${txtRs || ''}
       channel,
       director,
       userName: user?.name || '',
+      userEmail: user?.email || '',
       hiyari,
       r_ta: targetA,
       r_tb: targetB,
-      jisseki: days.map((d) => ({ a: +d.jissekiA || 0, b: +d.jissekiB || 0 })),
-      fp_by_day: days.map((d) => ({ a: +d.fpA || 0, b: +d.fpB || 0 })),
-      v_mikomi: days.map((d) => ({ g: +d.mikomiG || 0, d: +d.mikomiD || 0 })),
-      au_by_day: days.map((d) => d.au),
-      uq_by_day: days.map((d) => d.uq),
+      jisseki: totals.sums.map((s) => ({ a: s.souhan, b: s.riku })),
+      fp_by_day: dayPerf.map((d) => ({ a: +d.fpA || 0, b: +d.fpB || 0 })),
+      v_mikomi: mikomi.map((m) => ({ g: +m.g || 0, d: +m.d || 0 })),
+      au_by_day: dayPerf.map((d) => d.au.map((v) => +v || 0)),
+      uq_by_day: dayPerf.map((d) => d.uq.map((v) => +v || 0)),
       auto_souhan: totals.totalA,
       auto_2b: totals.totalB,
       ach: totals.ach,
+      ank: +ank || 0,
+      b_fp: bFp,
+      b_fc: bFc,
+      b_pop: bPop,
+      b_ta: bTa,
+      b_furi: bFuri,
+      ft,
+      ld,
+      other,
+      al,
+      al_eff: alEff,
+      ot,
       txt_ov: txtOv,
       txt_rs: txtRs,
       updatedAt: Date.now(),
     };
     try {
+      if (deleteExistingId) {
+        await remove(ref(db, `fp_reports/${deleteExistingId}`));
+      }
       if (editingId) {
         await set(ref(db, `fp_reports/${editingId}`), { ...reports[editingId], ...payload });
         showToast('✅ 日報を更新しました');
@@ -274,11 +474,64 @@ ${txtRs || ''}
     }
   }
 
-  const cur = days[activeIdx] || emptyDay();
+  async function handleSaveClick() {
+    if (!store || !workDays[0]) {
+      showToast('店舗名は必須です');
+      return;
+    }
+    if (!editingId) {
+      const dupId = await findDuplicate();
+      if (dupId) {
+        setDupModal({ existingId: dupId });
+        return;
+      }
+    }
+    doSave(null);
+  }
 
   return (
     <Layout title={editingId ? '日報編集' : '日報入力'} showBack>
-      {/* 稼働日 */}
+      <div className="card">
+        <button className="btn btn-outline" onClick={() => setShowLineBox(!showLineBox)}>
+          {showLineBox ? '閉じる' : '📋 LINE案件指示書から自動入力'}
+        </button>
+        {showLineBox && (
+          <div style={{ marginTop: 10 }}>
+            <textarea
+              className="inp"
+              rows={5}
+              value={lineText}
+              onChange={(e) => setLineText(e.target.value)}
+              placeholder="LINEで届いた案件指示書をそのまま貼り付け"
+              style={{ fontFamily: 'monospace', fontSize: '.78rem' }}
+            />
+            <button className="btn btn-p" style={{ marginTop: 8 }} onClick={handleParseLine}>
+              読み取って自動入力
+            </button>
+            {lineParsed && lineParsed.dates.length > 0 && (
+              <div style={{ marginTop: 10, fontSize: '.76rem', color: 'var(--sub)' }}>
+                {lineParsed.dates.map((dt) => {
+                  const names = lineParsed.membersByDate[dt] || [];
+                  const classified = classifyMembers(names, registeredNames);
+                  return (
+                    <div key={dt} style={{ marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700 }}>{dt}（{dowLabel(dt)}）</div>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
+                        {classified.map((m) => (
+                          <span key={m.name} className={`badge ${m.isOwnCompany ? 'b-orange' : 'b-gray'}`}>
+                            {m.name}（{m.isOwnCompany ? '自社' : '他社'}）
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="card">
         <div className="card-title">📅 稼働日</div>
         {workDays.map((dt, i) => (
@@ -293,21 +546,18 @@ ${txtRs || ''}
         <button className="btn btn-gray" onClick={addWorkday}>＋ 日程を追加</button>
       </div>
 
-      {/* 基本情報 */}
       <div className="card">
         <div className="card-title">📌 基本情報</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-          <div className="form-group">
-            <label>店舗名 <span className="req">*</span></label>
-            <input className="inp" value={store} onChange={(e) => setStore(e.target.value)} placeholder="例：○○イオン" />
-          </div>
-          <div className="form-group">
-            <label>販路 <span className="req">*</span></label>
-            <select className="inp" value={channel} onChange={(e) => setChannel(e.target.value)}>
-              <option value="">選択</option>
-              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+        <div className="form-group">
+          <label>店舗名 <span className="req">*</span></label>
+          <input className="inp" value={store} onChange={(e) => setStore(e.target.value)} placeholder="例：○○イオン" />
+        </div>
+        <div className="form-group">
+          <label>販路（店舗名から自動判定／手動変更可） <span className="req">*</span></label>
+          <select className="inp" value={channel} onChange={(e) => handleChannelChange(e.target.value)}>
+            <option value="">選択</option>
+            {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
         <div className="form-group">
           <label>ディレクター名 <span className="req">*</span></label>
@@ -315,106 +565,164 @@ ${txtRs || ''}
         </div>
         <div className="form-group">
           <label>⚠️ ヒヤリハット報告</label>
-          <textarea className="inp" rows={2} value={hiyari} onChange={(e) => setHiyari(e.target.value)} placeholder="あれば記入（なければ空白でOK）" />
+          <input className="inp" value={hiyari} onChange={(e) => setHiyari(e.target.value)} placeholder="特に無し。" />
         </div>
         <div className="form-group">
-          <label>現在入力中の日</label>
+          <label>現在入力中の日（実績入力欄が切り替わります）</label>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {workDays.map((dt, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveIdx(i)}
-                className={`fchip${i === activeIdx ? ' active' : ''}`}
-                style={{ padding: '8px 14px' }}
-              >
-                {dowLabel(dt)}（{i + 1}日目）
+              <button key={i} onClick={() => setActiveIdx(i)} className={`fchip${i === activeIdx ? ' active' : ''}`} style={{ padding: '8px 14px' }}>
+                {dowLabel(dt)}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* 目標 */}
       <div className="card">
-        <div className="card-title">🎯 目標</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input className="inp" type="number" placeholder="総販" value={targetA} onChange={(e) => setTargetA(e.target.value)} />
-          <span className="ts">台 /</span>
-          <input className="inp" type="number" placeholder="リク抜き" value={targetB} onChange={(e) => setTargetB(e.target.value)} />
-          <span className="ts">台</span>
+        <div className="card-title">🎯 目標／残数</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <input className="inp" type="text" inputMode="numeric" placeholder="総販目標" value={targetA} onChange={(e) => setTargetA(e.target.value)} />
+          <span className="ts">/</span>
+          <input className="inp" type="text" inputMode="numeric" placeholder="リク抜き目標" value={targetB} onChange={(e) => setTargetB(e.target.value)} />
         </div>
+        <ResultRow label="総販/リク抜き" a={totals.totalA} b={totals.totalB} color="var(--pd)" />
+        <ResultRow label="残数" a={targetA ? totals.nokoriA : '○'} b={targetB ? totals.nokoriB : '○'} color="var(--red)" />
       </div>
 
-      {/* au/UQ実績（タブはactiveIdxで管理、各日のデータはstateで個別保持） */}
       <div className="card">
         <div className="card-title">📱 au / UQ mobile実績（{dowLabel(workDays[activeIdx])}）</div>
-        <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--pd)', background: 'var(--pl)', padding: '5px 10px', borderRadius: 6, marginBottom: 7 }}>📱 au mobile</div>
-        {AU_LABELS.map((lbl, mi) => (
-          <MobileRow key={mi} label={lbl} value={cur.au[mi]} onChange={(v) => updateMobile(activeIdx, 'au', mi, v)} />
-        ))}
-        <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--pd)', background: 'var(--pl)', padding: '5px 10px', borderRadius: 6, margin: '10px 0 7px' }}>📱 UQ mobile</div>
-        {UQ_LABELS.map((lbl, mi) => (
-          <MobileRow key={mi} label={lbl} value={cur.uq[mi]} onChange={(v) => updateMobile(activeIdx, 'uq', mi, v)} />
-        ))}
+        <FieldRow label="純新規" value={cur.au[0]} onChange={(v) => updateMobile('au', 0, v)} />
+        <FieldRow label="MNP(UQ⇒au)" value={cur.au[1]} onChange={(v) => updateMobile('au', 1, v)} />
+        <FieldRow label="MNP(SB⇒au)" value={cur.au[2]} onChange={(v) => updateMobile('au', 2, v)} />
+        <FieldRow label="MNP(DCM⇒au)" value={cur.au[3]} onChange={(v) => updateMobile('au', 3, v)} />
+        <FieldRow label="MNP(YM⇒au)" value={cur.au[4]} onChange={(v) => updateMobile('au', 4, v)} />
+        <FieldRow label="MNP(楽天⇒au)" value={cur.au[5]} onChange={(v) => updateMobile('au', 5, v)} />
+        <FieldRow label="MNP(その他⇒au)" value={cur.au[6]} onChange={(v) => updateMobile('au', 6, v)} />
+        <FieldRow label="機種変更" value={cur.au[7]} onChange={(v) => updateMobile('au', 7, v)} />
+        <div style={{ height: 8 }} />
+        <FieldRow label="UQ純新規" value={cur.uq[0]} onChange={(v) => updateMobile('uq', 0, v)} />
+        <FieldRow label="MNP(au⇒UQ)" value={cur.uq[1]} onChange={(v) => updateMobile('uq', 1, v)} />
+        <FieldRow label="MNP(SB⇒UQ)" value={cur.uq[2]} onChange={(v) => updateMobile('uq', 2, v)} />
+        <FieldRow label="MNP(DCM⇒UQ)" value={cur.uq[3]} onChange={(v) => updateMobile('uq', 3, v)} />
+        <FieldRow label="MNP(YM⇒UQ)" value={cur.uq[4]} onChange={(v) => updateMobile('uq', 4, v)} />
+        <FieldRow label="MNP(楽天⇒UQ)" value={cur.uq[5]} onChange={(v) => updateMobile('uq', 5, v)} />
+        <FieldRow label="MNP(その他⇒UQ)" value={cur.uq[6]} onChange={(v) => updateMobile('uq', 6, v)} />
+        <FieldRow label="UQ機種変更" value={cur.uq[7]} onChange={(v) => updateMobile('uq', 7, v)} />
+        <ResultRow label="総販/リク抜き" a={curCalc.souhan} b={curCalc.riku} color="var(--pd)" style={{ marginTop: 8 }} />
+        <div style={{ height: 8 }} />
+        <FieldRow label="FP獲得(総販)" value={cur.fpA} onChange={(v) => updateFp('fpA', v)} />
+        <FieldRow label="FP獲得(リク抜)" value={cur.fpB} onChange={(v) => updateFp('fpB', v)} />
       </div>
 
-      {/* 実績（全日表示・タブ切替の影響を受けない） */}
       <div className="card">
-        <div className="card-title">📊 実績（2Bダウン除き総販 / 2Bリク除き）</div>
+        <div className="card-title">🏠 店舗様見込み獲得（土日とも常時表示）</div>
         {workDays.map((dt, i) => (
-          <div key={i} style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '.74rem', fontWeight: 800, color: 'var(--pd)', marginBottom: 6 }}>{dowLabel(dt)}</div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-              <span className="ts" style={{ flex: '0 0 90px' }}>総販/リク抜き</span>
-              <input className="inp" type="number" value={days[i].jissekiA} onChange={(e) => updateDay(i, { jissekiA: e.target.value })} placeholder="0" />
-              <span>/</span>
-              <input className="inp" type="number" value={days[i].jissekiB} onChange={(e) => updateDay(i, { jissekiB: e.target.value })} placeholder="0" />
-            </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span className="ts" style={{ flex: '0 0 90px' }}>FP獲得数</span>
-              <input className="inp" type="number" value={days[i].fpA} onChange={(e) => updateDay(i, { fpA: e.target.value })} placeholder="0" />
-              <span>/</span>
-              <input className="inp" type="number" value={days[i].fpB} onChange={(e) => updateDay(i, { fpB: e.target.value })} placeholder="0" />
-            </div>
+          <div key={i}>
+            <FieldRow label={`${dowLabel(dt)}・組数`} value={mikomi[i]?.g ?? ''} onChange={(v) => updateMikomi(i, { g: v })} unit="組" />
+            <FieldRow label={`${dowLabel(dt)}・台数`} value={mikomi[i]?.d ?? ''} onChange={(v) => updateMikomi(i, { d: v })} unit="台" />
           </div>
         ))}
-        <div style={{ background: 'var(--pl)', borderRadius: 9, padding: '9px 13px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.8rem', fontWeight: 700, color: 'var(--red)' }}>
-            <span>残数</span><span>{totals.nokoriA}/{totals.nokoriB}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: 'center', marginTop: 10 }}>
-          <div className="ts">達成率</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: totals.ach >= 100 ? 'var(--green)' : totals.ach >= 70 ? 'var(--orange)' : 'var(--red)' }}>
-            {targetA ? `${totals.ach}%` : '- %'}
-          </div>
-        </div>
       </div>
 
-      {/* 見込み獲得 */}
       <div className="card">
-        <div className="card-title">🏠 店舗様見込み獲得</div>
-        {workDays.map((dt, i) => (
-          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-            <span className="ts" style={{ flex: '0 0 90px' }}>{dowLabel(dt)}獲得</span>
-            <input className="inp" type="number" value={days[i].mikomiG} onChange={(e) => updateDay(i, { mikomiG: e.target.value })} placeholder="0" />
-            <span>組 /</span>
-            <input className="inp" type="number" value={days[i].mikomiD} onChange={(e) => updateDay(i, { mikomiD: e.target.value })} placeholder="0" />
-            <span>台</span>
+        <div className="card-title">📋 内訳（接客組/着座組/成約組/成約台数）</div>
+        <FieldRow label="アンケート枚数" value={ank} onChange={setAnk} unit="枚" />
+        <BreakdownRow label="アンケート（内FP）" values={bFp} onChange={setBFp} />
+        <BreakdownRow label="フリーキャッチ" values={bFc} onChange={setBFc} />
+        <BreakdownRow label="什器/POP" values={bPop} onChange={setBPop} />
+        <BreakdownRow label="家電/TA" values={bTa} onChange={setBTa} />
+        <BreakdownRow label="振り（常勤/他）" values={bFuri} onChange={setBFuri} />
+      </div>
+
+      <div className="card">
+        <div className="card-title">🌐 FTTH実績</div>
+        <FieldRow label="auひかり" value={ft[0]} onChange={(v) => setFt([v, ft[1], ft[2], ft[3], ft[4]])} />
+        <FieldRow label="BIGLOBE光" value={ft[1]} onChange={(v) => setFt([ft[0], v, ft[2], ft[3], ft[4]])} />
+        <FieldRow label="eo光" value={ft[2]} onChange={(v) => setFt([ft[0], ft[1], v, ft[3], ft[4]])} />
+        <FieldRow label="CATV" value={ft[3]} onChange={(v) => setFt([ft[0], ft[1], ft[2], v, ft[4]])} />
+        <FieldRow label="WiMAX" value={ft[4]} onChange={(v) => setFt([ft[0], ft[1], ft[2], ft[3], v])} />
+      </div>
+
+      <div className="card">
+        <div className="card-title">💡 ライフデザイン実績</div>
+        <FieldRow label="auでんき" value={ld[0]} onChange={(v) => setLd([v, ld[1]])} />
+        <FieldRow label="auPayカード" value={ld[1]} onChange={(v) => setLd([ld[0], v])} />
+      </div>
+
+      <div className="card">
+        <div className="card-title">🎁 その他獲得商材</div>
+        <input className="inp" value={other} onChange={(e) => setOther(e.target.value)} placeholder="（あれば自由記述）" />
+      </div>
+
+      <div className="card">
+        <div className="card-title">🤝 アライアンス協業（振り組数/成約組数）</div>
+        {['KDDI→eo', 'eo→KDDI', 'KDDI→CATV', 'CATV→KDDI'].map((lbl, i) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: '.73rem', flex: '0 0 90px' }}>{lbl}</span>
+            <input
+              className="inp"
+              type="text"
+              inputMode="numeric"
+              value={al[i][0]}
+              onChange={(e) => {
+                const next = al.map((row, ri) => (ri === i ? [e.target.value, row[1]] : row));
+                setAl(next);
+              }}
+            />
+            <span className="ts">/</span>
+            <input
+              className="inp"
+              type="text"
+              inputMode="numeric"
+              value={al[i][1]}
+              onChange={(e) => {
+                const next = al.map((row, ri) => (ri === i ? [row[0], e.target.value] : row));
+                setAl(next);
+              }}
+            />
+          </div>
+        ))}
+        <div className="form-group">
+          <label>アライアンス様連携（eo/CATV）取組み工夫</label>
+          <textarea className="inp" rows={2} value={alEff} onChange={(e) => setAlEff(e.target.value)} placeholder="（あれば自由記述）" />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">🏢 他社実績（純新規/MNP/番号移行/機変）</div>
+        {['Softbank', 'docomo', 'Ymobile', '楽天'].map((lbl, i) => (
+          <div key={lbl} style={{ marginBottom: 8 }}>
+            <div className="ts" style={{ marginBottom: 3 }}>{lbl}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
+              {[0, 1, 2, 3].map((j) => (
+                <input
+                  key={j}
+                  className="inp-s"
+                  type="text"
+                  inputMode="numeric"
+                  value={ot[i][j]}
+                  onChange={(e) => {
+                    const next = ot.map((row, ri) => (ri === i ? row.map((v, vi) => (vi === j ? e.target.value : v)) : row));
+                    setOt(next);
+                  }}
+                  style={{ textAlign: 'center' }}
+                />
+              ))}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* コメント */}
       <div className="card">
         <div className="card-title">✍️ コメント</div>
         <div className="form-group">
           <label>■全体総括（活動内容/集客状況/他社状況）</label>
-          <textarea className="inp" rows={4} value={txtOv} onChange={(e) => setTxtOv(e.target.value)} />
+          <textarea className="inp" rows={4} value={txtOv} onChange={(e) => setTxtOv(e.target.value)} placeholder="（あれば自由記述）" />
         </div>
         <div className="form-group">
           <label>■【達成：達成理由】【未達：改善策】</label>
-          <textarea className="inp" rows={4} value={txtRs} onChange={(e) => setTxtRs(e.target.value)} />
+          <textarea className="inp" rows={4} value={txtRs} onChange={(e) => setTxtRs(e.target.value)} placeholder="（あれば自由記述）" />
         </div>
       </div>
 
@@ -424,7 +732,7 @@ ${txtRs || ''}
         <div className="modal-overlay" onClick={() => setShowPreview(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: 10 }}>📋 日報プレビュー</h3>
-            <div style={{ background: '#f8faff', border: '1px solid var(--border)', borderRadius: 10, padding: 14, fontSize: '.78rem', lineHeight: 1.9, whiteSpace: 'pre-wrap', maxHeight: '50vh', overflowY: 'auto' }}>
+            <div style={{ background: '#f8faff', border: '1px solid var(--border)', borderRadius: 10, padding: 14, fontSize: '.76rem', lineHeight: 1.8, whiteSpace: 'pre-wrap', maxHeight: '50vh', overflowY: 'auto' }}>
               {buildText()}
             </div>
             <button
@@ -437,8 +745,32 @@ ${txtRs || ''}
             >
               📋 コピー
             </button>
-            <button className="btn btn-green" onClick={handleSave}>💾 保存してコピー</button>
+            <button className="btn btn-green" onClick={handleSaveClick}>💾 保存</button>
             <button className="btn btn-gray" onClick={() => setShowPreview(false)}>閉じる</button>
+          </div>
+        </div>
+      )}
+
+      {dupModal && (
+        <div className="modal-overlay" onClick={() => setDupModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.6rem', marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>すでに日報データが存在します</div>
+            <div className="ts" style={{ marginBottom: 14 }}>同じ日付・店舗・ユーザーの日報が見つかりました。</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-gray" onClick={() => setDupModal(null)}>キャンセル</button>
+              <button
+                className="btn"
+                style={{ background: '#dc2626', color: '#fff' }}
+                onClick={() => {
+                  const exId = dupModal.existingId;
+                  setDupModal(null);
+                  doSave(exId);
+                }}
+              >
+                上書き
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -446,12 +778,48 @@ ${txtRs || ''}
   );
 }
 
-function MobileRow({ label, value, onChange }) {
+function FieldRow({ label, value, onChange, unit = '件' }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <div style={{ fontSize: '.73rem', fontWeight: 600, flex: '0 0 132px' }}>{label}</div>
-      <input className="inp" type="number" min="0" value={value === 0 ? '' : value} onChange={(e) => onChange(e.target.value)} placeholder="0" />
-      <span className="ts">件</span>
+      <span style={{ fontSize: '.73rem', flex: '0 0 110px', color: 'var(--text)' }}>{label}：</span>
+      <input className="inp" type="text" inputMode="numeric" pattern="[0-9]*" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" style={{ textAlign: 'right' }} />
+      <span className="ts" style={{ flex: '0 0 16px' }}>{unit}</span>
+    </div>
+  );
+}
+
+function BreakdownRow({ label, values, onChange }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div className="ts" style={{ marginBottom: 3 }}>{label}（接客/着座/成約組/成約台）</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
+        {values.map((v, i) => (
+          <input
+            key={i}
+            className="inp-s"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={v}
+            onChange={(e) => {
+              const next = values.map((vv, vi) => (vi === i ? e.target.value : vv));
+              onChange(next);
+            }}
+            style={{ textAlign: 'center' }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultRow({ label, a, b, color, style }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--pl)', borderRadius: 8, padding: '8px 12px', marginBottom: 6, ...style }}>
+      <span style={{ fontSize: '.78rem', fontWeight: 700, color, flex: '0 0 110px' }}>{label}：</span>
+      <span style={{ fontSize: '.9rem', fontWeight: 700, color, width: 32, textAlign: 'right', display: 'inline-block' }}>{a}</span>
+      <span style={{ fontSize: '.9rem', color: 'var(--sub)', width: 16, textAlign: 'center', display: 'inline-block' }}>/</span>
+      <span style={{ fontSize: '.9rem', fontWeight: 700, color, width: 32, textAlign: 'left', display: 'inline-block' }}>{b}</span>
     </div>
   );
 }

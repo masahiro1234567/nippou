@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ref, push, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { useFirebaseList } from '../lib/useFirebaseList';
-import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import Layout from '../components/Layout';
 
@@ -13,13 +12,11 @@ function todayStr() {
 
 export default function Personal() {
   const { data: personalData } = useFirebaseList('fp_personal');
-  const { isAdmin, user } = useAuth();
   const showToast = useToast();
   const [editing, setEditing] = useState(null);
 
-  const entries = Object.entries(personalData)
-    .filter(([, p]) => isAdmin || p.name === user?.name)
-    .sort((a, b) => (b[1].date || '').localeCompare(a[1].date || ''));
+  // 閲覧・編集どちらも全ユーザーに開放。日報保存直後の導線とは別に、ここからいつでも誰でも操作できる。
+  const entries = Object.entries(personalData).sort((a, b) => (b[1].date || '').localeCompare(a[1].date || ''));
 
   async function handleSave() {
     if (!editing.name?.trim() || !editing.date) {
@@ -74,16 +71,16 @@ export default function Personal() {
               </div>
             </div>
             {p.memo && <div className="ts" style={{ marginBottom: 6 }}>{p.memo}</div>}
-            {isAdmin && <button className="btn btn-outline" onClick={() => setEditing({ id, ...p })}>編集</button>}
+            <button className="btn btn-outline" onClick={() => setEditing({ id, ...p })}>
+              編集
+            </button>
           </div>
         );
       })}
 
-      {isAdmin && (
-        <button className="btn btn-p" style={{ marginTop: 12 }} onClick={() => setEditing({ name: '', date: todayStr(), role: 'クローザー' })}>
-          ＋ 個人実績を登録
-        </button>
-      )}
+      <button className="btn btn-p" style={{ marginTop: 12 }} onClick={() => setEditing({ name: '', date: todayStr(), role: 'クローザー' })}>
+        ＋ 個人実績を登録
+      </button>
 
       {editing && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
@@ -111,22 +108,26 @@ export default function Personal() {
             </div>
             <div className="form-group">
               <label>KPI目標</label>
-              <input className="inp" type="number" value={editing.target || ''} onChange={(e) => setEditing({ ...editing, target: e.target.value })} />
+              <input className="inp" type="text" inputMode="numeric" value={editing.target || ''} onChange={(e) => setEditing({ ...editing, target: e.target.value })} />
             </div>
             <div className="form-group">
               <label>FP獲得実績</label>
-              <input className="inp" type="number" value={editing.actual || ''} onChange={(e) => setEditing({ ...editing, actual: e.target.value })} />
+              <input className="inp" type="text" inputMode="numeric" value={editing.actual || ''} onChange={(e) => setEditing({ ...editing, actual: e.target.value })} />
             </div>
             <div className="form-group">
               <label>総販</label>
-              <input className="inp" type="number" value={editing.souhan || ''} onChange={(e) => setEditing({ ...editing, souhan: e.target.value })} />
+              <input className="inp" type="text" inputMode="numeric" value={editing.souhan || ''} onChange={(e) => setEditing({ ...editing, souhan: e.target.value })} />
             </div>
             <div className="form-group">
               <label>メモ</label>
               <textarea className="inp" rows={2} value={editing.memo || ''} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} />
             </div>
             <button className="btn btn-p" onClick={handleSave}>保存</button>
-            {editing.id && <button className="btn" style={{ background: '#fee2e2', color: '#dc2626' }} onClick={() => handleDelete(editing.id)}>🗑 削除</button>}
+            {editing.id && (
+              <button className="btn" style={{ background: '#fee2e2', color: '#dc2626' }} onClick={() => handleDelete(editing.id)}>
+                🗑 削除
+              </button>
+            )}
             <button className="btn btn-gray" onClick={() => setEditing(null)}>キャンセル</button>
           </div>
         </div>

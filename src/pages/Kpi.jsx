@@ -12,12 +12,19 @@ function parseDateLocal(str) {
   const [y, m, d] = str.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
+function dowLabel(dateStr) {
+  return dateStr ? DOWS[parseDateLocal(dateStr).getDay()] + '曜日' : '';
+}
 function todayStr() {
   const t = new Date();
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 }
+function nextDay(dateStr) {
+  const d = parseDateLocal(dateStr);
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
-// メンバーの実績を、同日・同店舗・同名の日報から推定する
 function findActual(reports, date, store, memberName) {
   const r = Object.values(reports).find(
     (rep) =>
@@ -34,38 +41,106 @@ function findActual(reports, date, store, memberName) {
 export default function Kpi() {
   const { data: kpiData } = useFirebaseList('fp_kpi');
   const { data: reports } = useFirebaseList('fp_reports');
+  const { data: fpUsers } = useFirebaseList('fp_users');
   const { isAdmin } = useAuth();
   const showToast = useToast();
-  const [editing, setEditing] = useState(null); // null=閉, {} = 新規, {id,...}=編集
+  const [editing, setEditing] = useState(null);
+
+  const registeredNames = useMemo(() => new Set(Object.values(fpUsers).map((u) => u.name).filter(Boolean)), [fpUsers]);
 
   const cards = useMemo(() => {
     return Object.entries(kpiData)
       .map(([id, k]) => {
-        const members = (k.members || []).filter((m) => m.member);
-        const totalTarget = members.filter((m) => m.role !== 'キャッチャー').reduce((s, m) => s + (+m.target || 0), 0);
+        const dates = k.dates || [k.date].filter(Boolean);
+        const mode = k.mode || 'souhan';
+        const dateMembers = k.dateMembers || {};
+        const totalTarget = dates.reduce((s, dt) => {
+          const ms = dateMembers[dt] || [];
+          return s + ms.filter((m) => m.role !== 'キャッチャー').reduce((s2, m) => s2 + (+m.target || 0), 0);
+        }, 0);
         let totalActual = 0;
-        const memberRows = members.map((m) => {
-          const actual = findActual(reports, k.date, k.store, m.member);
-          if (m.role !== 'キャッチャー' && actual !== null) totalActual += actual;
-          return { ...m, actual };
+        const perDate = dates.map((dt) => {
+          const ms = dateMembers[dt] || [];
+          const rows = ms.map((m) => {
+            const actual = findActual(reports, dt, k.store, m.member);
+            if (m.role !== 'キャッチャー' && actual !== null) totalActual += actual;
+            const isOwn = registeredNames.has(m.member);
+            return { ...m, actual, isOwn };
+          });
+          return { date: dt, rows };
         });
         const ach = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-        return { id, k, memberRows, totalTarget, totalActual, ach };
+        return { id, k, mode, dates, perDate, totalTarget, totalActual, ach };
       })
-      .sort((a, b) => (b.k.date || '').localeCompare(a.k.date || ''));
-  }, [kpiData, reports]);
+      .sort((a, b) => (b.dates[0] || '').localeCompare(a.dates[0] || ''));
+  }, [kpiData, reports, registeredNames]);
+
+  function openNew() {
+    const d0 = todayStr();
+    setEditing({
+      store: '',
+      mode: 'souhan',
+      overallTarget: '',
+      dates: [d0],
+      dateMembers: { [d0]: [{ member: '', role: 'クローザー', target: '', catcherCount: '' }] },
+    });
+  }
+  function openEdit(id) {
+    const k = kpiData[id];
+    setEditing({ id, store: k.store || '', mode: k.mode || 'souhan', overallTarget: k.overallTarget || '', dates: k.dates || [k.date].filter(Boolean), dateMembers: k.dateMembers || {} });
+  }
+
+  function updateMember(date, idx, patch) {
+    setEditing((prev) => {
+      const dm = { ...prev.dateMembers };
+      dm[date] = dm[date].map((m, i) => (i === idx ? { ...m, ...patch } : m));
+      return { ...prev, dateMembers: dm };
+    });
+  }
+  function addMember(date) {
+    setEditing((prev) => {
+      const dm = { ...prev.dateMembers };
+      dm[date] = [...(dm[date] || []), { member: '', role: 'クローザー', target: '', catcherCount: '' }];
+      return { ...prev, dateMembers: dm };
+    });
+  }
+  function removeMember(date, idx) {
+    setEditing((prev) => {
+      const dm = { ...prev.dateMembers };
+      dm[date] = dm[date].filter((_, i) => i !== idx);
+      return { ...prev, dateMembers: dm };
+    });
+  }
+  function addDate() {
+    setEditing((prev) => {
+      const last = prev.dates[prev.dates.length - 1];
+      const nd = nextDay(last);
+      return { ...prev, dates: [...prev.dates, nd], dateMembers: { ...prev.dateMembers, [nd]: [{ member: '', role: 'クローザー', target: '', catcherCount: '' }] } };
+    });
+  }
+
+  const memberSum = useMemo(() => {
+    if (!editing) return 0;
+    return editing.dates.reduce((s, dt) => {
+      const ms = editing.dateMembers[dt] || [];
+      return s + ms.filter((m) => m.role !== 'キャッチャー').reduce((s2, m) => s2 + (+m.target || 0), 0);
+    }, 0);
+  }, [editing]);
 
   async function handleSave() {
-    if (!editing.date || !editing.store) {
-      showToast('日付・店舗名は必須です');
+    if (!editing.store || !editing.dates.length) {
+      showToast('店舗名・日程は必須です');
       return;
     }
-    const members = (editing.members || []).filter((m) => m.member);
-    if (!members.length) {
-      showToast('メンバーを1人以上入力してください');
-      return;
-    }
-    const data = { date: editing.date, store: editing.store, members, updatedAt: Date.now() };
+    const data = {
+      store: editing.store,
+      mode: editing.mode,
+      overallTarget: editing.overallTarget,
+      dates: editing.dates,
+      date: editing.dates[0],
+      dateMembers: editing.dateMembers,
+      updatedAt: Date.now(),
+    };
     if (editing.id) {
       await set(ref(db, `fp_kpi/${editing.id}`), data);
     } else {
@@ -74,7 +149,6 @@ export default function Kpi() {
     showToast('✅ 保存しました');
     setEditing(null);
   }
-
   async function handleDelete(id) {
     if (!confirm('このKPIを削除しますか？')) return;
     await remove(ref(db, `fp_kpi/${id}`));
@@ -82,66 +156,72 @@ export default function Kpi() {
     setEditing(null);
   }
 
-  function updateMember(idx, patch) {
-    const members = [...(editing.members || [])];
-    members[idx] = { ...members[idx], ...patch };
-    setEditing({ ...editing, members });
-  }
-  function addMember() {
-    setEditing({ ...editing, members: [...(editing.members || []), { member: '', role: 'クローザー', target: '' }] });
-  }
-  function removeMember(idx) {
-    setEditing({ ...editing, members: (editing.members || []).filter((_, i) => i !== idx) });
-  }
-
   return (
     <Layout title="KPI管理" showBack>
       {isAdmin && (
-        <button className="btn btn-p" style={{ marginBottom: 12 }} onClick={() => setEditing({ date: todayStr(), store: '', members: [{ member: '', role: 'クローザー', target: '' }] })}>
+        <button className="btn btn-p" style={{ marginBottom: 12 }} onClick={openNew}>
           ＋ KPIを登録
         </button>
       )}
 
       {cards.length === 0 && <div className="empty">KPIデータなし</div>}
 
-      {cards.map(({ id, k, memberRows, totalTarget, totalActual, ach }) => {
-        const dow = k.date ? DOWS[parseDateLocal(k.date).getDay()] : '';
+      {cards.map(({ id, k, mode, dates, perDate, totalTarget, totalActual, ach }) => {
         const color = ach >= 100 ? 'var(--green)' : ach >= 70 ? 'var(--orange)' : 'var(--red)';
         return (
           <div key={id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <div>
                 <div className="fw8">{k.store}</div>
-                <div className="ts">{k.date}（{dow}）</div>
+                <div className="ts">{mode === 'souhan' ? '総販' : 'リク抜き'}でカウント</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 900, fontSize: '1rem', color }}>{ach}%</div>
-                <div className="ts">FP {totalActual}件 / 目標{totalTarget}件</div>
+                <div className="ts">{totalActual}件 / 目標{totalTarget || k.overallTarget || 0}件</div>
               </div>
             </div>
-            <div style={{ background: 'var(--bg)', borderRadius: 7, height: 10, overflow: 'hidden', marginBottom: 10 }}>
-              <div style={{ height: '100%', width: `${Math.min(ach, 100)}%`, background: color }} />
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', fontSize: '.72rem', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <td></td>
+                    {dates.map((dt) => (
+                      <td key={dt} colSpan={2} style={{ textAlign: 'center', color: 'var(--sub)', borderBottom: '1px solid var(--border)', padding: 5 }}>
+                        {dt}（{dowLabel(dt)}）
+                      </td>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(perDate[0]?.rows || []).map((_, ri) => (
+                    <tr key={ri}>
+                      <td style={{ padding: '4px 6px' }}>{perDate[0].rows[ri].role}</td>
+                      {perDate.map((pd) => {
+                        const m = pd.rows[ri];
+                        if (!m) return <td key={pd.date} colSpan={2}></td>;
+                        const bg = m.isOwn ? '#faeeda' : 'transparent';
+                        const isCatcher = m.role === 'キャッチャー';
+                        return (
+                          <td key={pd.date} colSpan={2} style={{ background: bg, padding: '4px 6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontWeight: m.isOwn ? 700 : 400, color: m.isOwn ? 'var(--text)' : 'var(--sub)' }}>{m.member || '他社'}</span>
+                              <span style={{ fontWeight: 700 }}>
+                                {isCatcher ? `着座${m.catcherCount || 0}組` : `${m.target || 0}件`}
+                              </span>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {memberRows.map((m, i) => {
-              const achieved = m.actual !== null && m.actual >= (+m.target || 0);
-              return (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--bg)' }}>
-                  <div>
-                    <div style={{ fontSize: '.82rem', fontWeight: 700 }}>{m.member}</div>
-                    <div className="ts">{m.role} ／ 目標{m.target || 0}件</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ fontSize: '.8rem', fontWeight: 700 }}>実績 {m.actual !== null ? `${m.actual}件` : '未記入'}</div>
-                    <span className={`badge ${m.role === 'キャッチャー' ? 'b-gray' : achieved ? 'b-green' : 'b-red'}`}>
-                      {m.role === 'キャッチャー' ? '参考' : achieved ? '達成' : '未達'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+
             {isAdmin && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn btn-outline" onClick={() => setEditing({ id, ...k })}>編集</button>
+                <button className="btn btn-outline" onClick={() => openEdit(id)}>編集</button>
                 <button className="btn" style={{ background: '#fee2e2', color: '#dc2626' }} onClick={() => handleDelete(id)}>削除</button>
               </div>
             )}
@@ -153,33 +233,91 @@ export default function Kpi() {
         <div className="modal-overlay" onClick={() => setEditing(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: 10 }}>{editing.id ? 'KPIを編集' : 'KPIを登録'}</h3>
-            <div className="form-group">
-              <label>日付 <span className="req">*</span></label>
-              <input className="inp" type="date" value={editing.date || ''} onChange={(e) => setEditing({ ...editing, date: e.target.value })} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <input className="inp" style={{ flex: 1, marginRight: 8 }} placeholder="店舗名" value={editing.store} onChange={(e) => setEditing({ ...editing, store: e.target.value })} />
             </div>
-            <div className="form-group">
-              <label>店舗名 <span className="req">*</span></label>
-              <input className="inp" value={editing.store || ''} onChange={(e) => setEditing({ ...editing, store: e.target.value })} placeholder="例：○○イオン" />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div
+                onClick={() => setEditing({ ...editing, mode: editing.mode === 'souhan' ? 'riku' : 'souhan' })}
+                style={{ display: 'flex', border: '1.5px solid var(--border)', borderRadius: 8, overflow: 'hidden', width: 128, cursor: 'pointer' }}
+              >
+                <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'souhan' ? 'var(--primary)' : '#fff', color: editing.mode === 'souhan' ? '#fff' : 'var(--sub)' }}>総販</div>
+                <div style={{ width: 64, textAlign: 'center', padding: '6px 0', fontSize: '.72rem', fontWeight: 700, background: editing.mode === 'riku' ? 'var(--primary)' : '#fff', color: editing.mode === 'riku' ? '#fff' : 'var(--sub)' }}>リク抜き</div>
+              </div>
+              <input
+                className="inp"
+                style={{ width: 80 }}
+                type="text"
+                inputMode="numeric"
+                placeholder="現場全体の目標"
+                value={editing.overallTarget}
+                onChange={(e) => setEditing({ ...editing, overallTarget: e.target.value })}
+              />
             </div>
-            <div className="form-group">
-              <label>メンバー</label>
-              {(editing.members || []).map((m, i) => (
-                <div key={i} style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 6 }}>
-                  <input className="inp" placeholder="名前" value={m.member} onChange={(e) => updateMember(i, { member: e.target.value })} style={{ flex: 2 }} />
-                  <select className="inp" value={m.role} onChange={(e) => updateMember(i, { role: e.target.value })} style={{ flex: 1 }}>
-                    <option value="クローザー">クローザー</option>
-                    <option value="ディレクター">ディレクター</option>
-                    <option value="キャッチャー">キャッチャー</option>
-                  </select>
-                  <input className="inp" type="number" placeholder="KPI" value={m.target} onChange={(e) => updateMember(i, { target: e.target.value })} style={{ flex: '0 0 64px' }} />
-                  {i > 0 && (
-                    <button onClick={() => removeMember(i)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 8px', color: '#dc2626' }}>×</button>
-                  )}
+
+            {editing.dates.map((dt) => (
+              <div key={dt} style={{ background: 'var(--pl)', borderRadius: 10, padding: 11, marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <input
+                    className="inp-s"
+                    type="date"
+                    style={{ width: 'auto' }}
+                    value={dt}
+                    onChange={(e) => {
+                      const idx = editing.dates.indexOf(dt);
+                      const newDates = [...editing.dates];
+                      newDates[idx] = e.target.value;
+                      const dm = { ...editing.dateMembers };
+                      dm[e.target.value] = dm[dt];
+                      delete dm[dt];
+                      setEditing({ ...editing, dates: newDates, dateMembers: dm });
+                    }}
+                  />
+                  <span className="ts">{dowLabel(dt)}</span>
                 </div>
-              ))}
-              <button className="btn btn-gray" onClick={addMember}>＋ メンバーを追加</button>
+                {(editing.dateMembers[dt] || []).map((m, mi) => (
+                  <div key={mi} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 6 }}>
+                    <input className="inp" style={{ flex: 2 }} placeholder="メンバー名" value={m.member} onChange={(e) => updateMember(dt, mi, { member: e.target.value })} />
+                    <select className="inp" style={{ flex: 1 }} value={m.role} onChange={(e) => updateMember(dt, mi, { role: e.target.value })}>
+                      <option value="クローザー">クローザー</option>
+                      <option value="ディレクター">ディレクター</option>
+                      <option value="キャッチャー">キャッチャー</option>
+                    </select>
+                    {m.role === 'キャッチャー' ? (
+                      <input className="inp" style={{ flex: '0 0 64px' }} type="text" inputMode="numeric" placeholder="着座" value={m.catcherCount} onChange={(e) => updateMember(dt, mi, { catcherCount: e.target.value })} />
+                    ) : (
+                      <input className="inp" style={{ flex: '0 0 64px' }} type="text" inputMode="numeric" placeholder="KPI" value={m.target} onChange={(e) => updateMember(dt, mi, { target: e.target.value })} />
+                    )}
+                    {mi > 0 && (
+                      <button onClick={() => removeMember(dt, mi)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 8px', color: '#dc2626' }}>×</button>
+                    )}
+                  </div>
+                ))}
+                <button className="btn btn-gray" onClick={() => addMember(dt)}>＋ メンバーを追加</button>
+              </div>
+            ))}
+            <button className="btn btn-gray" onClick={addDate}>＋ 日程を追加</button>
+
+            <div
+              style={{
+                marginTop: 10,
+                padding: '9px 12px',
+                borderRadius: 8,
+                fontSize: '.78rem',
+                fontWeight: 700,
+                background: memberSum === (+editing.overallTarget || 0) ? '#eaf3de' : '#fcebeb',
+                color: memberSum === (+editing.overallTarget || 0) ? 'var(--green)' : 'var(--red)',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>メンバー目標の合計：{memberSum}件</span>
+              <span>現場全体の目標：{editing.overallTarget || 0}件{memberSum === (+editing.overallTarget || 0) ? '（一致）' : '（不一致）'}</span>
             </div>
-            <button className="btn btn-p" onClick={handleSave}>保存</button>
+
+            <button className="btn btn-p" style={{ marginTop: 10 }} onClick={handleSave}>保存</button>
             <button className="btn btn-gray" onClick={() => setEditing(null)}>キャンセル</button>
           </div>
         </div>

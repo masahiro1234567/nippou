@@ -24,6 +24,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // 事前登録制ログイン：管理者が fp_users に登録した名簿と照合する。
+  // 「最初の1人だけ自動承認」という例外は廃止し、登録済みかどうかだけで判定する。
   async function login(name, email, pass) {
     if (!name || !email || !pass) throw new Error('全ての項目を入力してください');
     if (pass !== PASSCODE) throw new Error('パスコードが違います');
@@ -40,23 +42,14 @@ export function AuthProvider({ children }) {
     if (!entry) entry = Object.entries(users).find(([, u]) => !u.email && u.name === name);
 
     if (!entry) {
-      const hasUsers = Object.keys(users).length > 0;
-      if (hasUsers) {
-        await set(push(ref(db, 'fp_users')), {
-          name,
-          email,
-          permission: 'pending',
-          createdAt: Date.now(),
-        });
-        return { pending: true };
-      }
-      // 初回ユーザーは自動承認
-      const newRef = push(ref(db, 'fp_users'));
-      await set(newRef, { name, email, permission: 'edit', createdAt: Date.now() });
-      const u = { name, email, uid: newRef.key, permission: 'edit' };
-      persistUser(u);
-      setUser(u);
-      return { pending: false };
+      // 名簿に登録がない場合は申請として登録し、管理者の承認待ちにする
+      await set(push(ref(db, 'fp_users')), {
+        name,
+        email,
+        permission: 'pending',
+        createdAt: Date.now(),
+      });
+      return { pending: true };
     }
 
     const [uid, userData] = entry;
@@ -105,6 +98,7 @@ export function AuthProvider({ children }) {
     setIsAdmin(false);
   }
 
+  // 日報の編集権限：管理者、または本人が作成した日報（閲覧のみユーザーは不可）
   const canEditReport = (report) =>
     isAdmin ||
     (user &&

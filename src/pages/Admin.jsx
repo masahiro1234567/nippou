@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
@@ -84,51 +84,105 @@ function ReportManageTab() {
 
 function GoalTab() {
   const { data: goals } = useFirebaseList('fp_goals');
+  const { data: reports } = useFirebaseList('fp_reports');
   const showToast = useToast();
   const [month, setMonth] = useState(todayYm());
+  const [showEdit, setShowEdit] = useState(false);
+
+  const key = month.replace('-', '');
+  const goal = goals[key];
   const [a, setA] = useState('');
   const [b, setB] = useState('');
   const [memo, setMemo] = useState('');
+
+  useEffect(() => {
+    setA(goal?.a ?? '');
+    setB(goal?.b ?? '');
+    setMemo(goal?.memo ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
+
+  const progress = useMemo(() => {
+    const list = Object.values(reports).filter((r) => (r.date || '').startsWith(month));
+    const souhan = list.reduce((s, r) => s + (r.auto_souhan || 0), 0);
+    const riku = list.reduce((s, r) => s + (r.auto_2b || 0), 0);
+    return { souhan, riku };
+  }, [reports, month]);
 
   async function handleSave() {
     if (!month) {
       showToast('対象月を選択してください');
       return;
     }
-    const key = month.replace('-', '');
     await set(ref(db, `fp_goals/${key}`), { month, a: +a || 0, b: +b || 0, memo, updatedAt: Date.now() });
     showToast('✅ 目標を保存しました');
+    setShowEdit(false);
   }
+
+  const pctA = goal?.a ? Math.round((progress.souhan / goal.a) * 100) : 0;
+  const pctB = goal?.b ? Math.round((progress.riku / goal.b) * 100) : 0;
 
   return (
     <div>
       <div className="card">
-        <div className="form-group">
-          <label>対象月</label>
-          <input className="inp" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: '.95rem', fontWeight: 700 }}>{month.replace('-', '年')}月の目標</div>
+          <input className="inp-s" type="month" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(e.target.value)} />
         </div>
-        <div className="form-group">
-          <label>総販目標</label>
-          <input className="inp" type="number" value={a} onChange={(e) => setA(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label>2Bリク除き目標</label>
-          <input className="inp" type="number" value={b} onChange={(e) => setB(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label>自由記述（方針など）</label>
-          <textarea className="inp" rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} />
-        </div>
-        <button className="btn btn-p" onClick={handleSave}>目標を保存</button>
+
+        {goal ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <GoalStat label="総販" value={progress.souhan} target={goal.a} pct={pctA} color="var(--primary)" bg="var(--pl)" />
+              <GoalStat label="リク抜き" value={progress.riku} target={goal.b} pct={pctB} color="var(--green)" bg="#eaf3de" />
+            </div>
+            {goal.memo && (
+              <div style={{ background: '#f8faff', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                <div className="ts" style={{ fontWeight: 700, marginBottom: 6 }}>今月の方針</div>
+                <div style={{ fontSize: '.82rem' }}>{goal.memo}</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="ts" style={{ padding: '10px 0' }}>この月の目標はまだ設定されていません</div>
+        )}
+
+        <button className="btn btn-outline" onClick={() => setShowEdit(!showEdit)}>
+          {showEdit ? '閉じる' : '目標を編集する'}
+        </button>
+        {showEdit && (
+          <div style={{ marginTop: 10 }}>
+            <div className="form-group">
+              <label>総販目標</label>
+              <input className="inp" type="text" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>リク抜き目標</label>
+              <input className="inp" type="text" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>方針メモ</label>
+              <textarea className="inp" rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} />
+            </div>
+            <button className="btn btn-p" onClick={handleSave}>保存</button>
+          </div>
+        )}
       </div>
-      <div className="card-title" style={{ marginTop: 12 }}>設定済み月次目標</div>
-      {Object.entries(goals).sort((a2, b2) => (b2[1].month || '').localeCompare(a2[1].month || '')).map(([key, g]) => (
-        <div key={key} className="card">
-          <div className="fw8">{g.month}</div>
-          <div className="ts">総販目標：{g.a}台 ／ 2Bリク除き目標：{g.b}台</div>
-          {g.memo && <div className="ts" style={{ marginTop: 6 }}>{g.memo}</div>}
-        </div>
-      ))}
+    </div>
+  );
+}
+
+function GoalStat({ label, value, target, pct, color, bg }) {
+  return (
+    <div style={{ background: bg, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontSize: '.72rem', color, fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+        {value}<span style={{ fontSize: '.74rem', color: 'var(--sub)' }}>/{target || 0}件</span>
+      </div>
+      <div style={{ background: '#fff', borderRadius: 6, height: 8, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color }} />
+      </div>
+      <div style={{ fontSize: '.66rem', color, marginTop: 4, textAlign: 'right' }}>{pct}%</div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
 const MENU = [
@@ -7,9 +8,11 @@ const MENU = [
   { to: '/stats', icon: '📊', label: '実績確認' },
   { to: '/stores', icon: '🏪', label: '店舗特徴' },
   { to: '/kpi', icon: '🎯', label: 'KPI' },
+  { to: '/personal', icon: '📈', label: '個人実績' },
 ];
 
 export default function Home() {
+  const { isAdmin } = useAuth();
   return (
     <Layout title="FP日報アプリ">
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
@@ -30,6 +33,19 @@ export default function Home() {
           </Link>
         ))}
       </div>
+      {isAdmin && (
+        <Link
+          to="/admin"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            width: '100%', background: '#faeeda', color: '#854f0b', border: '1.5px solid #f0997b',
+            borderRadius: 12, padding: 13, fontSize: '.86rem', fontWeight: 700, textDecoration: 'none',
+            marginBottom: 10,
+          }}
+        >
+          🛡️ 管理者画面
+        </Link>
+      )}
       <Link
         to="/admin-login"
         style={{
