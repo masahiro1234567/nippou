@@ -347,6 +347,7 @@ export default function Kpi() {
                     )}
                   </div>
                 ))}
+<<<<<<< Updated upstream
              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
   <button className="btn btn-gray" style={{ flex: 1, padding: '8px 10px', fontSize: '.82rem' }} onClick={() => addMember(dt)}>＋ メンバーを追加</button>
   <button
@@ -362,6 +363,24 @@ export default function Kpi() {
     他社
   </button>
 </div>
+=======
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <button className="btn btn-gray" style={{ flex: 1, padding: '8px 10px', fontSize: '.82rem' }} onClick={() => addMember(dt)}>＋ メンバーを追加</button>
+                  <button
+                    style={{ flexShrink: 0, background: '#f1f5f9', color: 'var(--sub)', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 14px', fontSize: '.82rem', fontWeight: 700, cursor: 'pointer' }}
+                    onClick={() => {
+                      setEditing((prev) => {
+                        const dm = { ...prev.dateMembers };
+                        dm[dt] = [...(dm[dt] || []), { member: '他社', role: 'クローザー', target: '', catcherCount: '', _custom: false }];
+                        return { ...prev, dateMembers: dm };
+                      });
+                    }}
+                  >
+                    他社
+                  </button>
+                </div>
+              </div>
+>>>>>>> Stashed changes
             ))}
             <button className="btn btn-gray" onClick={addDate}>＋ 日程を追加</button>
 
