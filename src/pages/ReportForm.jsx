@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ref, push, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
@@ -26,13 +26,6 @@ function dowLabel(dateStr) {
 function detectChannel(storeName) {
   return CHANNELS.find((c) => c !== 'その他' && storeName.includes(c)) || '';
 }
-
-function emptyAuUq() {
-  return Array(8).fill('');
-}
-function emptyDayPerf() {
-  return { au: emptyAuUq(), uq: emptyAuUq(), fpA: '', fpB: '' };
-}
 function calcSouhanRiku(au, uq) {
   const n = (v) => +v || 0;
   const auTotal = au.reduce((a, b) => a + n(b), 0);
@@ -45,10 +38,38 @@ function blank(v, mark = '○') {
   return v === '' || v === null || v === undefined ? mark : v;
 }
 function blankText(v) {
-  return v && v.trim() !== '' ? v : '-';
+  return v && String(v).trim() !== '' ? v : '-';
 }
 
-const DRAFT_KEY = 'fp_draft_v3';
+// 1日分のデータの初期値（タブごとに独立）
+function emptyDayData(date = '') {
+  return {
+    date,
+    au: Array(8).fill(''),
+    uq: Array(8).fill(''),
+    fpA: '',
+    fpB: '',
+    hiyari: '特に無し。',
+    ank: '',
+    bFp: ['', '', '', ''],
+    bFc: ['', '', '', ''],
+    bPop: ['', '', '', ''],
+    bTa: ['', '', '', ''],
+    bFuri: ['', '', '', ''],
+    ft: ['', '', '', '', ''],
+    ld: ['', ''],
+    other: '',
+    al: [['', ''], ['', ''], ['', ''], ['', '']],
+    alEff: '',
+    ot: [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']],
+    txtOv: '',
+    txtRs: '',
+    mikomiG: '',
+    mikomiD: '',
+  };
+}
+
+const DRAFT_KEY = 'fp_draft_v4';
 
 export default function ReportForm() {
   const { id } = useParams();
@@ -58,42 +79,34 @@ export default function ReportForm() {
   const { data: reports } = useFirebaseList('fp_reports');
   const { data: fpUsers } = useFirebaseList('fp_users');
 
-  const [workDays, setWorkDays] = useState([todayStr()]);
-  const [activeIdx, setActiveIdx] = useState(0);
+  // 共通フィールド（タブ切り替えで変わらない）
   const [store, setStore] = useState('');
   const [channel, setChannel] = useState('');
   const [channelAuto, setChannelAuto] = useState(true);
   const [director, setDirector] = useState(user?.name || '');
-  const [hiyari, setHiyari] = useState('特に無し。');
   const [targetA, setTargetA] = useState('');
   const [targetB, setTargetB] = useState('');
 
-  const [dayPerf, setDayPerf] = useState([emptyDayPerf()]);
-  const [mikomi, setMikomi] = useState([{ g: '', d: '' }]);
+  // 日ごとのデータ（タブで切り替わる。土曜・日曜それぞれ独立）
+  const [days, setDays] = useState([emptyDayData(todayStr())]);
+  const [activeIdx, setActiveIdx] = useState(0);
 
-  const [ank, setAnk] = useState('');
-  const [bFp, setBFp] = useState(['', '', '', '']);
-  const [bFc, setBFc] = useState(['', '', '', '']);
-  const [bPop, setBPop] = useState(['', '', '', '']);
-  const [bTa, setBTa] = useState(['', '', '', '']);
-  const [bFuri, setBFuri] = useState(['', '', '', '']);
-  const [ft, setFt] = useState(['', '', '', '', '']);
-  const [ld, setLd] = useState(['', '']);
-  const [other, setOther] = useState('');
-  const [al, setAl] = useState([['', ''], ['', ''], ['', ''], ['', '']]);
-  const [alEff, setAlEff] = useState('');
-  const [ot, setOt] = useState([['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
-  const [txtOv, setTxtOv] = useState('');
-  const [txtRs, setTxtRs] = useState('');
-
-  const [showPreview, setShowPreview] = useState(false);
+  // 編集モード
   const [editingId, setEditingId] = useState(id || null);
   const [restoredOnce, setRestoredOnce] = useState(false);
+
+  // LINE指示書
   const [lineText, setLineText] = useState('');
   const [showLineBox, setShowLineBox] = useState(false);
   const [lineParsed, setLineParsed] = useState(null);
+
+  // 重複保存
   const [dupModal, setDupModal] = useState(null);
 
+  // プレビュー
+  const [showPreview, setShowPreview] = useState(false);
+
+  // 編集モード読み込み
   useEffect(() => {
     if (!id || !reports[id]) return;
     const r = reports[id];
@@ -102,40 +115,41 @@ export default function ReportForm() {
       navigate('/reports');
       return;
     }
-    const wd = r.workDays && r.workDays.length ? r.workDays : [r.date || todayStr()];
-    setWorkDays(wd);
     setStore(r.store || '');
     setChannel(r.channel || '');
     setChannelAuto(false);
     setDirector(r.director || r.userName || '');
-    setHiyari(r.hiyari || '');
     setTargetA(r.r_ta || '');
     setTargetB(r.r_tb || '');
-    setDayPerf(wd.map((_, i) => ({
-      au: (r.au_by_day && r.au_by_day[i]) || emptyAuUq(),
-      uq: (r.uq_by_day && r.uq_by_day[i]) || emptyAuUq(),
-      fpA: r.fp_by_day?.[i]?.a ?? '',
-      fpB: r.fp_by_day?.[i]?.b ?? '',
-    })));
-    setMikomi(wd.map((_, i) => ({ g: r.v_mikomi?.[i]?.g ?? '', d: r.v_mikomi?.[i]?.d ?? '' })));
-    setAnk(r.ank ?? '');
-    setBFp(r.b_fp || ['', '', '', '']);
-    setBFc(r.b_fc || ['', '', '', '']);
-    setBPop(r.b_pop || ['', '', '', '']);
-    setBTa(r.b_ta || ['', '', '', '']);
-    setBFuri(r.b_furi || ['', '', '', '']);
-    setFt(r.ft || ['', '', '', '', '']);
-    setLd(r.ld || ['', '']);
-    setOther(r.other || '');
-    setAl(r.al || [['', ''], ['', ''], ['', ''], ['', '']]);
-    setAlEff(r.al_eff || '');
-    setOt(r.ot || [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
-    setTxtOv(r.txt_ov || '');
-    setTxtRs(r.txt_rs || '');
-    setActiveIdx(wd.length - 1);
+    // 既存データを1日分として読み込む
+    const d = emptyDayData(r.date || todayStr());
+    d.au = r.au || Array(8).fill('');
+    d.uq = r.uq || Array(8).fill('');
+    d.fpA = r.fpA ?? '';
+    d.fpB = r.fpB ?? '';
+    d.hiyari = r.hiyari || '';
+    d.ank = r.ank ?? '';
+    d.bFp = r.b_fp || ['', '', '', ''];
+    d.bFc = r.b_fc || ['', '', '', ''];
+    d.bPop = r.b_pop || ['', '', '', ''];
+    d.bTa = r.b_ta || ['', '', '', ''];
+    d.bFuri = r.b_furi || ['', '', '', ''];
+    d.ft = r.ft || ['', '', '', '', ''];
+    d.ld = r.ld || ['', ''];
+    d.other = r.other || '';
+    d.al = r.al || [['', ''], ['', ''], ['', ''], ['', '']];
+    d.alEff = r.al_eff || '';
+    d.ot = r.ot || [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']];
+    d.txtOv = r.txt_ov || '';
+    d.txtRs = r.txt_rs || '';
+    d.mikomiG = r.mikomiG ?? '';
+    d.mikomiD = r.mikomiD ?? '';
+    setDays([d]);
+    setActiveIdx(0);
     setEditingId(id);
   }, [id, reports]);
 
+  // 下書き復元
   useEffect(() => {
     if (id || restoredOnce) return;
     setRestoredOnce(true);
@@ -149,30 +163,14 @@ export default function ReportForm() {
       }
       if (confirm('前回の入力途中のデータがあります。復元しますか？')) {
         const d = parsed.data;
-        setWorkDays(d.workDays || [todayStr()]);
         setStore(d.store || '');
         setChannel(d.channel || '');
         setChannelAuto(d.channelAuto ?? true);
         setDirector(d.director || user?.name || '');
-        setHiyari(d.hiyari ?? '特に無し。');
         setTargetA(d.targetA || '');
         setTargetB(d.targetB || '');
-        setDayPerf(d.dayPerf && d.dayPerf.length ? d.dayPerf : [emptyDayPerf()]);
-        setMikomi(d.mikomi && d.mikomi.length ? d.mikomi : [{ g: '', d: '' }]);
-        setAnk(d.ank ?? '');
-        setBFp(d.bFp || ['', '', '', '']);
-        setBFc(d.bFc || ['', '', '', '']);
-        setBPop(d.bPop || ['', '', '', '']);
-        setBTa(d.bTa || ['', '', '', '']);
-        setBFuri(d.bFuri || ['', '', '', '']);
-        setFt(d.ft || ['', '', '', '', '']);
-        setLd(d.ld || ['', '']);
-        setOther(d.other || '');
-        setAl(d.al || [['', ''], ['', ''], ['', ''], ['', '']]);
-        setAlEff(d.alEff || '');
-        setOt(d.ot || [['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0'], ['0', '0', '0', '0']]);
-        setTxtOv(d.txtOv || '');
-        setTxtRs(d.txtRs || '');
+        setDays(d.days && d.days.length ? d.days : [emptyDayData(todayStr())]);
+        setActiveIdx(d.activeIdx || 0);
         showToast('✅ 前回の入力を復元しました');
       } else {
         localStorage.removeItem(DRAFT_KEY);
@@ -183,304 +181,255 @@ export default function ReportForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // 下書き自動保存
   useEffect(() => {
     if (editingId) return;
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(
-          DRAFT_KEY,
-          JSON.stringify({
-            ts: Date.now(),
-            data: { workDays, store, channel, channelAuto, director, hiyari, targetA, targetB, dayPerf, mikomi, ank, bFp, bFc, bPop, bTa, bFuri, ft, ld, other, al, alEff, ot, txtOv, txtRs },
-          })
-        );
-      } catch (e) {
-        /* ignore */
-      }
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          ts: Date.now(),
+          data: { store, channel, channelAuto, director, targetA, targetB, days, activeIdx },
+        }));
+      } catch (e) { /* ignore */ }
     }, 600);
     return () => clearTimeout(timer);
-  }, [workDays, store, channel, channelAuto, director, hiyari, targetA, targetB, dayPerf, mikomi, ank, bFp, bFc, bPop, bTa, bFuri, ft, ld, other, al, alEff, ot, txtOv, txtRs, editingId]);
+  }, [store, channel, channelAuto, director, targetA, targetB, days, activeIdx, editingId]);
 
+  // 販路自動判定
   useEffect(() => {
     if (!channelAuto) return;
     const detected = detectChannel(store);
     if (detected) setChannel(detected);
   }, [store, channelAuto]);
 
-  function handleChannelChange(v) {
-    setChannel(v);
-    setChannelAuto(false);
-  }
-
-  function addWorkday() {
-    const last = workDays[workDays.length - 1];
+  // 日の追加/削除
+  function addDay() {
+    const last = days[days.length - 1].date;
     const d = parseDateLocal(last || todayStr());
     d.setDate(d.getDate() + 1);
     const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    setWorkDays([...workDays, next]);
-    setDayPerf([...dayPerf, emptyDayPerf()]);
-    setMikomi([...mikomi, { g: '', d: '' }]);
-    setActiveIdx(workDays.length);
+    setDays([...days, emptyDayData(next)]);
+    setActiveIdx(days.length);
   }
-  function removeWorkday(idx) {
-    if (workDays.length <= 1) return;
-    setWorkDays(workDays.filter((_, i) => i !== idx));
-    setDayPerf(dayPerf.filter((_, i) => i !== idx));
-    setMikomi(mikomi.filter((_, i) => i !== idx));
+  function removeDay(idx) {
+    if (days.length <= 1) return;
+    setDays(days.filter((_, i) => i !== idx));
     setActiveIdx(Math.max(0, idx - 1));
   }
-  function updateWorkdayDate(idx, value) {
-    const next = [...workDays];
-    next[idx] = value;
-    setWorkDays(next);
+  function updateDayDate(idx, value) {
+    setDays(prev => prev.map((d, i) => i === idx ? { ...d, date: value } : d));
   }
 
-  function updateMobile(type, mi, value) {
-    setDayPerf((prev) =>
-      prev.map((d, i) => {
-        if (i !== activeIdx) return d;
-        const arr = [...d[type]];
-        arr[mi] = value;
-        return { ...d, [type]: arr };
-      })
-    );
-  }
-  function updateFp(which, value) {
-    setDayPerf((prev) => prev.map((d, i) => (i === activeIdx ? { ...d, [which]: value } : d)));
-  }
-  function updateMikomi(idx, patch) {
-    setMikomi((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
-  }
+  // 現在のタブのデータを更新するヘルパー
+  const updateCur = useCallback((patch) => {
+    setDays(prev => prev.map((d, i) => i === activeIdx ? { ...d, ...patch } : d));
+  }, [activeIdx]);
 
-  const cur = dayPerf[activeIdx] || emptyDayPerf();
-  const curCalc = useMemo(() => calcSouhanRiku(cur.au, cur.uq), [cur]);
+  const updateMobile = useCallback((type, mi, value) => {
+    setDays(prev => prev.map((d, i) => {
+      if (i !== activeIdx) return d;
+      const arr = [...d[type]];
+      arr[mi] = value;
+      return { ...d, [type]: arr };
+    }));
+  }, [activeIdx]);
 
-  const totals = useMemo(() => {
-    const sums = dayPerf.map((d) => calcSouhanRiku(d.au, d.uq));
-    const totalA = sums.reduce((s, x) => s + x.souhan, 0);
-    const totalB = sums.reduce((s, x) => s + x.riku, 0);
-    const ta = +targetA || 0;
-    const tb = +targetB || 0;
-    return {
-      totalA,
-      totalB,
-      nokoriA: Math.max(ta - totalA, 0),
-      nokoriB: Math.max(tb - totalB, 0),
-      ach: ta > 0 ? Math.round((totalA / ta) * 100) : 0,
-      sums,
-    };
-  }, [dayPerf, targetA, targetB]);
+  const cur = days[activeIdx] || emptyDayData();
+  const curCalc = useMemo(() => calcSouhanRiku(cur.au, cur.uq), [cur.au, cur.uq]);
+  const nokoriA = targetA ? Math.max((+targetA || 0) - curCalc.souhan, 0) : '○';
+  const nokoriB = targetB ? Math.max((+targetB || 0) - curCalc.riku, 0) : '○';
+
+  // LINE指示書解析
+  const registeredNames = useMemo(() => Object.values(fpUsers).map(u => u.name).filter(Boolean), [fpUsers]);
 
   function handleParseLine() {
     const parsed = parseLineBrief(lineText);
     setLineParsed(parsed);
-    if (parsed.store) {
-      setStore(parsed.store);
-      setChannelAuto(true);
-    }
+    if (parsed.store) { setStore(parsed.store); setChannelAuto(true); }
     if (parsed.target) setTargetA(parsed.target);
     if (parsed.dates.length) {
-      setWorkDays(parsed.dates);
-      setDayPerf(parsed.dates.map(() => emptyDayPerf()));
-      setMikomi(parsed.dates.map(() => ({ g: '', d: '' })));
-      setActiveIdx(parsed.dates.length - 1);
+      const newDays = parsed.dates.map(dt => emptyDayData(dt));
+      setDays(newDays);
+      setActiveIdx(newDays.length - 1);
     }
-    showToast('✅ 案件指示書を読み取りました（実績の数字は別途入力してください）');
+    showToast('✅ 案件指示書を読み取りました');
   }
 
-  const registeredNames = useMemo(() => Object.values(fpUsers).map((u) => u.name).filter(Boolean), [fpUsers]);
-
-  function buildText() {
-    const wdays = workDays;
-    const dayLabels = wdays.map(dowLabel);
-
-    const jissekiLines = wdays
-      .map((dt, i) => {
-        const calc = totals.sums[i] || { souhan: '', riku: '' };
-        const dp = dayPerf[i] || emptyDayPerf();
-        const hasAny = dp.au.some((v) => v !== '') || dp.uq.some((v) => v !== '');
-        if (!hasAny) return `${dayLabels[i]} : ○/○（内FP獲得○/○）`;
-        return `${dayLabels[i]} : ${calc.souhan}/${calc.riku}（内FP獲得${blank(dp.fpA)}/${blank(dp.fpB)}）`;
-      })
-      .join('\n');
-
-    const mikomiLines = wdays
-      .map((dt, i) => {
-        const m = mikomi[i] || { g: '', d: '' };
-        const has = m.g !== '' && m.d !== '';
-        return `${dayLabels[i]}獲得 : ${has ? `${m.g}組${m.d}台` : '-'}`;
-      })
-      .join('\n');
-    const totalG = mikomi.reduce((s, m) => s + (+m.g || 0), 0);
-    const totalD = mikomi.reduce((s, m) => s + (+m.d || 0), 0);
-    const hasMikomiTotal = mikomi.some((m) => m.g !== '' && m.d !== '');
-
-    const cur0 = dayPerf[0] || emptyDayPerf();
-
+  // テキスト生成
+  function buildText(d = cur) {
+    const calc = calcSouhanRiku(d.au, d.uq);
     return `お疲れ様です。
 ${director || '●●'}です。
 本日の日報を下記に記載いたします。
 
 ⚠️ヒヤリハット報告⚠️
-${blankText(hiyari)}
+${blankText(d.hiyari)}
 
 ■実績：2Bダウン除き総販/2Bリク除き
 目　標 : ${blank(targetA)}/${blank(targetB)}
-${jissekiLines}
-残　数：${targetA && targetB ? `${totals.nokoriA}/${totals.nokoriB}` : '○/○'}
+${dowLabel(d.date)} : ${calc.souhan}/${calc.riku}（内FP獲得${blank(d.fpA)}/${blank(d.fpB)}）
+残　数：${targetA && targetB ? `${Math.max((+targetA||0)-calc.souhan,0)}/${Math.max((+targetB||0)-calc.riku,0)}` : '○/○'}
 
-■店舗様見込み獲得（${hasMikomiTotal ? `${totalG}組/${totalD}台` : '○組/○台'}）
+■店舗様見込み獲得（${d.mikomiG && d.mikomiD ? `${d.mikomiG}組/${d.mikomiD}台` : '○組/○台'}）
 ※常勤様の当日獲得は除く
-${mikomiLines}
+${dowLabel(d.date)}獲得 : ${d.mikomiG && d.mikomiD ? `${d.mikomiG}組${d.mikomiD}台` : '-'}
 
 ■内訳（接客組/着座組/成約組/成約台数）
-アンケート枚数（全体） : ${blank(ank)}枚
-アンケート（内FP）　 : ${bFp.map((v) => blank(v)).join('/')}
-フリーキャッチ　  　 : ${bFc.map((v) => blank(v)).join('/')}
-什器/POP                  : ${bPop.map((v) => blank(v)).join('/')}
-家電/TA                     : ${bTa.map((v) => blank(v)).join('/')}
-振り（常勤/他）　　   : ${bFuri.map((v) => blank(v)).join('/')}
-※フリーキャッチの接客組は「足を止めた数」
-※アンケートの着座組は「見積りを出した数」
+アンケート枚数（全体） : ${blank(d.ank)}枚
+アンケート（内FP）　 : ${d.bFp.map(v => blank(v)).join('/')}
+フリーキャッチ　  　 : ${d.bFc.map(v => blank(v)).join('/')}
+什器/POP                  : ${d.bPop.map(v => blank(v)).join('/')}
+家電/TA                     : ${d.bTa.map(v => blank(v)).join('/')}
+振り（常勤/他）　　   : ${d.bFuri.map(v => blank(v)).join('/')}
 
 ■au mobile実績
-純新規獲得件数：${blank(cur0.au[0], 0)}件
-MNP(UQ⇒au)：${blank(cur0.au[1], 0)}件
-MNP(SB⇒au)：${blank(cur0.au[2], 0)}件
-MNP(DCM⇒au)：${blank(cur0.au[3], 0)}件
-MNP(YM⇒au)：${blank(cur0.au[4], 0)}件
-MNP(楽天⇒au)：${blank(cur0.au[5], 0)}件
-MNP(その他⇒au)：${blank(cur0.au[6], 0)}件
-機種変更獲得件数：${blank(cur0.au[7], 0)}件
+純新規獲得件数：${blank(d.au[0], 0)}件
+MNP(UQ⇒au)：${blank(d.au[1], 0)}件
+MNP(SB⇒au)：${blank(d.au[2], 0)}件
+MNP(DCM⇒au)：${blank(d.au[3], 0)}件
+MNP(YM⇒au)：${blank(d.au[4], 0)}件
+MNP(楽天⇒au)：${blank(d.au[5], 0)}件
+MNP(その他⇒au)：${blank(d.au[6], 0)}件
+機種変更獲得件数：${blank(d.au[7], 0)}件
 
 ■UQ mobile実績
-純新規獲得件数：${blank(cur0.uq[0], 0)}件
-MNP(au⇒UQ)：${blank(cur0.uq[1], 0)}件
-MNP(SB⇒UQ)：${blank(cur0.uq[2], 0)}件
-MNP(DCM⇒UQ)：${blank(cur0.uq[3], 0)}件
-MNP(YM⇒UQ)：${blank(cur0.uq[4], 0)}件
-MNP(楽天⇒UQ)：${blank(cur0.uq[5], 0)}件
-MNP(その他⇒UQ)：${blank(cur0.uq[6], 0)}件
-機種変更件数：${blank(cur0.uq[7], 0)}件
+純新規獲得件数：${blank(d.uq[0], 0)}件
+MNP(au⇒UQ)：${blank(d.uq[1], 0)}件
+MNP(SB⇒UQ)：${blank(d.uq[2], 0)}件
+MNP(DCM⇒UQ)：${blank(d.uq[3], 0)}件
+MNP(YM⇒UQ)：${blank(d.uq[4], 0)}件
+MNP(楽天⇒UQ)：${blank(d.uq[5], 0)}件
+MNP(その他⇒UQ)：${blank(d.uq[6], 0)}件
+機種変更件数：${blank(d.uq[7], 0)}件
 
 ■FTTH実績
-auひかり　：${blank(ft[0])}件
-BIGLOBE光：${blank(ft[1])}件
-eo光：${blank(ft[2])}件
-CATV : ${blank(ft[3])}件
-WiMAX ：${blank(ft[4])}件
+auひかり　：${blank(d.ft[0])}件
+BIGLOBE光：${blank(d.ft[1])}件
+eo光：${blank(d.ft[2])}件
+CATV : ${blank(d.ft[3])}件
+WiMAX ：${blank(d.ft[4])}件
 
 ■ライフデザイン実績
-auでんき　　：${blank(ld[0])}件
-auPayカード：${blank(ld[1])}件
+auでんき　　：${blank(d.ld[0])}件
+auPayカード：${blank(d.ld[1])}件
 
 ■その他獲得商材
-${blankText(other)}
+${blankText(d.other)}
 
 ■アライアンス協業
 ❶振り組数/成約組数
-KDDI→eo : ${blank(al[0][0])}/${blank(al[0][1])}
-eo→KDDI : ${blank(al[1][0])}/${blank(al[1][1])}
-KDDI→CATV : ${blank(al[2][0])}/${blank(al[2][1])}
-CATV→KDDI : ${blank(al[3][0])}/${blank(al[3][1])}
+KDDI→eo : ${blank(d.al[0][0])}/${blank(d.al[0][1])}
+eo→KDDI : ${blank(d.al[1][0])}/${blank(d.al[1][1])}
+KDDI→CATV : ${blank(d.al[2][0])}/${blank(d.al[2][1])}
+CATV→KDDI : ${blank(d.al[3][0])}/${blank(d.al[3][1])}
 
 ❷アライアンス様連携（eo/CATV）取組み工夫
-${blankText(alEff)}
+${blankText(d.alEff)}
 
 ■他社実績 
 (純新規/MNP/番号移行/機変)
 ※他社取扱がない場合は「ー」を記入ください。
-Softbank：${ot[0].join('/')}
-docomo：${ot[1].join('/')}
-Ymobile：${ot[2].join('/')}
-楽天：${ot[3].join('/')}
+Softbank：${d.ot[0].join('/')}
+docomo：${d.ot[1].join('/')}
+Ymobile：${d.ot[2].join('/')}
+楽天：${d.ot[3].join('/')}
 
 ■全体総括（活動内容/集客状況/他社状況）
-${blankText(txtOv)}
+${blankText(d.txtOv)}
 
 ■【達成：達成理由】【未達：改善策】
-${blankText(txtRs)}
+${blankText(d.txtRs)}
 
 ■【添付】着座管理シート貼付
 
 ご確認の程、よろしくお願いいたします。`;
   }
 
-  async function findDuplicate() {
-    const date = workDays[0];
-    const matches = Object.entries(reports).filter(
-      ([rid, r]) =>
-        rid !== editingId &&
-        r.date === date &&
-        r.store === store &&
-        r.userName === user?.name &&
-        r.userEmail === user?.email
+  // 重複チェック（同日・同店舗・同ユーザー）
+  async function findDuplicate(date) {
+    const matches = Object.entries(reports).filter(([rid, r]) =>
+      rid !== editingId &&
+      r.date === date &&
+      r.store === store &&
+      r.userName === user?.name &&
+      r.userEmail === user?.email
     );
     return matches.length ? matches[0][0] : null;
   }
 
+  // 保存（現在のタブの日付の日報を1件保存）
   async function doSave(deleteExistingId) {
+    const d = days[activeIdx];
+    const calc = calcSouhanRiku(d.au, d.uq);
     const payload = {
-      date: workDays[0],
-      workDays,
+      date: d.date,
       store,
       channel,
       director,
       userName: user?.name || '',
       userEmail: user?.email || '',
-      hiyari,
+      hiyari: d.hiyari,
       r_ta: targetA,
       r_tb: targetB,
-      jisseki: totals.sums.map((s) => ({ a: s.souhan, b: s.riku })),
-      fp_by_day: dayPerf.map((d) => ({ a: +d.fpA || 0, b: +d.fpB || 0 })),
-      v_mikomi: mikomi.map((m) => ({ g: +m.g || 0, d: +m.d || 0 })),
-      au_by_day: dayPerf.map((d) => d.au.map((v) => +v || 0)),
-      uq_by_day: dayPerf.map((d) => d.uq.map((v) => +v || 0)),
-      auto_souhan: totals.totalA,
-      auto_2b: totals.totalB,
-      ach: totals.ach,
-      ank: +ank || 0,
-      b_fp: bFp,
-      b_fc: bFc,
-      b_pop: bPop,
-      b_ta: bTa,
-      b_furi: bFuri,
-      ft,
-      ld,
-      other,
-      al,
-      al_eff: alEff,
-      ot,
-      txt_ov: txtOv,
-      txt_rs: txtRs,
+      au: d.au.map(v => +v || 0),
+      uq: d.uq.map(v => +v || 0),
+      fpA: +d.fpA || 0,
+      fpB: +d.fpB || 0,
+      auto_souhan: calc.souhan,
+      auto_2b: calc.riku,
+      ach: +targetA > 0 ? Math.round((calc.souhan / +targetA) * 100) : 0,
+      ank: +d.ank || 0,
+      b_fp: d.bFp,
+      b_fc: d.bFc,
+      b_pop: d.bPop,
+      b_ta: d.bTa,
+      b_furi: d.bFuri,
+      ft: d.ft,
+      ld: d.ld,
+      other: d.other,
+      al: d.al,
+      al_eff: d.alEff,
+      ot: d.ot,
+      txt_ov: d.txtOv,
+      txt_rs: d.txtRs,
+      mikomiG: +d.mikomiG || 0,
+      mikomiD: +d.mikomiD || 0,
       updatedAt: Date.now(),
     };
     try {
-      if (deleteExistingId) {
-        await remove(ref(db, `fp_reports/${deleteExistingId}`));
-      }
+      if (deleteExistingId) await remove(ref(db, `fp_reports/${deleteExistingId}`));
       if (editingId) {
         await set(ref(db, `fp_reports/${editingId}`), { ...reports[editingId], ...payload });
         showToast('✅ 日報を更新しました');
+        navigate('/reports');
       } else {
         payload.createdAt = Date.now();
         await set(push(ref(db, 'fp_reports')), payload);
-        showToast('✅ 日報を保存しました');
+        showToast(`✅ ${dowLabel(d.date)}の日報を保存しました`);
         localStorage.removeItem(DRAFT_KEY);
+        // 他の日がまだあれば次の日に移動、なければ一覧へ
+        const remaining = days.filter((_, i) => i !== activeIdx);
+        if (remaining.length > 0) {
+          setDays(remaining);
+          setActiveIdx(Math.min(activeIdx, remaining.length - 1));
+          setShowPreview(false);
+        } else {
+          navigate('/reports');
+        }
       }
-      navigate('/reports');
     } catch (e) {
       showToast('保存エラー: ' + e.message);
     }
   }
 
   async function handleSaveClick() {
-    if (!store || !workDays[0]) {
-      showToast('店舗名は必須です');
+    const d = days[activeIdx];
+    if (!store || !d.date) {
+      showToast('店舗名と日付は必須です');
       return;
     }
     if (!editingId) {
-      const dupId = await findDuplicate();
+      const dupId = await findDuplicate(d.date);
       if (dupId) {
         setDupModal({ existingId: dupId });
         return;
@@ -489,35 +438,30 @@ ${blankText(txtRs)}
     doSave(null);
   }
 
+  const curDow = dowLabel(cur.date);
+
   return (
     <Layout title={editingId ? '日報編集' : '日報入力'} showBack>
+      {/* LINE指示書 */}
       <div className="card">
         <button className="btn btn-outline" onClick={() => setShowLineBox(!showLineBox)}>
           {showLineBox ? '閉じる' : '📋 詳細から自動入力'}
         </button>
         {showLineBox && (
           <div style={{ marginTop: 10 }}>
-            <textarea
-              className="inp"
-              rows={5}
-              value={lineText}
-              onChange={(e) => setLineText(e.target.value)}
-              placeholder="LINEで届いた案件指示書をそのまま貼り付け"
-              style={{ fontFamily: 'monospace', fontSize: '.78rem' }}
-            />
-            <button className="btn btn-p" style={{ marginTop: 8 }} onClick={handleParseLine}>
-              読み取って自動入力
-            </button>
+            <textarea className="inp" rows={5} value={lineText} onChange={e => setLineText(e.target.value)}
+              placeholder="LINEで届いた案件指示書をそのまま貼り付け" style={{ fontFamily: 'monospace', fontSize: '.78rem' }} />
+            <button className="btn btn-p" style={{ marginTop: 8 }} onClick={handleParseLine}>読み取って自動入力</button>
             {lineParsed && lineParsed.dates.length > 0 && (
               <div style={{ marginTop: 10, fontSize: '.76rem', color: 'var(--sub)' }}>
-                {lineParsed.dates.map((dt) => {
+                {lineParsed.dates.map(dt => {
                   const names = lineParsed.membersByDate[dt] || [];
-                  const classified = classifyMembers(names, registeredNames);
+                  const cl = classifyMembers(names, registeredNames);
                   return (
                     <div key={dt} style={{ marginBottom: 6 }}>
                       <div style={{ fontWeight: 700 }}>{dt}（{dowLabel(dt)}）</div>
                       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
-                        {classified.map((m) => (
+                        {cl.map(m => (
                           <span key={m.name} className={`badge ${m.isOwnCompany ? 'b-orange' : 'b-gray'}`}>
                             {m.name}（{m.isOwnCompany ? '自社' : '他社'}）
                           </span>
@@ -532,242 +476,215 @@ ${blankText(txtRs)}
         )}
       </div>
 
+      {/* 共通：店舗・販路・ディレクター・目標 */}
       <div className="card">
-        <div className="card-title">📅 稼働日</div>
-        {workDays.map((dt, i) => (
-          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-            <div style={{ fontSize: '.73rem', fontWeight: 600, flex: '0 0 60px' }}>{i + 1}日目</div>
-            <input className="inp" type="date" value={dt} onChange={(e) => updateWorkdayDate(i, e.target.value)} />
-            {i > 0 && (
-              <button onClick={() => removeWorkday(i)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#dc2626', fontWeight: 700, cursor: 'pointer' }}>×</button>
-            )}
-          </div>
-        ))}
-        <button className="btn btn-gray" onClick={addWorkday}>＋ 日程を追加</button>
-      </div>
-
-      <div className="card">
-        <div className="card-title">📌 基本情報</div>
+        <div className="card-title">📌 基本情報（全日共通）</div>
         <div className="form-group">
           <label>店舗名 <span className="req">*</span></label>
-          <input className="inp" value={store} onChange={(e) => setStore(e.target.value)} placeholder="例：○○イオン" />
+          <input className="inp" value={store} onChange={e => setStore(e.target.value)} placeholder="例：○○イオン" />
         </div>
         <div className="form-group">
-          <label>販路（店舗名から自動判定／手動変更可） <span className="req">*</span></label>
-          <select className="inp" value={channel} onChange={(e) => handleChannelChange(e.target.value)}>
+          <label>販路（店舗名から自動判定／手動変更可）</label>
+          <select className="inp" value={channel} onChange={e => { setChannel(e.target.value); setChannelAuto(false); }}>
             <option value="">選択</option>
-            {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="form-group">
-          <label>ディレクター名 <span className="req">*</span></label>
-          <input className="inp" value={director} onChange={(e) => setDirector(e.target.value)} />
+          <label>ディレクター名</label>
+          <input className="inp" value={director} onChange={e => setDirector(e.target.value)} />
         </div>
         <div className="form-group">
-          <label>⚠️ ヒヤリハット報告</label>
-          <input className="inp" value={hiyari} onChange={(e) => setHiyari(e.target.value)} placeholder="特に無し。" />
-        </div>
-        <div className="form-group">
-          <label>現在入力中の日（実績入力欄が切り替わります）</label>
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-            {workDays.map((dt, i) => (
-              <button key={i} onClick={() => setActiveIdx(i)} className={`fchip${i === activeIdx ? ' active' : ''}`} style={{ padding: '8px 14px' }}>
-                {dowLabel(dt)}
-              </button>
-            ))}
+          <label>目標（総販 / リク抜き）</label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input className="inp" type="text" inputMode="numeric" placeholder="総販" value={targetA} onChange={e => setTargetA(e.target.value)} />
+            <span className="ts">/</span>
+            <input className="inp" type="text" inputMode="numeric" placeholder="リク抜き" value={targetB} onChange={e => setTargetB(e.target.value)} />
           </div>
         </div>
       </div>
 
+      {/* 日付タブ（全フィールドが切り替わる） */}
       <div className="card">
-        <div className="card-title">🎯 目標／残数</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <input className="inp" type="text" inputMode="numeric" placeholder="総販目標" value={targetA} onChange={(e) => setTargetA(e.target.value)} />
-          <span className="ts">/</span>
-          <input className="inp" type="text" inputMode="numeric" placeholder="リク抜き目標" value={targetB} onChange={(e) => setTargetB(e.target.value)} />
+        <div className="card-title">📅 稼働日</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {days.map((d, i) => (
+            <button key={i} onClick={() => setActiveIdx(i)}
+              className={`fchip${i === activeIdx ? ' active' : ''}`}
+              style={{ padding: '8px 14px' }}>
+              {dowLabel(d.date)}
+            </button>
+          ))}
+          {!editingId && (
+            <button className="fchip" onClick={addDay} style={{ padding: '8px 14px' }}>＋ 日程を追加</button>
+          )}
         </div>
-        <ResultRow label="総販/リク抜き" a={totals.totalA} b={totals.totalB} color="var(--pd)" />
-        <ResultRow label="残数" a={targetA ? totals.nokoriA : '○'} b={targetB ? totals.nokoriB : '○'} color="var(--red)" />
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input className="inp" type="date" value={cur.date} onChange={e => updateDayDate(activeIdx, e.target.value)} />
+          {days.length > 1 && (
+            <button onClick={() => removeDay(activeIdx)}
+              style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#dc2626', fontWeight: 700, cursor: 'pointer' }}>
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* 以下、全フィールドが activeIdx（現在のタブ）に連動 */}
+
       <div className="card">
-        <div className="card-title">📱 au / UQ mobile実績（{dowLabel(workDays[activeIdx])}）</div>
-        <FieldRow label="純新規" value={cur.au[0]} onChange={(v) => updateMobile('au', 0, v)} />
-        <FieldRow label="MNP(UQ⇒au)" value={cur.au[1]} onChange={(v) => updateMobile('au', 1, v)} />
-        <FieldRow label="MNP(SB⇒au)" value={cur.au[2]} onChange={(v) => updateMobile('au', 2, v)} />
-        <FieldRow label="MNP(DCM⇒au)" value={cur.au[3]} onChange={(v) => updateMobile('au', 3, v)} />
-        <FieldRow label="MNP(YM⇒au)" value={cur.au[4]} onChange={(v) => updateMobile('au', 4, v)} />
-        <FieldRow label="MNP(楽天⇒au)" value={cur.au[5]} onChange={(v) => updateMobile('au', 5, v)} />
-        <FieldRow label="MNP(その他⇒au)" value={cur.au[6]} onChange={(v) => updateMobile('au', 6, v)} />
-        <FieldRow label="機種変更" value={cur.au[7]} onChange={(v) => updateMobile('au', 7, v)} />
+        <div className="card-title">⚠️ ヒヤリハット報告（{curDow}）</div>
+        <input className="inp" value={cur.hiyari} onChange={e => updateCur({ hiyari: e.target.value })} placeholder="特に無し。" />
+      </div>
+
+      {/* 目標・残数 */}
+      <div className="card">
+        <div className="card-title">📊 実績／残数（{curDow}）</div>
+        <ResultRow label="総販/リク抜き" a={curCalc.souhan} b={curCalc.riku} color="var(--pd)" />
+        <ResultRow label="残数" a={nokoriA} b={nokoriB} color="var(--red)" />
+      </div>
+
+      {/* au/UQ実績 */}
+      <div className="card">
+        <div className="card-title">📱 au / UQ mobile実績（{curDow}）</div>
+        {['純新規', 'MNP(UQ⇒au)', 'MNP(SB⇒au)', 'MNP(DCM⇒au)', 'MNP(YM⇒au)', 'MNP(楽天⇒au)', 'MNP(その他⇒au)', '機種変更'].map((lbl, mi) => (
+          <FieldRow key={mi} label={lbl} value={cur.au[mi]} onChange={v => updateMobile('au', mi, v)} />
+        ))}
         <div style={{ height: 8 }} />
-        <FieldRow label="UQ純新規" value={cur.uq[0]} onChange={(v) => updateMobile('uq', 0, v)} />
-        <FieldRow label="MNP(au⇒UQ)" value={cur.uq[1]} onChange={(v) => updateMobile('uq', 1, v)} />
-        <FieldRow label="MNP(SB⇒UQ)" value={cur.uq[2]} onChange={(v) => updateMobile('uq', 2, v)} />
-        <FieldRow label="MNP(DCM⇒UQ)" value={cur.uq[3]} onChange={(v) => updateMobile('uq', 3, v)} />
-        <FieldRow label="MNP(YM⇒UQ)" value={cur.uq[4]} onChange={(v) => updateMobile('uq', 4, v)} />
-        <FieldRow label="MNP(楽天⇒UQ)" value={cur.uq[5]} onChange={(v) => updateMobile('uq', 5, v)} />
-        <FieldRow label="MNP(その他⇒UQ)" value={cur.uq[6]} onChange={(v) => updateMobile('uq', 6, v)} />
-        <FieldRow label="UQ機種変更" value={cur.uq[7]} onChange={(v) => updateMobile('uq', 7, v)} />
+        {['UQ純新規', 'MNP(au⇒UQ)', 'MNP(SB⇒UQ)', 'MNP(DCM⇒UQ)', 'MNP(YM⇒UQ)', 'MNP(楽天⇒UQ)', 'MNP(その他⇒UQ)', 'UQ機種変更'].map((lbl, mi) => (
+          <FieldRow key={mi} label={lbl} value={cur.uq[mi]} onChange={v => updateMobile('uq', mi, v)} />
+        ))}
         <ResultRow label="総販/リク抜き" a={curCalc.souhan} b={curCalc.riku} color="var(--pd)" style={{ marginTop: 8 }} />
         <div style={{ height: 8 }} />
-        <FieldRow label="FP獲得(総販)" value={cur.fpA} onChange={(v) => updateFp('fpA', v)} />
-        <FieldRow label="FP獲得(リク抜)" value={cur.fpB} onChange={(v) => updateFp('fpB', v)} />
+        <FieldRow label="FP獲得(総販)" value={cur.fpA} onChange={v => updateCur({ fpA: v })} />
+        <FieldRow label="FP獲得(リク抜)" value={cur.fpB} onChange={v => updateCur({ fpB: v })} />
       </div>
 
+      {/* 見込み獲得（その日分） */}
       <div className="card">
-        <div className="card-title">🏠 店舗様見込み獲得（土日とも常時表示）</div>
-        {workDays.map((dt, i) => (
-          <div key={i}>
-            <FieldRow label={`${dowLabel(dt)}・組数`} value={mikomi[i]?.g ?? ''} onChange={(v) => updateMikomi(i, { g: v })} unit="組" />
-            <FieldRow label={`${dowLabel(dt)}・台数`} value={mikomi[i]?.d ?? ''} onChange={(v) => updateMikomi(i, { d: v })} unit="台" />
-          </div>
+        <div className="card-title">🏠 店舗様見込み獲得（{curDow}）</div>
+        <FieldRow label="組数" value={cur.mikomiG} onChange={v => updateCur({ mikomiG: v })} unit="組" />
+        <FieldRow label="台数" value={cur.mikomiD} onChange={v => updateCur({ mikomiD: v })} unit="台" />
+      </div>
+
+      {/* 内訳 */}
+      <div className="card">
+        <div className="card-title">📋 内訳（{curDow}）</div>
+        <FieldRow label="アンケート枚数" value={cur.ank} onChange={v => updateCur({ ank: v })} unit="枚" />
+        <BreakdownRow label="アンケート（内FP）" values={cur.bFp} onChange={v => updateCur({ bFp: v })} />
+        <BreakdownRow label="フリーキャッチ" values={cur.bFc} onChange={v => updateCur({ bFc: v })} />
+        <BreakdownRow label="什器/POP" values={cur.bPop} onChange={v => updateCur({ bPop: v })} />
+        <BreakdownRow label="家電/TA" values={cur.bTa} onChange={v => updateCur({ bTa: v })} />
+        <BreakdownRow label="振り（常勤/他）" values={cur.bFuri} onChange={v => updateCur({ bFuri: v })} />
+      </div>
+
+      {/* FTTH */}
+      <div className="card">
+        <div className="card-title">🌐 FTTH実績（{curDow}）</div>
+        {['auひかり', 'BIGLOBE光', 'eo光', 'CATV', 'WiMAX'].map((lbl, i) => (
+          <FieldRow key={i} label={lbl} value={cur.ft[i]}
+            onChange={v => updateCur({ ft: cur.ft.map((x, j) => j === i ? v : x) })} />
         ))}
       </div>
 
+      {/* ライフデザイン */}
       <div className="card">
-        <div className="card-title">📋 内訳（接客組/着座組/成約組/成約台数）</div>
-        <FieldRow label="アンケート枚数" value={ank} onChange={setAnk} unit="枚" />
-        <BreakdownRow label="アンケート（内FP）" values={bFp} onChange={setBFp} />
-        <BreakdownRow label="フリーキャッチ" values={bFc} onChange={setBFc} />
-        <BreakdownRow label="什器/POP" values={bPop} onChange={setBPop} />
-        <BreakdownRow label="家電/TA" values={bTa} onChange={setBTa} />
-        <BreakdownRow label="振り（常勤/他）" values={bFuri} onChange={setBFuri} />
+        <div className="card-title">💡 ライフデザイン実績（{curDow}）</div>
+        <FieldRow label="auでんき" value={cur.ld[0]} onChange={v => updateCur({ ld: [v, cur.ld[1]] })} />
+        <FieldRow label="auPayカード" value={cur.ld[1]} onChange={v => updateCur({ ld: [cur.ld[0], v] })} />
       </div>
 
+      {/* その他 */}
       <div className="card">
-        <div className="card-title">🌐 FTTH実績</div>
-        <FieldRow label="auひかり" value={ft[0]} onChange={(v) => setFt([v, ft[1], ft[2], ft[3], ft[4]])} />
-        <FieldRow label="BIGLOBE光" value={ft[1]} onChange={(v) => setFt([ft[0], v, ft[2], ft[3], ft[4]])} />
-        <FieldRow label="eo光" value={ft[2]} onChange={(v) => setFt([ft[0], ft[1], v, ft[3], ft[4]])} />
-        <FieldRow label="CATV" value={ft[3]} onChange={(v) => setFt([ft[0], ft[1], ft[2], v, ft[4]])} />
-        <FieldRow label="WiMAX" value={ft[4]} onChange={(v) => setFt([ft[0], ft[1], ft[2], ft[3], v])} />
+        <div className="card-title">🎁 その他獲得商材（{curDow}）</div>
+        <input className="inp" value={cur.other} onChange={e => updateCur({ other: e.target.value })} placeholder="（あれば自由記述）" />
       </div>
 
+      {/* アライアンス */}
       <div className="card">
-        <div className="card-title">💡 ライフデザイン実績</div>
-        <FieldRow label="auでんき" value={ld[0]} onChange={(v) => setLd([v, ld[1]])} />
-        <FieldRow label="auPayカード" value={ld[1]} onChange={(v) => setLd([ld[0], v])} />
-      </div>
-
-      <div className="card">
-        <div className="card-title">🎁 その他獲得商材</div>
-        <input className="inp" value={other} onChange={(e) => setOther(e.target.value)} placeholder="（あれば自由記述）" />
-      </div>
-
-      <div className="card">
-        <div className="card-title">🤝 アライアンス協業（振り組数/成約組数）</div>
+        <div className="card-title">🤝 アライアンス協業（{curDow}）</div>
         {['KDDI→eo', 'eo→KDDI', 'KDDI→CATV', 'CATV→KDDI'].map((lbl, i) => (
           <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <span style={{ fontSize: '.73rem', flex: '0 0 90px' }}>{lbl}</span>
-            <input
-              className="inp"
-              type="text"
-              inputMode="numeric"
-              value={al[i][0]}
-              onChange={(e) => {
-                const next = al.map((row, ri) => (ri === i ? [e.target.value, row[1]] : row));
-                setAl(next);
-              }}
-            />
+            <input className="inp" type="text" inputMode="numeric" value={cur.al[i][0]}
+              onChange={e => updateCur({ al: cur.al.map((row, ri) => ri === i ? [e.target.value, row[1]] : row) })} />
             <span className="ts">/</span>
-            <input
-              className="inp"
-              type="text"
-              inputMode="numeric"
-              value={al[i][1]}
-              onChange={(e) => {
-                const next = al.map((row, ri) => (ri === i ? [row[0], e.target.value] : row));
-                setAl(next);
-              }}
-            />
+            <input className="inp" type="text" inputMode="numeric" value={cur.al[i][1]}
+              onChange={e => updateCur({ al: cur.al.map((row, ri) => ri === i ? [row[0], e.target.value] : row) })} />
           </div>
         ))}
         <div className="form-group">
           <label>アライアンス様連携（eo/CATV）取組み工夫</label>
-          <textarea className="inp" rows={2} value={alEff} onChange={(e) => setAlEff(e.target.value)} placeholder="（あれば自由記述）" />
+          <textarea className="inp" rows={2} value={cur.alEff} onChange={e => updateCur({ alEff: e.target.value })} placeholder="（あれば自由記述）" />
         </div>
       </div>
 
+      {/* 他社実績 */}
       <div className="card">
-        <div className="card-title">🏢 他社実績（純新規/MNP/番号移行/機変）</div>
+        <div className="card-title">🏢 他社実績（{curDow}）</div>
         {['Softbank', 'docomo', 'Ymobile', '楽天'].map((lbl, i) => (
           <div key={lbl} style={{ marginBottom: 8 }}>
             <div className="ts" style={{ marginBottom: 3 }}>{lbl}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 4 }}>
-              {[0, 1, 2, 3].map((j) => (
-                <input
-                  key={j}
-                  className="inp-s"
-                  type="text"
-                  inputMode="numeric"
-                  value={ot[i][j]}
-                  onChange={(e) => {
-                    const next = ot.map((row, ri) => (ri === i ? row.map((v, vi) => (vi === j ? e.target.value : v)) : row));
-                    setOt(next);
-                  }}
-                  style={{ textAlign: 'center' }}
-                />
+              {[0, 1, 2, 3].map(j => (
+                <input key={j} className="inp-s" type="text" inputMode="numeric" value={cur.ot[i][j]}
+                  onChange={e => updateCur({ ot: cur.ot.map((row, ri) => ri === i ? row.map((v, vi) => vi === j ? e.target.value : v) : row) })}
+                  style={{ textAlign: 'center' }} />
               ))}
             </div>
           </div>
         ))}
       </div>
 
+      {/* コメント */}
       <div className="card">
-        <div className="card-title">✍️ コメント</div>
+        <div className="card-title">✍️ コメント（{curDow}）</div>
         <div className="form-group">
-          <label>■全体総括（活動内容/集客状況/他社状況）</label>
-          <textarea className="inp" rows={4} value={txtOv} onChange={(e) => setTxtOv(e.target.value)} placeholder="（あれば自由記述）" />
+          <label>■全体総括</label>
+          <textarea className="inp" rows={4} value={cur.txtOv} onChange={e => updateCur({ txtOv: e.target.value })} placeholder="（あれば自由記述）" />
         </div>
         <div className="form-group">
           <label>■【達成：達成理由】【未達：改善策】</label>
-          <textarea className="inp" rows={4} value={txtRs} onChange={(e) => setTxtRs(e.target.value)} placeholder="（あれば自由記述）" />
+          <textarea className="inp" rows={4} value={cur.txtRs} onChange={e => updateCur({ txtRs: e.target.value })} placeholder="（あれば自由記述）" />
         </div>
       </div>
 
-      <button className="btn btn-p" onClick={() => setShowPreview(true)}>📋 プレビュー</button>
+      {/* 保存ボタン（現在のタブの曜日名が入る） */}
+      <button className="btn btn-p" onClick={() => setShowPreview(true)}>
+        📋 {curDow}の日報をプレビュー
+      </button>
 
+      {/* プレビューモーダル */}
       {showPreview && (
         <div className="modal-overlay" onClick={() => setShowPreview(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: 10 }}>📋 日報プレビュー</h3>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 10 }}>📋 {curDow}の日報プレビュー</h3>
             <div style={{ background: '#f8faff', border: '1px solid var(--border)', borderRadius: 10, padding: 14, fontSize: '.76rem', lineHeight: 1.8, whiteSpace: 'pre-wrap', maxHeight: '50vh', overflowY: 'auto' }}>
               {buildText()}
             </div>
-            <button
-              className="btn btn-outline"
-              style={{ marginTop: 12 }}
-              onClick={() => {
-                navigator.clipboard.writeText(buildText());
-                showToast('✅ コピーしました');
-              }}
-            >
+            <button className="btn btn-outline" style={{ marginTop: 12 }}
+              onClick={() => { navigator.clipboard.writeText(buildText()); showToast('✅ コピーしました'); }}>
               📋 コピー
             </button>
-            <button className="btn btn-green" onClick={handleSaveClick}>💾 保存</button>
+            <button className="btn btn-green" onClick={handleSaveClick}>
+              💾 {curDow}の日報を保存
+            </button>
             <button className="btn btn-gray" onClick={() => setShowPreview(false)}>閉じる</button>
           </div>
         </div>
       )}
 
+      {/* 重複確認モーダル */}
       {dupModal && (
         <div className="modal-overlay" onClick={() => setDupModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.6rem', marginBottom: 8 }}>⚠️</div>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>すでに日報データが存在します</div>
             <div className="ts" style={{ marginBottom: 14 }}>同じ日付・店舗・ユーザーの日報が見つかりました。</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-gray" onClick={() => setDupModal(null)}>キャンセル</button>
-              <button
-                className="btn"
-                style={{ background: '#dc2626', color: '#fff' }}
-                onClick={() => {
-                  const exId = dupModal.existingId;
-                  setDupModal(null);
-                  doSave(exId);
-                }}
-              >
+              <button className="btn" style={{ background: '#dc2626', color: '#fff' }}
+                onClick={() => { const exId = dupModal.existingId; setDupModal(null); doSave(exId); }}>
                 上書き
               </button>
             </div>
@@ -782,7 +699,8 @@ function FieldRow({ label, value, onChange, unit = '件' }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
       <span style={{ fontSize: '.73rem', flex: '0 0 110px', color: 'var(--text)' }}>{label}：</span>
-      <input className="inp" type="text" inputMode="numeric" pattern="[0-9]*" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" style={{ textAlign: 'right' }} />
+      <input className="inp" type="text" inputMode="numeric" pattern="[0-9]*"
+        value={value} onChange={e => onChange(e.target.value)} placeholder="0" style={{ textAlign: 'right' }} />
       <span className="ts" style={{ flex: '0 0 16px' }}>{unit}</span>
     </div>
   );
@@ -794,19 +712,9 @@ function BreakdownRow({ label, values, onChange }) {
       <div className="ts" style={{ marginBottom: 3 }}>{label}（接客/着座/成約組/成約台）</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 4 }}>
         {values.map((v, i) => (
-          <input
-            key={i}
-            className="inp-s"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={v}
-            onChange={(e) => {
-              const next = values.map((vv, vi) => (vi === i ? e.target.value : vv));
-              onChange(next);
-            }}
-            style={{ textAlign: 'center' }}
-          />
+          <input key={i} className="inp-s" type="text" inputMode="numeric" pattern="[0-9]*"
+            value={v} onChange={e => onChange(values.map((vv, vi) => vi === i ? e.target.value : vv))}
+            style={{ textAlign: 'center' }} />
         ))}
       </div>
     </div>
