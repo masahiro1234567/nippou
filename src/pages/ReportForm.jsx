@@ -228,6 +228,34 @@ export default function ReportForm() {
 
   const registeredNames = useMemo(() => Object.values(fpUsers).map(u => u.name).filter(Boolean), [fpUsers]);
 
+  // 同じ店舗・直近7日以内の保存済み日報（累計計算用）
+  const relatedReports = useMemo(() => {
+    if (!store || !cur.date) return [];
+    const curDateMs = parseDateLocal(cur.date).getTime();
+    const curFormDates = new Set(days.map(d => d.date));
+    return Object.values(reports).filter(r => {
+      if (r.store !== store) return false;
+      if (curFormDates.has(r.date)) return false; // 今のフォームの日付は除外
+      const diff = Math.abs(curDateMs - parseDateLocal(r.date).getTime()) / (1000 * 60 * 60 * 24);
+      return diff <= 6;
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [store, cur.date, days, reports]);
+
+  // 累計（保存済み関連日報 ＋ 現在のフォーム全タブ）
+  const cumulativeCalc = useMemo(() => {
+    let totalA = 0, totalB = 0;
+    relatedReports.forEach(r => {
+      totalA += r.auto_souhan || 0;
+      totalB += r.auto_2b || 0;
+    });
+    days.forEach(d => {
+      const c = calcSouhanRiku(d.au, d.uq);
+      totalA += c.souhan;
+      totalB += c.riku;
+    });
+    return { totalA, totalB };
+  }, [relatedReports, days]);
+
   function handleParseLine() {
     const parsed = parseLineBrief(lineText);
     setLineParsed(parsed);
@@ -241,7 +269,48 @@ export default function ReportForm() {
   }
 
   function buildText(d = cur) {
-    const calc = calcSouhanRiku(d.au, d.uq);
+    // 全日程を日付順に並べる（保存済み関連日報 ＋ 現フォームの全タブ）
+    const curFormDates = new Set(days.map(dd => dd.date));
+    const allDayLines = [
+      // 保存済み関連日報（現フォームにない日付のみ）
+      ...relatedReports
+        .filter(r => !curFormDates.has(r.date))
+        .map(r => ({
+          date: r.date,
+          souhan: r.auto_souhan || 0,
+          riku: r.auto_2b || 0,
+          fpA: r.fpA || 0,
+          fpB: r.fpB || 0,
+          filled: true,
+        })),
+      // 現フォームの全タブ
+      ...days.map(dd => {
+        const c = calcSouhanRiku(dd.au, dd.uq);
+        const hasInput = dd.au.some(v => v !== '') || dd.uq.some(v => v !== '');
+        return {
+          date: dd.date,
+          souhan: c.souhan,
+          riku: c.riku,
+          fpA: dd.fpA,
+          fpB: dd.fpB,
+          filled: hasInput,
+          isCurrent: dd.date === d.date,
+        };
+      }),
+    ].sort((a, b) => a.date.localeCompare(b.date));
+
+    const jissekiLines = allDayLines.map(day => {
+      if (day.filled) {
+        return `${dowLabel(day.date)} : ${day.souhan}/${day.riku}（内FP獲得${blank(day.fpA)}/${blank(day.fpB)}）`;
+      }
+      return `${dowLabel(day.date)} : ○/○（内FP獲得○/○）`;
+    }).join('\n');
+
+    const totalSouhan = allDayLines.filter(x => x.filled).reduce((s, x) => s + x.souhan, 0);
+    const totalRiku   = allDayLines.filter(x => x.filled).reduce((s, x) => s + x.riku, 0);
+    const nokoriA2 = targetA ? Math.max((+targetA || 0) - totalSouhan, 0) : '○';
+    const nokoriB2 = targetB ? Math.max((+targetB || 0) - totalRiku, 0) : '○';
+
     return `お疲れ様です。
 ${director || '●●'}です。
 本日の日報を下記に記載いたします。
@@ -251,12 +320,17 @@ ${blankText(d.hiyari)}
 
 ■実績：2Bダウン除き総販/2Bリク除き
 目　標 : ${blank(targetA)}/${blank(targetB)}
-${dowLabel(d.date)} : ${calc.souhan}/${calc.riku}（内FP獲得${blank(d.fpA)}/${blank(d.fpB)}）
-残　数：${targetA && targetB ? `${Math.max((+targetA||0)-calc.souhan,0)}/${Math.max((+targetB||0)-calc.riku,0)}` : '○/○'}
+${jissekiLines}
+残　数：${nokoriA2}/${nokoriB2}
 
 ■店舗様見込み獲得（${d.mikomiG && d.mikomiD ? `${d.mikomiG}組/${d.mikomiD}台` : '○組/○台'}）
 ※常勤様の当日獲得は除く
-${dowLabel(d.date)}獲得 : ${d.mikomiG && d.mikomiD ? `${d.mikomiG}組${d.mikomiD}台` : '-'}
+${allDayLines.map(day => {
+      if (day.isCurrent) {
+        return `${dowLabel(day.date)}獲得 : ${d.mikomiG && d.mikomiD ? `${d.mikomiG}組${d.mikomiD}台` : '-'}`;
+      }
+      return `${dowLabel(day.date)}獲得 : -`;
+    }).join('\n')}
 
 ■内訳（接客組/着座組/成約組/成約台数）
 アンケート枚数（全体）：${blank(d.ank)}枚
@@ -404,7 +478,7 @@ ${blankText(d.txtRs)}
           className="inp"
           value={store}
           onChange={e => { setStore(e.target.value); if (channelAuto) setChannelAuto(true); }}
-          placeholder="例：エディオンおしくま店"
+          placeholder=""
           style={{ fontSize: '1.1rem', fontWeight: 700, border: 'none', borderBottom: '2px solid var(--border)', borderRadius: 0, padding: '4px 0', marginBottom: 8 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -599,8 +673,21 @@ ${blankText(d.txtRs)}
 
         <div className="card">
           <div className="card-title">📊 実績／残数（{curDow}）</div>
-          <ResultRow label="総販/リク抜き" a={curCalc.souhan} b={curCalc.riku} color="var(--pd)" />
-          <ResultRow label="残数" a={nokoriA} b={nokoriB} color="var(--red)" />
+          <ResultRow label="当日実績" a={curCalc.souhan} b={curCalc.riku} color="var(--pd)" />
+          {(relatedReports.length > 0 || days.length > 1) && (
+            <ResultRow label="累計" a={cumulativeCalc.totalA} b={cumulativeCalc.totalB} color="var(--orange)" />
+          )}
+          <ResultRow
+            label="残数"
+            a={targetA ? Math.max((+targetA || 0) - cumulativeCalc.totalA, 0) : '○'}
+            b={targetB ? Math.max((+targetB || 0) - cumulativeCalc.totalB, 0) : '○'}
+            color="var(--red)"
+          />
+          {relatedReports.length > 0 && (
+            <div style={{ fontSize: '.68rem', color: 'var(--sub)', marginTop: 4 }}>
+              ※ {relatedReports.map(r => `${dowLabel(r.date)}(${r.auto_souhan || 0}件)`).join('・')} の実績を含む
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -659,7 +746,7 @@ ${blankText(d.txtRs)}
 
         <div className="card">
           <div className="card-title">🎁 その他獲得商材（{curDow}）</div>
-          <input className="inp" value={cur.other} onChange={e => updateCur({ other: e.target.value })} placeholder="（あれば自由記述）" />
+          <input className="inp" value={cur.other} onChange={e => updateCur({ other: e.target.value })} placeholder="" />
         </div>
 
         <div className="card">
@@ -676,7 +763,7 @@ ${blankText(d.txtRs)}
           ))}
           <div className="form-group">
             <label>アライアンス様連携（eo/CATV）取組み工夫</label>
-            <textarea className="inp" rows={2} value={cur.alEff} onChange={e => updateCur({ alEff: e.target.value })} placeholder="（あれば自由記述）" />
+            <textarea className="inp" rows={2} value={cur.alEff} onChange={e => updateCur({ alEff: e.target.value })} placeholder="" />
           </div>
         </div>
 
@@ -700,11 +787,11 @@ ${blankText(d.txtRs)}
           <div className="card-title">✍️ コメント（{curDow}）</div>
           <div className="form-group">
             <label>■全体総括</label>
-            <textarea className="inp" rows={4} value={cur.txtOv} onChange={e => updateCur({ txtOv: e.target.value })} placeholder="（あれば自由記述）" />
+            <textarea className="inp" rows={4} value={cur.txtOv} onChange={e => updateCur({ txtOv: e.target.value })} placeholder="" />
           </div>
           <div className="form-group">
             <label>■【達成：達成理由】【未達：改善策】</label>
-            <textarea className="inp" rows={4} value={cur.txtRs} onChange={e => updateCur({ txtRs: e.target.value })} placeholder="（あれば自由記述）" />
+            <textarea className="inp" rows={4} value={cur.txtRs} onChange={e => updateCur({ txtRs: e.target.value })} placeholder="" />
           </div>
         </div>
       </div>
