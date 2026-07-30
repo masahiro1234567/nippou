@@ -550,7 +550,11 @@ ${blankText(d.txtRs)}
         {['純新規', 'MNP(UQ⇒au)', 'MNP(SB⇒au)', 'MNP(DCM⇒au)', 'MNP(YM⇒au)', 'MNP(楽天⇒au)', 'MNP(その他⇒au)', '機種変更'].map((lbl, mi) => (
           <FieldRow key={mi} label={lbl} value={cur.au[mi]} onChange={v => updateMobile('au', mi, v)} />
         ))}
-        <div style={{ height: 8 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px' }}>
+          <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: '.68rem', fontWeight: 700, color: 'var(--sub)', whiteSpace: 'nowrap' }}>UQ mobile</span>
+          <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
+        </div>
         {['UQ純新規', 'MNP(au⇒UQ)', 'MNP(SB⇒UQ)', 'MNP(DCM⇒UQ)', 'MNP(YM⇒UQ)', 'MNP(楽天⇒UQ)', 'MNP(その他⇒UQ)', 'UQ機種変更'].map((lbl, mi) => (
           <FieldRow key={mi} label={lbl} value={cur.uq[mi]} onChange={v => updateMobile('uq', mi, v)} />
         ))}
