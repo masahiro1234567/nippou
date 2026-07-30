@@ -275,12 +275,12 @@ ${dowLabel(d.date)} : ${calc.souhan}/${calc.riku}（内FP獲得${blank(d.fpA)}/$
 ${dowLabel(d.date)}獲得 : ${d.mikomiG && d.mikomiD ? `${d.mikomiG}組${d.mikomiD}台` : '-'}
 
 ■内訳（接客組/着座組/成約組/成約台数）
-アンケート枚数（全体） : ${blank(d.ank)}枚
-アンケート（内FP）　 : ${d.bFp.map(v => blank(v)).join('/')}
-フリーキャッチ　  　 : ${d.bFc.map(v => blank(v)).join('/')}
-什器/POP                  : ${d.bPop.map(v => blank(v)).join('/')}
-家電/TA                     : ${d.bTa.map(v => blank(v)).join('/')}
-振り（常勤/他）　　   : ${d.bFuri.map(v => blank(v)).join('/')}
+アンケート枚数（全体）：${blank(d.ank)}枚
+アンケート（内FP）：${d.bFp.map(v => blank(v)).join('/')}
+フリーキャッチ：${d.bFc.map(v => blank(v)).join('/')}
+什器/POP：${d.bPop.map(v => blank(v)).join('/')}
+家電/TA：${d.bTa.map(v => blank(v)).join('/')}
+振り（常勤/他）：${d.bFuri.map(v => blank(v)).join('/')}
 
 ■au mobile実績
 純新規獲得件数：${blank(d.au[0], 0)}件

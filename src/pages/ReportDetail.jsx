@@ -109,12 +109,12 @@ ${dow} : ${jA}/${jB}（内FP獲得${blank(fpA)}/${blank(fpB)}）
 ${dow}獲得 : ${mikomiG && mikomiD ? `${mikomiG}組${mikomiD}台` : '-'}
 
 ■内訳（接客組/着座組/成約組/成約台数）
-アンケート枚数（全体） : ${blank(r.ank)}枚
-アンケート（内FP）　 : ${(r.b_fp || []).map(v => blank(v)).join('/') || '○/○/○/○'}
-フリーキャッチ　  　 : ${(r.b_fc || []).map(v => blank(v)).join('/') || '○/○/○/○'}
-什器/POP                  : ${(r.b_pop || []).map(v => blank(v)).join('/') || '○/○/○/○'}
-家電/TA                     : ${(r.b_ta || []).map(v => blank(v)).join('/') || '○/○/○/○'}
-振り（常勤/他）　　   : ${(r.b_furi || []).map(v => blank(v)).join('/') || '○/○/○/○'}
+アンケート枚数（全体）：${blank(r.ank)}枚
+アンケート（内FP）：${(r.b_fp || []).map(v => blank(v)).join('/') || '○/○/○/○'}
+フリーキャッチ：${(r.b_fc || []).map(v => blank(v)).join('/') || '○/○/○/○'}
+什器/POP：${(r.b_pop || []).map(v => blank(v)).join('/') || '○/○/○/○'}
+家電/TA：${(r.b_ta || []).map(v => blank(v)).join('/') || '○/○/○/○'}
+振り（常勤/他）：${(r.b_furi || []).map(v => blank(v)).join('/') || '○/○/○/○'}
 
 ■au mobile実績
 純新規獲得件数：${blank(au[0], 0)}件
