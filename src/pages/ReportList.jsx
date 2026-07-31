@@ -32,6 +32,7 @@ export default function ReportList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [pickerVal, setPickerVal] = useState(null);
+  const [channelFilter, setChannelFilter] = useState('');
   const [selectedId, setSelectedId] = useState({});
 
   const groups = useMemo(() => {
@@ -41,7 +42,8 @@ export default function ReportList() {
         return y === pickerVal.year && m === pickerVal.month;
       })();
       const qOk = !search || (r.store || '').includes(search) || (r.director || '').toLowerCase().includes(search.toLowerCase());
-      return mOk && qOk;
+      const cOk = !channelFilter || r.channel === channelFilter;
+      return mOk && qOk && cOk;
     });
     const map = {};
     filtered.forEach(([id, r]) => {
@@ -58,13 +60,23 @@ export default function ReportList() {
   return (
     <Layout title="日報確認" showBack>
       <MonthPicker value={pickerVal} onChange={setPickerVal} />
-      <input
-        className="inp"
-        placeholder="🔍 店舗名・ディレクター名で検索"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: 10 }}
-      />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <select
+          className="inp"
+          style={{ flex: '0 0 auto', width: 'auto', padding: '8px 10px', fontSize: '.84rem' }}
+          value={channelFilter}
+          onChange={e => setChannelFilter(e.target.value)}
+        >
+          <option value="">すべての販路</option>
+          {['エディオン','イオン','ジョーシン','ケーズデンキ','ヤマダ','コジマ','その他'].map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <input
+          className="inp"
+          placeholder="🔍 店舗名・ディレクター名"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       {loading && <div className="ts">読み込み中…</div>}
       {!loading && groups.length === 0 && (
@@ -106,7 +118,6 @@ export default function ReportList() {
               <span className="badge b-blue">{curReport.channel || '−'}</span>
               <span className={`badge ${achBadgeClass(p)}`}>{p}%</span>
               <span className="badge b-gray">{curReport.director || curReport.userName || '−'}</span>
-              {canEditReport(curReport) && <span className="badge b-green">編集可</span>}
             </div>
             <div style={{ fontSize: '.7rem', color: 'var(--primary)', fontWeight: 700 }}>詳細</div>
           </div>
