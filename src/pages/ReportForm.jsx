@@ -96,6 +96,12 @@ export default function ReportForm() {
   const swipeRef = useRef(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const isHoriz = useRef(false);
+  const liveDragX = useRef(0);
+  const [dragX, setDragX] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
+  const [tabWidth, setTabWidth] = useState(0);
+  const tabContainerRef = useRef(null);
 
   // 編集モード
   useEffect(() => {
@@ -177,6 +183,13 @@ export default function ReportForm() {
     if (d) setChannel(d);
   }, [store, channelAuto]);
 
+  // タブコンテナ幅の計測（スライダーピルの位置計算用）
+  useEffect(() => {
+    if (tabContainerRef.current) {
+      setTabWidth(tabContainerRef.current.offsetWidth);
+    }
+  }, [days.length]);
+
   function addDay() {
     const last = days[days.length - 1].date;
     const d = parseDateLocal(last || todayStr());
@@ -207,16 +220,56 @@ export default function ReportForm() {
   }, [activeIdx]);
 
   // スワイプハンドラ
+  function switchDay(dir) {
+    const W = window.innerWidth || 400;
+    setTransitioning(true);
+    setDragX(dir > 0 ? -W : W);
+    setTimeout(() => {
+      setActiveIdx(prev => prev + dir);
+      setTransitioning(false);
+      setDragX(dir > 0 ? W : -W);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        setTransitioning(true);
+        setDragX(0);
+        setTimeout(() => setTransitioning(false), 240);
+      }));
+    }, 220);
+  }
+
   function handleTouchStart(e) {
+    if (transitioning) return;
+    const tgt = e.target;
+    if (['INPUT','TEXTAREA','SELECT','BUTTON'].includes(tgt.tagName)) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    isHoriz.current = false;
+    liveDragX.current = 0;
   }
-  function handleTouchEnd(e) {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-      const next = activeIdx + (dx < 0 ? 1 : -1);
-      if (next >= 0 && next < days.length) setActiveIdx(next);
+  function handleTouchMove(e) {
+    if (transitioning) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (!isHoriz.current) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dy) >= Math.abs(dx)) return;
+      isHoriz.current = true;
+    }
+    liveDragX.current = dx;
+    setDragX(dx);
+  }
+  function handleTouchEnd() {
+    if (!isHoriz.current) return;
+    isHoriz.current = false;
+    const dx = liveDragX.current;
+    liveDragX.current = 0;
+    if (dx < -80 && activeIdx < days.length - 1) {
+      switchDay(1);
+    } else if (dx > 80 && activeIdx > 0) {
+      switchDay(-1);
+    } else {
+      setTransitioning(true);
+      setDragX(0);
+      setTimeout(() => setTransitioning(false), 200);
     }
   }
 
@@ -468,10 +521,15 @@ ${blankText(d.txtRs)}
   return (
     <Layout title={editingId ? '日報編集' : '日報入力'} showBack>
 
-      {/* ===== 上部：店舗名＋日付 ===== */}
+      {/* ===== 上部：店舗名＋日付（sticky固定） ===== */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 20,
+        background: 'var(--bg)',
+        paddingBottom: 4,
+      }}>
       <div style={{
         background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)',
-        padding: '14px 16px', marginBottom: 12, boxShadow: 'var(--sh-sm)',
+        padding: '14px 16px', marginBottom: 6, boxShadow: 'var(--sh-sm)',
       }}>
         <div style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 4 }}>店舗名</div>
         <input
@@ -512,102 +570,17 @@ ${blankText(d.txtRs)}
         </div>
       </div>
 
-      {/* ===== 稼働日タブ＋スワイプ ===== */}
-      <div style={{ background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 12, boxShadow: 'var(--sh-sm)', overflow: 'hidden' }}>
-        {/* タブ */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          {days.map((d, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveIdx(i)}
-              style={{
-                flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer',
-                background: i === activeIdx ? 'var(--pl)' : '#fff',
-                color: i === activeIdx ? 'var(--pd)' : 'var(--sub)',
-                fontWeight: i === activeIdx ? 700 : 500,
-                fontSize: '.82rem',
-                borderBottom: i === activeIdx ? '2px solid var(--primary)' : '2px solid transparent',
-                transition: 'all .15s',
-              }}
-            >
-              {dowLabel(d.date)}
-              {d.date && (
-                <div style={{ fontSize: '.62rem', opacity: .7 }}>
-                  {parseDateLocal(d.date).getMonth() + 1}/{parseDateLocal(d.date).getDate()}
-                </div>
-              )}
-            </button>
-          ))}
-          {!editingId && (
-            <button
-              onClick={addDay}
-              style={{ padding: '10px 12px', border: 'none', background: '#fff', color: 'var(--primary)', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer' }}
-            >
-              ＋
-            </button>
-          )}
-        </div>
-
-        {/* 日付入力 */}
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            className="inp"
-            type="date"
-            value={cur.date}
-            onChange={e => updateDayDate(activeIdx, e.target.value)}
-            style={{ flex: 1, padding: '6px 10px', fontSize: '.84rem' }}
-          />
-          {days.length > 1 && (
-            <button
-              onClick={() => removeDay(activeIdx)}
-              style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#dc2626', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem' }}
-            >
-              削除
-            </button>
-          )}
-        </div>
-
-        {/* スワイプコンテナ（ページインジケーター） */}
-        <div
-          ref={swipeRef}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          style={{ padding: '8px 14px 6px', touchAction: 'pan-y' }}
+      {/* 詳細から自動入力（sticky内・店舗名の直下） */}
+      <div style={{ padding: '0 0 6px' }}>
+        <button
+          className="btn btn-outline"
+          onClick={() => setShowLineBox(!showLineBox)}
+          style={{ padding: '9px 14px', fontSize: '.82rem' }}
         >
-          {/* ドットインジケーター */}
-          {days.length > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '4px 0' }}>
-              <button
-                onClick={() => activeIdx > 0 && setActiveIdx(activeIdx - 1)}
-                disabled={activeIdx === 0}
-                style={{ background: 'none', border: 'none', cursor: activeIdx === 0 ? 'default' : 'pointer', color: 'var(--sub)', fontSize: '1.2rem', opacity: activeIdx === 0 ? 0.3 : 1, padding: '0 6px' }}
-              >‹</button>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {days.map((_, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setActiveIdx(i)}
-                    style={{ width: 8, height: 8, borderRadius: '50%', background: i === activeIdx ? 'var(--primary)' : 'var(--border)', cursor: 'pointer', transition: 'background .2s' }}
-                  />
-                ))}
-              </div>
-              <button
-                onClick={() => activeIdx < days.length - 1 && setActiveIdx(activeIdx + 1)}
-                disabled={activeIdx === days.length - 1}
-                style={{ background: 'none', border: 'none', cursor: activeIdx === days.length - 1 ? 'default' : 'pointer', color: 'var(--sub)', fontSize: '1.2rem', opacity: activeIdx === days.length - 1 ? 0.3 : 1, padding: '0 6px' }}
-              >›</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ===== 詳細から自動入力 ===== */}
-      <div className="card">
-        <button className="btn btn-outline" onClick={() => setShowLineBox(!showLineBox)}>
           {showLineBox ? '閉じる' : '📋 詳細から自動入力'}
         </button>
         {showLineBox && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 8, background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', padding: 12 }}>
             <textarea className="inp" rows={5} value={lineText} onChange={e => setLineText(e.target.value)}
               placeholder="LINEで届いた案件指示書をそのまま貼り付け" style={{ fontFamily: 'monospace', fontSize: '.78rem' }} />
             <button className="btn btn-p" style={{ marginTop: 8 }} onClick={handleParseLine}>読み取って自動入力</button>
@@ -633,6 +606,100 @@ ${blankText(d.txtRs)}
             )}
           </div>
         )}
+      </div>
+      </div>{/* sticky wrapper end */}
+
+      {/* ===== スワイプコンテナ（店舗名以下全部） ===== */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: transitioning ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
+          touchAction: 'pan-y',
+          willChange: 'transform',
+        }}
+      >
+
+      {/* ===== 稼働日タブ（スライダー型） ===== */}
+      <div style={{ background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 12, boxShadow: 'var(--sh-sm)', overflow: 'hidden' }}>
+
+        {/* スライダータブ */}
+        <div style={{ padding: '8px 8px 0' }}>
+          <div
+            ref={tabContainerRef}
+            style={{ position: 'relative', background: '#f3f4f6', borderRadius: 24, padding: 4, display: 'flex' }}
+          >
+            {/* スライドするオレンジピル */}
+            <div style={{
+              position: 'absolute', top: 4, bottom: 4,
+              width: `calc(${100 / days.length}% - ${4 / days.length}px)`,
+              left: 4,
+              background: 'var(--primary)',
+              borderRadius: 20,
+              boxShadow: '0 3px 12px rgba(249,115,22,.4)',
+              transform: `translateX(${activeIdx * (tabWidth / days.length)}px)`,
+              transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+              zIndex: 0,
+              pointerEvents: 'none',
+            }} />
+            {days.map((d, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveIdx(i)}
+                style={{
+                  flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
+                  padding: '10px 8px', textAlign: 'center', position: 'relative', zIndex: 1,
+                }}
+              >
+                <span style={{
+                  display: 'block',
+                  fontWeight: i === activeIdx ? 800 : 500,
+                  fontSize: i === activeIdx ? '15px' : '12px',
+                  color: i === activeIdx ? '#fff' : '#9ca3af',
+                  transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                }}>
+                  {dowLabel(d.date)}
+                </span>
+                <span style={{
+                  display: 'block',
+                  fontSize: i === activeIdx ? '10px' : '9px',
+                  color: i === activeIdx ? 'rgba(255,255,255,.75)' : '#d1d5db',
+                  marginTop: 2,
+                  transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                }}>
+                  {d.date ? `${parseDateLocal(d.date).getMonth() + 1}/${parseDateLocal(d.date).getDate()}` : ''}
+                </span>
+              </button>
+            ))}
+            {!editingId && (
+              <button
+                onClick={addDay}
+                style={{ padding: '10px 12px', border: 'none', background: 'transparent', color: 'var(--primary)', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', position: 'relative', zIndex: 1 }}
+              >＋</button>
+            )}
+          </div>
+        </div>
+
+        {/* 日付入力 */}
+        <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            className="inp"
+            type="date"
+            value={cur.date}
+            onChange={e => updateDayDate(activeIdx, e.target.value)}
+            style={{ flex: 1, padding: '6px 10px', fontSize: '.84rem' }}
+          />
+          {days.length > 1 && (
+            <button
+              onClick={() => removeDay(activeIdx)}
+              style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '6px 10px', color: '#dc2626', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem' }}
+            >
+              削除
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 基本情報（販路・ディレクター・目標） */}
@@ -661,11 +728,7 @@ ${blankText(d.txtRs)}
       </div>
 
       {/* ===== 以下、スワイプで切り替わるフィールド ===== */}
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y' }}
-      >
+      <div>
         <div className="card">
           <div className="card-title">⚠️ ヒヤリハット（{curDow}）</div>
           <input className="inp" value={cur.hiyari} onChange={e => updateCur({ hiyari: e.target.value })} placeholder="特に無し。" />
@@ -795,6 +858,8 @@ ${blankText(d.txtRs)}
           </div>
         </div>
       </div>
+
+      </div>{/* swipe container end */}
 
       <button className="btn btn-p" onClick={() => setShowPreview(true)}>
         📋 {curDow}の日報をプレビュー
