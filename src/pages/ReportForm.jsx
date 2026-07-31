@@ -569,18 +569,28 @@ ${blankText(d.txtRs)}
           )}
         </div>
       </div>
+      </div>{/* sticky wrapper end */}
 
-      {/* 詳細から自動入力（sticky内・店舗名の直下） */}
-      <div style={{ padding: '0 0 6px' }}>
-        <button
-          className="btn btn-outline"
-          onClick={() => setShowLineBox(!showLineBox)}
-          style={{ padding: '9px 14px', fontSize: '.82rem' }}
-        >
+      {/* ===== スワイプコンテナ（店舗名以下全部） ===== */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: transitioning ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
+          touchAction: 'pan-y',
+          willChange: 'transform',
+        }}
+      >
+
+      {/* ===== 詳細から自動入力（スクロール追従） ===== */}
+      <div className="card">
+        <button className="btn btn-outline" onClick={() => setShowLineBox(!showLineBox)}>
           {showLineBox ? '閉じる' : '📋 詳細から自動入力'}
         </button>
         {showLineBox && (
-          <div style={{ marginTop: 8, background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', padding: 12 }}>
+          <div style={{ marginTop: 10 }}>
             <textarea className="inp" rows={5} value={lineText} onChange={e => setLineText(e.target.value)}
               placeholder="LINEで届いた案件指示書をそのまま貼り付け" style={{ fontFamily: 'monospace', fontSize: '.78rem' }} />
             <button className="btn btn-p" style={{ marginTop: 8 }} onClick={handleParseLine}>読み取って自動入力</button>
@@ -607,29 +617,15 @@ ${blankText(d.txtRs)}
           </div>
         )}
       </div>
-      </div>{/* sticky wrapper end */}
-
-      {/* ===== スワイプコンテナ（店舗名以下全部） ===== */}
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          transform: `translateX(${dragX}px)`,
-          transition: transitioning ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
-          touchAction: 'pan-y',
-          willChange: 'transform',
-        }}
-      >
 
       {/* ===== 稼働日タブ（スライダー型） ===== */}
       <div style={{ background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 12, boxShadow: 'var(--sh-sm)', overflow: 'hidden' }}>
 
-        {/* スライダータブ */}
-        <div style={{ padding: '8px 8px 0' }}>
+        {/* スライダータブ＋＋ボタン */}
+        <div style={{ padding: '8px 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
           <div
             ref={tabContainerRef}
-            style={{ position: 'relative', background: '#f3f4f6', borderRadius: 24, padding: 4, display: 'flex' }}
+            style={{ position: 'relative', background: '#f3f4f6', borderRadius: 24, padding: 4, display: 'flex', flex: 1 }}
           >
             {/* スライドするオレンジピル */}
             <div style={{
@@ -673,13 +669,18 @@ ${blankText(d.txtRs)}
                 </span>
               </button>
             ))}
-            {!editingId && (
-              <button
-                onClick={addDay}
-                style={{ padding: '10px 12px', border: 'none', background: 'transparent', color: 'var(--primary)', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', position: 'relative', zIndex: 1 }}
-              >＋</button>
-            )}
           </div>
+          {/* ＋ボタンをスライダーの外に配置 */}
+          {!editingId && (
+            <button
+              onClick={addDay}
+              style={{
+                width: 36, height: 36, border: 'none', borderRadius: '50%',
+                background: 'var(--pl)', color: 'var(--primary)',
+                fontWeight: 900, fontSize: '1.1rem', cursor: 'pointer', flex: '0 0 36px',
+              }}
+            >＋</button>
+          )}
         </div>
 
         {/* 日付入力 */}
