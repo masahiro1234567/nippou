@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFirebaseList } from '../lib/useFirebaseList';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
+import MonthPicker from '../components/MonthPicker';
 
 const DOWS = ['日', '月', '火', '水', '木', '金', '土'];
 function parseDateLocal(str) {
@@ -16,7 +17,6 @@ function dowOf(dateStr) {
 function achBadgeClass(p) {
   return p >= 100 ? 'b-green' : p >= 70 ? 'b-orange' : 'b-red';
 }
-// 同じ店舗×同じ週（月曜始まり）の日報をまとめるためのキーを作る
 function weekKey(dateStr, store) {
   const d = parseDateLocal(dateStr);
   const day = d.getDay();
@@ -31,12 +31,15 @@ export default function ReportList() {
   const { canEditReport } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [month, setMonth] = useState('');
-  const [selectedId, setSelectedId] = useState({}); // groupKey -> 選択中の reportId
+  const [pickerVal, setPickerVal] = useState(null);
+  const [selectedId, setSelectedId] = useState({});
 
   const groups = useMemo(() => {
     const filtered = Object.entries(reports).filter(([, r]) => {
-      const mOk = !month || (r.date || '').startsWith(month);
+      const mOk = !pickerVal || (() => {
+        const [y, m] = (r.date || '').split('-').map(Number);
+        return y === pickerVal.year && m === pickerVal.month;
+      })();
       const qOk = !search || (r.store || '').includes(search) || (r.director || '').toLowerCase().includes(search.toLowerCase());
       return mOk && qOk;
     });
@@ -50,11 +53,11 @@ export default function ReportList() {
     return Object.values(map)
       .map((group) => group.sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')))
       .sort((a, b) => (b[0][1].date || '').localeCompare(a[0][1].date || ''));
-  }, [reports, search, month]);
+  }, [reports, search, pickerVal]);
 
   return (
     <Layout title="日報確認" showBack>
-      <input className="inp" type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={{ marginBottom: 10 }} />
+      <MonthPicker value={pickerVal} onChange={setPickerVal} />
       <input
         className="inp"
         placeholder="🔍 店舗名・ディレクター名で検索"

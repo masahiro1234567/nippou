@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useFirebaseList } from '../lib/useFirebaseList';
 import Layout from '../components/Layout';
+import MonthPicker from '../components/MonthPicker';
 
 export default function Stats() {
   const { data: reports } = useFirebaseList('fp_reports');
-  const [month, setMonth] = useState('');
+  const [pickerVal, setPickerVal] = useState(null);
 
   const byStore = useMemo(() => {
-    const filtered = Object.values(reports).filter((r) => !month || (r.date || '').startsWith(month));
+    const filtered = Object.values(reports).filter((r) => {
+      if (!pickerVal) return true;
+      const [y, m] = (r.date || '').split('-').map(Number);
+      return y === pickerVal.year && m === pickerVal.month;
+    });
     const map = {};
     filtered.forEach((r) => {
       const s = r.store || '不明';
@@ -18,14 +23,11 @@ export default function Stats() {
       map[s].achSum += r.ach || 0;
     });
     return Object.entries(map).sort((a, b) => b[1].souhan - a[1].souhan);
-  }, [reports, month]);
+  }, [reports, pickerVal]);
 
   return (
     <Layout title="実績確認" showBack>
-      <div className="form-group">
-        <label>対象月</label>
-        <input className="inp" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-      </div>
+      <MonthPicker value={pickerVal} onChange={setPickerVal} />
       {byStore.length === 0 && <div className="empty">データなし</div>}
       {byStore.map(([store, v]) => {
         const avgAch = v.cnt > 0 ? Math.round(v.achSum / v.cnt) : 0;

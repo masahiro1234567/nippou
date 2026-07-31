@@ -6,6 +6,7 @@ import { useFirebaseList } from '../lib/useFirebaseList';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import Layout from '../components/Layout';
+import MonthPicker from '../components/MonthPicker';
 
 function todayYm() {
   const t = new Date();
@@ -86,9 +87,12 @@ function GoalTab() {
   const { data: goals } = useFirebaseList('fp_goals');
   const { data: reports } = useFirebaseList('fp_reports');
   const showToast = useToast();
-  const [month, setMonth] = useState(todayYm());
+  const now = new Date();
+  const [pickerVal, setPickerVal] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [showEdit, setShowEdit] = useState(false);
 
+  // pickerValから "YYYYMM" キーと "YYYY-MM" 文字列を生成
+  const month = pickerVal ? `${pickerVal.year}-${String(pickerVal.month).padStart(2, '0')}` : '';
   const key = month.replace('-', '');
   const goal = goals[key];
   const [a, setA] = useState('');
@@ -103,11 +107,15 @@ function GoalTab() {
   }, [month]);
 
   const progress = useMemo(() => {
-    const list = Object.values(reports).filter((r) => (r.date || '').startsWith(month));
+    const list = Object.values(reports).filter((r) => {
+      if (!pickerVal) return true;
+      const [y, m] = (r.date || '').split('-').map(Number);
+      return y === pickerVal.year && m === pickerVal.month;
+    });
     const souhan = list.reduce((s, r) => s + (r.auto_souhan || 0), 0);
     const riku = list.reduce((s, r) => s + (r.auto_2b || 0), 0);
     return { souhan, riku };
-  }, [reports, month]);
+  }, [reports, pickerVal]);
 
   async function handleSave() {
     if (!month) {
@@ -125,9 +133,11 @@ function GoalTab() {
   return (
     <div>
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: '.95rem', fontWeight: 700 }}>{month.replace('-', '年')}月の目標</div>
-          <input className="inp-s" type="month" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(e.target.value)} />
+        <div style={{ marginBottom: 14 }}>
+          <MonthPicker value={pickerVal} onChange={(v) => setPickerVal(v || { year: now.getFullYear(), month: now.getMonth() + 1 })} />
+        </div>
+        <div style={{ fontSize: '.95rem', fontWeight: 700, marginBottom: 14 }}>
+          {month ? `${pickerVal.year}年${pickerVal.month}月の目標` : '月を選択してください'}
         </div>
 
         {goal ? (
