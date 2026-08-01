@@ -842,6 +842,81 @@ function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userL
   );
 }
 
+function UserCard({ id, u, idx, isOpen, onToggle, approve, saveUser, permLabel, avatarBg, avatarCol }) {
+  const [pendingPos, setPendingPos] = useState(u.position || 'NV');
+  const [pendingGrade, setPendingGrade] = useState(u.grade || 'R');
+  const isPending = u.permission === 'pending';
+  const initials = (u.name || '?').slice(0, 1);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 'var(--r)', border: `1.5px solid ${isOpen ? 'var(--primary)' : isPending ? '#fde68a' : 'var(--border)'}`, marginBottom: 8, overflow: 'hidden', boxShadow: 'var(--sh-sm)' }}>
+      <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={onToggle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: avatarCol, flexShrink: 0 }}>
+            {initials}
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{u.name || '名前未設定'}</div>
+            <div style={{ display: 'flex', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
+              {u.position && <span className="badge b-purple">{u.position}</span>}
+              {u.grade && <span className="badge b-orange">等級{u.grade}</span>}
+              {isPending
+                ? <span className="badge b-yellow">申請中</span>
+                : <span className="badge b-green">{permLabel[u.permission || 'edit']}</span>
+              }
+            </div>
+          </div>
+        </div>
+        <span style={{ color: 'var(--sub)', fontSize: 13 }}>{isOpen ? '▾' : '›'}</span>
+      </div>
+      {isOpen && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
+          {u.email && <div className="ts" style={{ marginBottom: 10 }}>{u.email}</div>}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div className="ts" style={{ marginBottom: 4 }}>役職</div>
+              <select className="inp" value={pendingPos} onChange={e => setPendingPos(e.target.value)} style={{ padding: '9px 10px' }}>
+                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="ts" style={{ marginBottom: 4 }}>等級</div>
+              <select className="inp" value={pendingGrade} onChange={e => setPendingGrade(e.target.value)} style={{ padding: '9px 10px' }}>
+                {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          </div>
+          {isPending ? (
+            <>
+              <button className="btn" style={{ background: 'var(--green)', color: '#fff', width: '100%', marginBottom: 8 }}
+                onClick={() => approve(id, pendingPos, pendingGrade)}>
+                ✅ 承認して登録
+              </button>
+              <button className="btn" style={{ background: '#fee2e2', color: '#dc2626' }}
+                onClick={() => saveUser(id, { permission: 'disabled' })}>
+                拒否
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="ts" style={{ marginBottom: 6 }}>権限</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                <button className="btn btn-outline" style={{ fontSize: '.8rem', padding: '7px 10px' }} onClick={() => saveUser(id, { permission: 'edit' })}>編集可に</button>
+                <button className="btn btn-gray" style={{ fontSize: '.8rem', padding: '7px 10px' }} onClick={() => saveUser(id, { permission: 'readonly' })}>閲覧のみに</button>
+                <button className="btn" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '.8rem', padding: '7px 10px' }} onClick={() => saveUser(id, { permission: 'disabled' })}>ログイン不可</button>
+              </div>
+              <button className="btn btn-p" style={{ fontSize: '.84rem' }}
+                onClick={() => saveUser(id, { position: pendingPos, grade: pendingGrade })}>
+                変更を保存
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersTab() {
   const { data: users } = useFirebaseList('fp_users');
   const showToast = useToast();
@@ -943,84 +1018,17 @@ function UsersTab() {
       </div>
 
       {entries.length===0 && <div className="empty">登録ユーザーなし</div>}
-      {entries.map(([id,u],idx)=>{
-        const isPending = u.permission==='pending';
-        const bg = AVATAR_BG[idx%AVATAR_BG.length];
-        const tc = AVATAR_COL[idx%AVATAR_COL.length];
-        const initials = (u.name||'?').slice(0,1);
-        const [pendingPos, setPendingPos] = useState(u.position||'NV');
-        const [pendingGrade, setPendingGrade] = useState(u.grade||'R');
-        return (
-          <div key={id} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${openIds[id]?'var(--primary)':isPending?'#fde68a':'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
-            <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}
-              onClick={()=>setOpenIds(prev=>({...prev,[id]:!prev[id]}))}>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:38, height:38, borderRadius:'50%', background:bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:tc, flexShrink:0 }}>
-                  {initials}
-                </div>
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700 }}>{u.name||'名前未設定'}</div>
-                  <div style={{ display:'flex', gap:5, marginTop:3, flexWrap:'wrap' }}>
-                    {u.position && <span className="badge b-purple">{u.position}</span>}
-                    {/* ⑤ 「等級A」表示 */}
-                    {u.grade && <span className="badge b-orange">等級{u.grade}</span>}
-                    {isPending
-                      ? <span className="badge b-yellow">申請中</span>
-                      : <span className="badge b-green">{permLabel[u.permission||'edit']}</span>
-                    }
-                  </div>
-                </div>
-              </div>
-              <span style={{ color:'var(--sub)', fontSize:13 }}>{openIds[id]?'▾':'›'}</span>
-            </div>
-
-            {openIds[id] && (
-              <div style={{ borderTop:'1px solid var(--border)', padding:14 }}>
-                {u.email && <div className="ts" style={{ marginBottom:10 }}>{u.email}</div>}
-                <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-                  <div style={{ flex:1 }}>
-                    <div className="ts" style={{ marginBottom:4 }}>役職</div>
-                    <select className="inp" defaultValue={u.position||'NV'} onChange={e=>setPendingPos(e.target.value)} style={{ padding:'9px 10px' }}>
-                      {POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div className="ts" style={{ marginBottom:4 }}>等級</div>
-                    <select className="inp" defaultValue={u.grade||'R'} onChange={e=>setPendingGrade(e.target.value)} style={{ padding:'9px 10px' }}>
-                      {GRADES.map(g=><option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {isPending ? (
-                  <>
-                    <button className="btn" style={{ background:'var(--green)', color:'#fff', width:'100%', marginBottom:8 }}
-                      onClick={()=>approve(id, pendingPos, pendingGrade)}>
-                      ✅ 承認して登録
-                    </button>
-                    <button className="btn" style={{ background:'#fee2e2', color:'#dc2626' }}
-                      onClick={()=>saveUser(id,{ permission:'disabled' })}>
-                      拒否
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="ts" style={{ marginBottom:6 }}>権限</div>
-                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
-                      <button className="btn btn-outline" style={{ fontSize:'.8rem', padding:'7px 10px' }} onClick={()=>saveUser(id,{permission:'edit'})}>編集可に</button>
-                      <button className="btn btn-gray" style={{ fontSize:'.8rem', padding:'7px 10px' }} onClick={()=>saveUser(id,{permission:'readonly'})}>閲覧のみに</button>
-                      <button className="btn" style={{ background:'#fee2e2', color:'#dc2626', fontSize:'.8rem', padding:'7px 10px' }} onClick={()=>saveUser(id,{permission:'disabled'})}>ログイン不可</button>
-                    </div>
-                    <button className="btn btn-p" style={{ fontSize:'.84rem' }}
-                      onClick={()=>saveUser(id,{ position:pendingPos, grade:pendingGrade })}>
-                      変更を保存
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {entries.map(([id,u],idx)=>(
+        <UserCard
+          key={id} id={id} u={u} idx={idx}
+          isOpen={!!openIds[id]}
+          onToggle={()=>setOpenIds(prev=>({...prev,[id]:!prev[id]}))}
+          approve={approve} saveUser={saveUser}
+          permLabel={permLabel}
+          avatarBg={AVATAR_BG[idx%AVATAR_BG.length]}
+          avatarCol={AVATAR_COL[idx%AVATAR_COL.length]}
+        />
+      ))}
     </div>
   );
 }
