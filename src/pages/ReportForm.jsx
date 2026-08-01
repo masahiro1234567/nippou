@@ -84,6 +84,9 @@ export default function ReportForm() {
   const [targetB, setTargetB] = useState('');
   const [days, setDays] = useState([emptyDayData(todayStr())]);
   const [activeIdx, setActiveIdx] = useState(0);
+  // 見込み獲得は土日共通（全タブで同じ値を共有）
+  const [sharedMikomiG, setSharedMikomiG] = useState('');
+  const [sharedMikomiD, setSharedMikomiD] = useState('');
   const [editingId, setEditingId] = useState(id || null);
   const [restoredOnce, setRestoredOnce] = useState(false);
   const [lineText, setLineText] = useState('');
@@ -137,6 +140,9 @@ export default function ReportForm() {
     setDays([d]);
     setActiveIdx(0);
     setEditingId(id);
+    // 共有見込みをセット
+    setSharedMikomiG(String(r.mikomiG ?? ''));
+    setSharedMikomiD(String(r.mikomiD ?? ''));
   }, [id, reports]);
 
   // 下書き復元
@@ -156,6 +162,8 @@ export default function ReportForm() {
         setTargetA(d.targetA || ''); setTargetB(d.targetB || '');
         setDays(d.days?.length ? d.days : [emptyDayData(todayStr())]);
         setActiveIdx(d.activeIdx || 0);
+        setSharedMikomiG(d.sharedMikomiG || '');
+        setSharedMikomiD(d.sharedMikomiD || '');
         showToast('✅ 前回の入力を復元しました');
       } else { localStorage.removeItem(DRAFT_KEY); }
     } catch (e) { console.warn(e); }
@@ -169,7 +177,7 @@ export default function ReportForm() {
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
           ts: Date.now(),
-          data: { store, channel, channelAuto, director, targetA, targetB, days, activeIdx },
+          data: { store, channel, channelAuto, director, targetA, targetB, days, activeIdx, sharedMikomiG, sharedMikomiD },
         }));
       } catch (e) { /* ignore */ }
     }, 600);
@@ -376,13 +384,13 @@ ${blankText(d.hiyari)}
 ${jissekiLines}
 残　数：${nokoriA2}/${nokoriB2}
 
-■店舗様見込み獲得（${d.mikomiG && d.mikomiD ? `${d.mikomiG}組/${d.mikomiD}台` : '○組/○台'}）
+■店舗様見込み獲得（${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組/${sharedMikomiD}台` : '○組/○台'}）
 ※常勤様の当日獲得は除く
 ${allDayLines.map(day => {
       if (day.isCurrent) {
-        return `${dowLabel(day.date)}獲得 : ${d.mikomiG && d.mikomiD ? `${d.mikomiG}組${d.mikomiD}台` : '-'}`;
+        return `${dowLabel(day.date)}獲得 : ${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組${sharedMikomiD}台` : '-'}`;
       }
-      return `${dowLabel(day.date)}獲得 : -`;
+      return `${dowLabel(day.date)}獲得 : ${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組${sharedMikomiD}台` : '-'}`;
     }).join('\n')}
 
 ■内訳（接客組/着座組/成約組/成約台数）
@@ -482,7 +490,7 @@ ${blankText(d.txtRs)}
       b_ta: d.bTa, b_furi: d.bFuri, ft: d.ft, ld: d.ld,
       other: d.other, al: d.al, al_eff: d.alEff, ot: d.ot,
       txt_ov: d.txtOv, txt_rs: d.txtRs,
-      mikomiG: +d.mikomiG || 0, mikomiD: +d.mikomiD || 0,
+      mikomiG: +sharedMikomiG || 0, mikomiD: +sharedMikomiD || 0,
       updatedAt: Date.now(),
     };
     try {
@@ -779,9 +787,22 @@ ${blankText(d.txtRs)}
         </div>
 
         <div className="card">
-          <div className="card-title">🏠 店舗様見込み獲得（{curDow}）</div>
-          <FieldRow label="組数" value={cur.mikomiG} onChange={v => updateCur({ mikomiG: v })} unit="組" />
-          <FieldRow label="台数" value={cur.mikomiD} onChange={v => updateCur({ mikomiD: v })} unit="台" />
+          <div className="card-title">🏠 店舗様見込み獲得（土日共通）</div>
+          <div style={{ fontSize: '.7rem', color: 'var(--sub)', marginBottom: 8 }}>
+            どの日のタブで入力しても同じ値がすべての日報に反映されます
+          </div>
+          <FieldRow label="組数" value={sharedMikomiG} onChange={setSharedMikomiG} unit="組" />
+          <FieldRow label="台数" value={sharedMikomiD} onChange={setSharedMikomiD} unit="台" />
+          {days.length > 1 && (sharedMikomiG || sharedMikomiD) && (
+            <div style={{ marginTop: 8, background: 'var(--pl)', borderRadius: 8, padding: '7px 12px' }}>
+              {days.map(d => (
+                <div key={d.date} style={{ fontSize: '.74rem', color: 'var(--pd)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{dowLabel(d.date)}</span>
+                  <span>{sharedMikomiG || '○'}組 / {sharedMikomiD || '○'}台</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
