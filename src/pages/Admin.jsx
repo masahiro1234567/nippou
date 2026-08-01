@@ -145,15 +145,27 @@ function ReportManageTab() {
 }
 
 /* ===== ② KPIタブ（管理者設定） ===== */
+function useIsMobile() {
+  const [m, setM] = useState(() => window.innerWidth < 900);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 900);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return m;
+}
+
 function AdminKpiTab() {
   const { data: kpiData } = useFirebaseList('fp_kpi');
   const { data: fpUsers } = useFirebaseList('fp_users');
   const showToast = useToast();
+  const isMobile = useIsMobile();
   const [pickerVal, setPickerVal] = useState(null);
   const [channelFilter, setChannelFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [openIds, setOpenIds] = useState({});
   const [editing, setEditing] = useState(null);
+  const [wizardStep, setWizardStep] = useState(0); // モバイルウィザード用
 
   const userList = useMemo(() =>
     Object.values(fpUsers).filter(u => u.name).map(u => ({ name: u.name, grade: u.grade || 'B' }))
@@ -169,6 +181,7 @@ function AdminKpiTab() {
         [sun]: [{ member: '', role: 'クローザー', target: '', catcherCount: '' }],
       },
     });
+    setWizardStep(0);
     setShowForm(true);
   }
 
@@ -179,17 +192,26 @@ function AdminKpiTab() {
       dates: k.dates || [k.date].filter(Boolean),
       dateMembers: k.dateMembers || {},
     });
+    setWizardStep(0);
     setShowForm(true);
   }
 
   function updateSatDate(newSat) {
-    const newSun = addOneDay(newSat);
+    // 土曜を変えたら以降の全日程を連動して更新
     setEditing(prev => {
       const oldDates = prev.dates;
-      const newDates = oldDates.map((d, i) => i === 0 ? newSat : i === 1 ? newSun : d);
-      const dm = { ...prev.dateMembers };
-      if (oldDates[0] && oldDates[0] !== newSat) { dm[newSat] = dm[oldDates[0]] || []; delete dm[oldDates[0]]; }
-      if (oldDates[1] && oldDates[1] !== newSun) { dm[newSun] = dm[oldDates[1]] || []; delete dm[oldDates[1]]; }
+      const newDates = oldDates.map((d, i) => {
+        if (i === 0) return newSat;
+        // 元の土曜からの差分を保持して連動
+        const oldSat = parseDateLocal(oldDates[0]);
+        const oldD = parseDateLocal(d);
+        const diffDays = Math.round((oldD - oldSat) / 86400000);
+        const nd = parseDateLocal(newSat);
+        nd.setDate(nd.getDate() + diffDays);
+        return fmt(nd);
+      });
+      const dm = {};
+      oldDates.forEach((d, i) => { dm[newDates[i]] = prev.dateMembers[d] || []; });
       return { ...prev, dates: newDates, dateMembers: dm };
     });
   }
@@ -197,10 +219,18 @@ function AdminKpiTab() {
     const newSat = subOneDay(newSun);
     setEditing(prev => {
       const oldDates = prev.dates;
-      const newDates = oldDates.map((d, i) => i === 0 ? newSat : i === 1 ? newSun : d);
-      const dm = { ...prev.dateMembers };
-      if (oldDates[0] && oldDates[0] !== newSat) { dm[newSat] = dm[oldDates[0]] || []; delete dm[oldDates[0]]; }
-      if (oldDates[1] && oldDates[1] !== newSun) { dm[newSun] = dm[oldDates[1]] || []; delete dm[oldDates[1]]; }
+      const newDates = oldDates.map((d, i) => {
+        if (i === 1) return newSun;
+        if (i === 0) return newSat;
+        const oldSun = parseDateLocal(oldDates[1]);
+        const oldD = parseDateLocal(d);
+        const diffDays = Math.round((oldD - oldSun) / 86400000);
+        const nd = parseDateLocal(newSun);
+        nd.setDate(nd.getDate() + diffDays);
+        return fmt(nd);
+      });
+      const dm = {};
+      oldDates.forEach((d, i) => { dm[newDates[i]] = prev.dateMembers[d] || []; });
       return { ...prev, dates: newDates, dateMembers: dm };
     });
   }
@@ -313,8 +343,20 @@ function AdminKpiTab() {
         <button className="btn btn-p" style={{ flex: 1 }} onClick={initNewForm}>＋ KPIを登録</button>
       </div>
 
+      {/* ===== フォーム（PC: 左右2カラム / モバイル: ステップウィザード） ===== */}
+      {showForm && editing && isMobile && (
+        <MobileKpiWizard
+          editing={editing} setEditing={setEditing}
+          wizardStep={wizardStep} setWizardStep={setWizardStep}
+          userList={userList} calcTotalAssigned={calcTotalAssigned}
+          calcDayTotal={calcDayTotal} getRoleOpts={getRoleOpts}
+          updateSatDate={updateSatDate} updateSunDate={updateSunDate}
+          addDate={addDate} addMember={addMember} removeMember={removeMember} updateMember={updateMember}
+          handleSave={handleSave} onClose={() => { setShowForm(false); setEditing(null); }}
+        />
+      )}
       {/* ===== A: 左右2カラム フォーム ===== */}
-      {showForm && editing && (
+      {showForm && editing && !isMobile && (
         <div style={{
           background: '#fff', borderRadius: 'var(--r)',
           border: '1.5px solid var(--primary)', marginBottom: 14,
@@ -459,8 +501,8 @@ function AdminKpiTab() {
 
                     {/* テーブルヘッダー */}
                     <div style={{
-                      display: 'grid', gridTemplateColumns: '2fr 1.2fr 90px 80px 32px',
-                      gap: 6, paddingBottom: 6, borderBottom: '1.5px solid var(--border)',
+                      display: 'grid', gridTemplateColumns: 'minmax(120px,2fr) minmax(100px,1.2fr) 80px 100px 36px',
+                      gap: 8, paddingBottom: 6, borderBottom: '1.5px solid var(--border)',
                       marginBottom: 6,
                     }}>
                       {['メンバー名', '役職', '目標', '', ''].map((h, i) => (
@@ -474,7 +516,7 @@ function AdminKpiTab() {
                       const roleOpts = m.member && m.member !== '他社' ? getRoleOpts(m.member) : ['ディレクター', 'クローザー', 'キャッチャー'];
                       return (
                         <div key={mi} style={{
-                          display: 'grid', gridTemplateColumns: '2fr 1.2fr 90px 80px 32px',
+                          display: 'grid', gridTemplateColumns: 'minmax(120px,2fr) minmax(100px,1.2fr) 80px 100px 36px',
                           gap: 6, marginBottom: 6, alignItems: 'start',
                         }}>
                           {/* 名前 */}
@@ -602,6 +644,200 @@ function AdminKpiTab() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ===== モバイル向けKPIウィザード ===== */
+function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userList, calcTotalAssigned, calcDayTotal, getRoleOpts, updateSatDate, updateSunDate, addDate, addMember, removeMember, updateMember, handleSave, onClose }) {
+  const totalSteps = 1 + editing.dates.length + 1;
+  const lastStep = totalSteps - 1;
+  const isDayStep = wizardStep >= 1 && wizardStep <= editing.dates.length;
+  const curDate = isDayStep ? editing.dates[wizardStep - 1] : null;
+  const totalAssigned = calcTotalAssigned();
+  const overall = +editing.overallTarget || 0;
+  const remaining = overall - totalAssigned;
+  const remainColor = remaining === 0 ? 'var(--green)' : remaining < 0 ? 'var(--red)' : 'var(--primary)';
+  const stepLabels = ['基本情報', ...editing.dates.map(dt => dateLabel(dt)), '確認'];
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 'var(--r)', border: '1.5px solid var(--primary)', marginBottom: 14, boxShadow: 'var(--sh)', overflow: 'hidden' }}>
+      {/* ステップバー */}
+      <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
+        {stepLabels.map((lbl, i) => (
+          <button key={i} onClick={() => setWizardStep(i)} style={{
+            flex: '0 0 auto', padding: '10px 12px', border: 'none', cursor: 'pointer',
+            background: 'transparent', fontSize: 11, fontWeight: 700,
+            color: i === wizardStep ? 'var(--primary)' : i < wizardStep ? 'var(--green)' : 'var(--sub)',
+            borderBottom: `3px solid ${i === wizardStep ? 'var(--primary)' : i < wizardStep ? 'var(--green)' : 'transparent'}`,
+            whiteSpace: 'nowrap',
+          }}>
+            {i < wizardStep ? '✓ ' : ''}{lbl}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: 16 }}>
+        {wizardStep > 0 && overall > 0 && (
+          <div style={{ background: remaining === 0 ? '#d1fae5' : remaining < 0 ? '#fee2e2' : 'var(--pl)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: remainColor }}>KPIに対する残数</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: remainColor }}>{remaining}件</span>
+          </div>
+        )}
+
+        {/* Step 0: 基本情報 */}
+        {wizardStep === 0 && (
+          <div>
+            <div className="form-group">
+              <label className="ts" style={{ display: 'block', marginBottom: 4 }}>店舗名</label>
+              <input className="inp" value={editing.store} onChange={e => setEditing({ ...editing, store: e.target.value })} autoFocus />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="ts" style={{ display: 'block', marginBottom: 4 }}>販路</label>
+                <select className="inp" value={editing.channel || ''} onChange={e => setEditing({ ...editing, channel: e.target.value })} style={{ padding: '9px 10px' }}>
+                  <option value="">選択</option>
+                  {CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '0 0 110px' }}>
+                <label className="ts" style={{ display: 'block', marginBottom: 4 }}>全体目標</label>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input className="inp" type="text" inputMode="numeric" value={editing.overallTarget || ''} onChange={e => setEditing({ ...editing, overallTarget: e.target.value })} placeholder="0" style={{ textAlign: 'right' }} />
+                  <span className="ts">件</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <label className="ts" style={{ margin: 0 }}>稼働日</label>
+              <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>変更すると連動</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div className="ts" style={{ marginBottom: 3 }}>土</div>
+                <input className="inp" type="date" value={editing.dates[0] || ''} onChange={e => updateSatDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="ts" style={{ marginBottom: 3 }}>日</div>
+                <input className="inp" type="date" value={editing.dates[1] || ''} onChange={e => updateSunDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+              </div>
+            </div>
+            {editing.dates.slice(2).map((dt, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <div className="ts" style={{ marginBottom: 3 }}>{dateLabel(dt)}</div>
+                  <input className="inp" type="date" value={dt} onChange={e => {
+                    const newDates = [...editing.dates]; newDates[i + 2] = e.target.value;
+                    const dm = { ...editing.dateMembers }; dm[e.target.value] = dm[dt] || []; delete dm[dt];
+                    setEditing({ ...editing, dates: newDates, dateMembers: dm });
+                  }} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+                </div>
+                <button onClick={() => setEditing(prev => { const d = [...prev.dates]; d.splice(i + 2, 1); return { ...prev, dates: d }; })}
+                  style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '9px 11px', color: '#dc2626', cursor: 'pointer' }}>×</button>
+              </div>
+            ))}
+            <button className="btn btn-gray" style={{ fontSize: '.82rem', padding: '8px 12px', width: 'auto' }} onClick={addDate}>＋ 日程を追加</button>
+          </div>
+        )}
+
+        {/* Step 1..N: 各日程のKPI */}
+        {isDayStep && curDate && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--or-d)', background: 'var(--pl)', padding: '6px 12px', borderRadius: 6, marginBottom: 14, display: 'inline-block' }}>
+              {dateLabel(curDate)}のKPI
+            </div>
+            {(editing.dateMembers[curDate] || []).map((m, mi) => {
+              const isCatcher = m.role === 'キャッチャー';
+              const roleOpts = m.member && m.member !== '他社' ? getRoleOpts(m.member) : ['ディレクター', 'クローザー', 'キャッチャー'];
+              return (
+                <div key={mi} style={{ background: '#f9fafb', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    {m.member === '他社' ? (
+                      <div style={{ fontWeight: 700, color: 'var(--sub)', fontSize: 14 }}>他社</div>
+                    ) : (
+                      <select className="inp" style={{ flex: 1, marginRight: 8 }} value={m.member || ''}
+                        onChange={e => {
+                          const name = e.target.value;
+                          const u = userList.find(u => u.name === name);
+                          updateMember(curDate, mi, { member: name, role: u ? getRoleOpts(name)[0] : 'クローザー' });
+                        }}>
+                        <option value="">メンバーを選択</option>
+                        {userList.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+                        <option value="他社">他社</option>
+                      </select>
+                    )}
+                    {(editing.dateMembers[curDate] || []).length > 1 && (
+                      <button onClick={() => removeMember(curDate, mi)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '8px 11px', color: '#dc2626', cursor: 'pointer', flexShrink: 0 }}>×</button>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="ts" style={{ marginBottom: 3, display: 'block' }}>役職</label>
+                      <select className="inp" value={m.role || 'クローザー'} onChange={e => updateMember(curDate, mi, { role: e.target.value })} style={{ padding: '9px 10px' }}>
+                        {roleOpts.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="ts" style={{ marginBottom: 3, display: 'block' }}>{isCatcher ? '着座数' : '目標'}</label>
+                      <input className="inp" type="text" inputMode="numeric"
+                        value={isCatcher ? (m.catcherCount || '') : (m.target || '')}
+                        onChange={e => updateMember(curDate, mi, isCatcher ? { catcherCount: e.target.value } : { target: e.target.value })}
+                        placeholder="0" style={{ textAlign: 'right', background: isCatcher ? '#f3f4f6' : '#fff' }} />
+                      {isCatcher && <div style={{ fontSize: 10, color: 'var(--sub)', marginTop: 2 }}>合計に含まない</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <button className="btn btn-gray" style={{ marginBottom: 10 }} onClick={() => addMember(curDate)}>＋ メンバーを追加</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '1.5px solid var(--border)' }}>
+              <span className="ts">合計（キャッチャー除く）</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{calcDayTotal(curDate)}件</span>
+            </div>
+          </div>
+        )}
+
+        {/* 最終Step: 確認 */}
+        {wizardStep === lastStep && (
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{editing.store || '（店舗名未入力）'}</div>
+            <div className="ts" style={{ marginBottom: 12 }}>全体目標 {editing.overallTarget || '−'}件 / {editing.dates.map(dt => dateLabel(dt)).join('・')}</div>
+            {editing.dates.map(dt => (
+              <div key={dt} style={{ border: '1px solid var(--border)', borderRadius: 8, marginBottom: 8, overflow: 'hidden' }}>
+                <div style={{ background: '#f9fafb', padding: '8px 12px', fontSize: 11, fontWeight: 700, color: 'var(--sub)' }}>{dateLabel(dt)}</div>
+                <div style={{ padding: '8px 12px' }}>
+                  {(editing.dateMembers[dt] || []).map((m, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                      <span style={{ fontWeight: 600 }}>{m.member || '（未選択）'}</span>
+                      <span className="ts">{m.role} / {m.role === 'キャッチャー' ? `着座${m.catcherCount || '−'}組` : `${m.target || '−'}件`}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid var(--border)', marginTop: 4, fontSize: 12 }}>
+                    <span style={{ color: 'var(--sub)' }}>合計</span>
+                    <span style={{ fontWeight: 700 }}>{calcDayTotal(dt)}件</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '1.5px solid var(--border)', marginBottom: 4 }}>
+              <span className="ts">全体合計 / 残数</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: remainColor }}>{totalAssigned}件 / 残{remaining}件</span>
+            </div>
+          </div>
+        )}
+
+        {/* ナビゲーション */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button className="btn btn-gray" style={{ flex: 1 }} onClick={() => { if (wizardStep === 0) onClose(); else setWizardStep(s => s - 1); }}>
+            {wizardStep === 0 ? 'キャンセル' : '← 戻る'}
+          </button>
+          {wizardStep < lastStep ? (
+            <button className="btn btn-p" style={{ flex: 2 }} onClick={() => setWizardStep(s => s + 1)}>次へ →</button>
+          ) : (
+            <button className="btn btn-p" style={{ flex: 2 }} onClick={handleSave}>💾 保存</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

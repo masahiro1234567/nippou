@@ -788,9 +788,6 @@ ${blankText(d.txtRs)}
 
         <div className="card">
           <div className="card-title">🏠 店舗様見込み獲得（土日共通）</div>
-          <div style={{ fontSize: '.7rem', color: 'var(--sub)', marginBottom: 8 }}>
-            どの日のタブで入力しても同じ値がすべての日報に反映されます
-          </div>
           <FieldRow label="組数" value={sharedMikomiG} onChange={setSharedMikomiG} unit="組" />
           <FieldRow label="台数" value={sharedMikomiD} onChange={setSharedMikomiD} unit="台" />
           {days.length > 1 && (sharedMikomiG || sharedMikomiD) && (
@@ -871,7 +868,7 @@ ${blankText(d.txtRs)}
         <div className="card">
           <div className="card-title">✍️ コメント（{curDow}）</div>
           <div className="form-group">
-            <label>■全体総括</label>
+            <label>■全体総括（活動内容/集客状況/他社状況）</label>
             <textarea className="inp" rows={4} value={cur.txtOv} onChange={e => updateCur({ txtOv: e.target.value })} placeholder="" />
           </div>
           <div className="form-group">

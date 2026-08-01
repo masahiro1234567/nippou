@@ -86,6 +86,7 @@ export default function ReportList() {
         </div>
       )}
 
+      <div className="pc-grid-2col">
       {groups.map((group) => {
         const groupKey = `${group[0][1].store}__${group[0][1].date}`;
         const curId = selectedId[groupKey] || group[0][0];
@@ -123,6 +124,7 @@ export default function ReportList() {
           </div>
         );
       })}
+      </div>
     </Layout>
   );
 }

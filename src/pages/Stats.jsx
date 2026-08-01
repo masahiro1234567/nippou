@@ -100,6 +100,7 @@ export default function Stats() {
 
       {storeGroups.length === 0 && <div className="empty">データなし</div>}
 
+      <div className="pc-grid-2col">
       {storeGroups.map(sm => (
         <div
           key={sm.store}
@@ -151,6 +152,7 @@ export default function Stats() {
           )}
         </div>
       ))}
+      </div>
     </Layout>
   );
 }
