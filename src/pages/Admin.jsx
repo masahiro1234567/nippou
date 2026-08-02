@@ -842,7 +842,7 @@ function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userL
   );
 }
 
-function UserCard({ id, u, idx, isOpen, onToggle, approve, saveUser, permLabel, avatarBg, avatarCol }) {
+function UserCard({ id, u, idx, isOpen, onToggle, approve, saveUser, deleteUser, permLabel, avatarBg, avatarCol }) {
   const [pendingPos, setPendingPos] = useState(u.position || 'NV');
   const [pendingGrade, setPendingGrade] = useState(u.grade || 'R');
   const isPending = u.permission === 'pending';
@@ -905,10 +905,16 @@ function UserCard({ id, u, idx, isOpen, onToggle, approve, saveUser, permLabel, 
                 <button className="btn btn-gray" style={{ fontSize: '.8rem', padding: '7px 10px' }} onClick={() => saveUser(id, { permission: 'readonly' })}>閲覧のみに</button>
                 <button className="btn" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '.8rem', padding: '7px 10px' }} onClick={() => saveUser(id, { permission: 'disabled' })}>ログイン不可</button>
               </div>
-              <button className="btn btn-p" style={{ fontSize: '.84rem' }}
-                onClick={() => saveUser(id, { position: pendingPos, grade: pendingGrade })}>
-                変更を保存
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-p" style={{ flex: 1, fontSize: '.84rem' }}
+                  onClick={() => saveUser(id, { position: pendingPos, grade: pendingGrade })}>
+                  変更を保存
+                </button>
+                <button className="btn" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '.84rem', padding: '9px 12px' }}
+                  onClick={() => deleteUser(id, u.name)}>
+                  🗑 削除
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -922,13 +928,17 @@ function UsersTab() {
   const showToast = useToast();
   const [posFilter, setPosFilter] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
+  const [sortKey, setSortKey] = useState('pending'); // 'pending'|'name'|'position'|'grade'|'permission'
   const [openIds, setOpenIds] = useState({});
+  const [allOpen, setAllOpen] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newUser, setNewUser] = useState({ name:'', email:'', position:'NV', grade:'R' });
 
   const permLabel = { edit:'編集・登録可', readonly:'閲覧のみ', disabled:'ログイン不可', pending:'申請中' };
   const AVATAR_BG  = ['#fff7ed','#ede9fe','#fce7f3','#d1fae5','#dbeafe','#fef3c7'];
   const AVATAR_COL = ['#c2410c','#6d28d9','#be185d','#065f46','#1e40af','#92400e'];
+  const POS_ORDER = { '責任者':0,'MQ':1,'SAM':2,'IN':3,'NV':4 };
+  const GRADE_ORDER = { 'S':0,'A':1,'B':2,'C':3,'R':4 };
 
   const entries = useMemo(()=>{
     return Object.entries(users).filter(([,u])=>{
@@ -936,11 +946,28 @@ function UsersTab() {
       const gOk = !gradeFilter || u.grade===gradeFilter;
       return pOk && gOk;
     }).sort((a,b)=>{
-      if (a[1].permission==='pending' && b[1].permission!=='pending') return -1;
-      if (b[1].permission==='pending' && a[1].permission!=='pending') return 1;
-      return (a[1].name||'').localeCompare(b[1].name||'');
+      const ua=a[1], ub=b[1];
+      // 申請中は常に最上位
+      if (ua.permission==='pending' && ub.permission!=='pending') return -1;
+      if (ub.permission==='pending' && ua.permission!=='pending') return 1;
+      if (sortKey==='name') return (ua.name||'').localeCompare(ub.name||'');
+      if (sortKey==='position') return (POS_ORDER[ua.position]??99)-(POS_ORDER[ub.position]??99);
+      if (sortKey==='grade') return (GRADE_ORDER[ua.grade]??99)-(GRADE_ORDER[ub.grade]??99);
+      if (sortKey==='permission') return (ua.permission||'').localeCompare(ub.permission||'');
+      return (ua.name||'').localeCompare(ub.name||'');
     });
-  }, [users, posFilter, gradeFilter]);
+  }, [users, posFilter, gradeFilter, sortKey]);
+
+  // 全展開/全収束の状態を同期
+  useEffect(() => {
+    if (allOpen) {
+      const newIds = {};
+      entries.forEach(([id]) => { newIds[id] = true; });
+      setOpenIds(newIds);
+    } else {
+      setOpenIds({});
+    }
+  }, [allOpen]);
 
   async function approve(id, position, grade) {
     await set(ref(db,`fp_users/${id}/permission`), 'edit');
@@ -951,6 +978,11 @@ function UsersTab() {
   async function saveUser(id, patch) {
     await Promise.all(Object.entries(patch).map(([k,v])=>set(ref(db,`fp_users/${id}/${k}`),v)));
     showToast('✅ 更新しました');
+  }
+  async function deleteUser(id, name) {
+    if (!confirm(`「${name}」を削除しますか？この操作は元に戻せません。`)) return;
+    await remove(ref(db, `fp_users/${id}`));
+    showToast('🗑 削除しました');
   }
   async function registerNewUser() {
     if (!newUser.name.trim()) { showToast('名前は必須です'); return; }
@@ -966,7 +998,8 @@ function UsersTab() {
 
   return (
     <div>
-      <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+      {/* フィルター・並び替え・全展開 */}
+      <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap', alignItems:'center' }}>
         <select className="inp" style={{ width:'auto', padding:'8px 10px', fontSize:'.84rem' }}
           value={posFilter} onChange={e=>setPosFilter(e.target.value)}>
           <option value="">すべての役職</option>
@@ -977,6 +1010,20 @@ function UsersTab() {
           <option value="">すべての等級</option>
           {GRADES.map(g=><option key={g} value={g}>{g}</option>)}
         </select>
+        <select className="inp" style={{ width:'auto', padding:'8px 10px', fontSize:'.84rem' }}
+          value={sortKey} onChange={e=>setSortKey(e.target.value)}>
+          <option value="name">名前順</option>
+          <option value="position">役職順</option>
+          <option value="grade">等級順</option>
+          <option value="permission">権限順</option>
+        </select>
+        <button
+          onClick={() => setAllOpen(v => !v)}
+          className="btn btn-gray"
+          style={{ fontSize:'.82rem', padding:'8px 12px', whiteSpace:'nowrap' }}
+        >
+          {allOpen ? '全収束 ▲' : '全展開 ▼'}
+        </button>
       </div>
 
       {/* 新規ユーザー登録フォーム */}
@@ -1018,17 +1065,24 @@ function UsersTab() {
       </div>
 
       {entries.length===0 && <div className="empty">登録ユーザーなし</div>}
-      {entries.map(([id,u],idx)=>(
-        <UserCard
-          key={id} id={id} u={u} idx={idx}
-          isOpen={!!openIds[id]}
-          onToggle={()=>setOpenIds(prev=>({...prev,[id]:!prev[id]}))}
-          approve={approve} saveUser={saveUser}
-          permLabel={permLabel}
-          avatarBg={AVATAR_BG[idx%AVATAR_BG.length]}
-          avatarCol={AVATAR_COL[idx%AVATAR_COL.length]}
-        />
-      ))}
+
+      {/* PC: 2カラムグリッド */}
+      <div className="pc-grid-2col">
+        {entries.map(([id,u],idx)=>(
+          <UserCard
+            key={id} id={id} u={u} idx={idx}
+            isOpen={!!openIds[id]}
+            onToggle={()=>{
+              setAllOpen(false);
+              setOpenIds(prev=>({...prev,[id]:!prev[id]}));
+            }}
+            approve={approve} saveUser={saveUser} deleteUser={deleteUser}
+            permLabel={permLabel}
+            avatarBg={AVATAR_BG[idx%AVATAR_BG.length]}
+            avatarCol={AVATAR_COL[idx%AVATAR_COL.length]}
+          />
+        ))}
+      </div>
     </div>
   );
 }
