@@ -89,7 +89,6 @@ export default function ReportForm() {
   const [activeIdx, setActiveIdx] = useState(0);
 
   const [editingId, setEditingId] = useState(id || null);
-  const [restoredOnce, setRestoredOnce] = useState(false);
   const [lineText, setLineText] = useState('');
   const [showLineBox, setShowLineBox] = useState(false);
   const [lineParsed, setLineParsed] = useState(null);
@@ -141,9 +140,6 @@ export default function ReportForm() {
     setDays([d]);
     setActiveIdx(0);
     setEditingId(id);
-    // 共有見込みをセット
-    setSharedMikomiG(String(r.mikomiG ?? ''));
-    setSharedMikomiD(String(r.mikomiD ?? ''));
   }, [id, reports]);
 
   // copyId/continueモード：前の日報データを引き継ぐ

@@ -910,7 +910,7 @@ function UserCard({ id, u, idx, isOpen, onToggle, approve, saveUser, deleteUser,
                   onClick={() => saveUser(id, { position: pendingPos, grade: pendingGrade })}>
                   変更を保存
                 </button>
-                <button className="btn" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '.84rem', padding: '9px 12px' }}
+                <button className="btn" style={{ flex: 1, background: '#fee2e2', color: '#dc2626', fontSize: '.84rem' }}
                   onClick={() => deleteUser(id, u.name)}>
                   🗑 削除
                 </button>

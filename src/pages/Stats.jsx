@@ -77,7 +77,7 @@ export default function Stats() {
     return Object.values(storeMap)
       .map(sm => {
         const avgAch = sm.achList.length > 0 ? Math.round(sm.achList.reduce((a, b) => a + b, 0) / sm.achList.length) : null;
-        const cnt = sm.weeks.reduce((s, w) => s + w.reports.length, 0);
+        const cnt = sm.weeks.length; // 週単位の稼働回数
         return { ...sm, avgAch, cnt };
       })
       .sort((a, b) => (b.avgAch || 0) - (a.avgAch || 0));
@@ -129,25 +129,45 @@ export default function Stats() {
 
           {openStore === sm.store && (
             <div style={{ borderTop: '1px solid var(--border)' }}>
-              {sm.weeks.flatMap(wg => wg.reports).sort((a,b) => (b[1].date||'').localeCompare(a[1].date||'')).map(([id, r]) => {
-                const p = r.ach || 0;
-                return (
-                  <div
-                    key={id}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}
-                    onClick={e => { e.stopPropagation(); navigate(`/reports/${id}`); }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>{r.date}（{dowOf(r.date)}）</div>
-                      <div style={{ fontSize: 11, color: 'var(--sub)' }}>{r.director || r.userName}</div>
+              {sm.weeks
+                .sort((a, b) => (b.latestDate || '').localeCompare(a.latestDate || ''))
+                .map((wg, wi) => {
+                  // 週単位の正しい達成率（土日合計 / 目標）
+                  const weekAch = wg.ach;
+                  const dates = [...new Set(wg.reports.map(([, r]) => r.date))].sort();
+                  const dateLabel = dates.map(d => `${d}（${dowOf(d)}）`).join('・');
+                  const directors = [...new Set(wg.reports.map(([, r]) => r.director || r.userName).filter(Boolean))].join('・');
+                  return (
+                    <div key={wi} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                      {/* 週の日程とメンバー */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600 }}>{dateLabel}</div>
+                          <div style={{ fontSize: 11, color: 'var(--sub)', marginTop: 2 }}>
+                            {directors}
+                            {wg.target ? `　目標 ${wg.target}件 → 実績 ${wg.totalActual}件` : `　実績 ${wg.totalActual}件`}
+                          </div>
+                        </div>
+                        <span className={`badge ${achBadgeClass(weekAch || 0)}`} style={{ flexShrink: 0, marginLeft: 8 }}>
+                          {weekAch != null ? `${weekAch}%` : '−'}
+                        </span>
+                      </div>
+                      {/* 日報詳細リンク */}
+                      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                        {wg.reports
+                          .sort((a, b) => (a[1].date || '').localeCompare(b[1].date || ''))
+                          .map(([id, r]) => (
+                            <button key={id}
+                              onClick={e => { e.stopPropagation(); navigate(`/reports/${id}`); }}
+                              style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1.5px solid var(--border)', background: '#f9fafb', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer' }}>
+                              {r.date}（{dowOf(r.date)}）詳細 →
+                            </button>
+                          ))
+                        }
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className={`badge ${achBadgeClass(p)}`}>{p}%</span>
-                      <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700 }}>詳細 →</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>

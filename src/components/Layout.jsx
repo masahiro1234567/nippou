@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/stats', icon: 'ti ti-chart-bar', label: '実績確認' },
   { to: '/stores', icon: 'ti ti-building-store', label: '店舗特徴' },
   { to: '/kpi', icon: 'ti ti-target', label: 'KPI' },
+  { to: '/weekly', icon: 'ti ti-calendar-week', label: '週次まとめ' },
   { to: '/personal', icon: 'ti ti-user', label: '個人実績' },
 ];
 
