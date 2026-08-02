@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ref, push, set, remove } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,6 +70,9 @@ const DRAFT_KEY = 'fp_draft_v4';
 
 export default function ReportForm() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const copyId = searchParams.get('copyId');
+  const mode = searchParams.get('mode'); // 'continue' or null
   const navigate = useNavigate();
   const { user, canEditReport } = useAuth();
   const showToast = useToast();
@@ -84,9 +87,7 @@ export default function ReportForm() {
   const [targetB, setTargetB] = useState('');
   const [days, setDays] = useState([emptyDayData(todayStr())]);
   const [activeIdx, setActiveIdx] = useState(0);
-  // 見込み獲得は土日共通（全タブで同じ値を共有）
-  const [sharedMikomiG, setSharedMikomiG] = useState('');
-  const [sharedMikomiD, setSharedMikomiD] = useState('');
+
   const [editingId, setEditingId] = useState(id || null);
   const [restoredOnce, setRestoredOnce] = useState(false);
   const [lineText, setLineText] = useState('');
@@ -145,30 +146,63 @@ export default function ReportForm() {
     setSharedMikomiD(String(r.mikomiD ?? ''));
   }, [id, reports]);
 
-  // 下書き復元
+  // copyId/continueモード：前の日報データを引き継ぐ
   useEffect(() => {
-    if (id || restoredOnce) return;
-    setRestoredOnce(true);
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed || Date.now() - parsed.ts > 86400000) { localStorage.removeItem(DRAFT_KEY); return; }
-      if (confirm('前回の入力途中のデータがあります。復元しますか？')) {
-        const d = parsed.data;
-        setStore(d.store || ''); setChannel(d.channel || '');
-        setChannelAuto(d.channelAuto ?? true);
-        setDirector(d.director || user?.name || '');
-        setTargetA(d.targetA || ''); setTargetB(d.targetB || '');
-        setDays(d.days?.length ? d.days : [emptyDayData(todayStr())]);
-        setActiveIdx(d.activeIdx || 0);
-        setSharedMikomiG(d.sharedMikomiG || '');
-        setSharedMikomiD(d.sharedMikomiD || '');
-        showToast('✅ 前回の入力を復元しました');
-      } else { localStorage.removeItem(DRAFT_KEY); }
-    } catch (e) { console.warn(e); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    if (id || !copyId || !reports[copyId]) return;
+    const r = reports[copyId];
+    setStore(r.store || '');
+    setChannel(r.channel || '');
+    setChannelAuto(false);
+    setDirector(r.director || r.userName || '');
+    setTargetA(r.r_ta || '');
+    setTargetB(r.r_tb || '');
+    if (mode === 'continue') {
+      const d = emptyDayData(todayStr());
+      d.au = (r.au || Array(8).fill(0)).map(String);
+      d.uq = (r.uq || Array(8).fill(0)).map(String);
+      d.fpA = String(r.fpA ?? ''); d.fpB = String(r.fpB ?? '');
+      d.hiyari = r.hiyari || '特に無し。';
+      d.ank = String(r.ank ?? '');
+      d.bFp = r.b_fp || ['','','','']; d.bFc = r.b_fc || ['','','',''];
+      d.bPop = r.b_pop || ['','','','']; d.bTa = r.b_ta || ['','','',''];
+      d.bFuri = r.b_furi || ['','','',''];
+      d.ft = r.ft || ['','','','','']; d.ld = r.ld || ['',''];
+      d.other = r.other || '';
+      d.al = r.al || [['',''],['',''],['',''],['','']];
+      d.alEff = r.al_eff || '';
+      d.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
+      d.txtOv = r.txt_ov || ''; d.txtRs = r.txt_rs || '';
+      setDays([d]);
+      d.mikomiG = String(r.mikomiG ?? '');
+      d.mikomiD = String(r.mikomiD ?? '');
+      showToast('🔄 前回の日報を引き継ぎました');
+    } else if (mode === 'add') {
+      // 追加モード：店舗・目標だけ引き継ぎ、数値はリセット
+      showToast('➕ 同じ店舗で新規日報を追加します');
+    } else {
+      // コピーモード：全フィールドを引き継ぎ
+      const d = emptyDayData(todayStr());
+      d.au = (r.au || Array(8).fill(0)).map(String);
+      d.uq = (r.uq || Array(8).fill(0)).map(String);
+      d.fpA = String(r.fpA ?? ''); d.fpB = String(r.fpB ?? '');
+      d.hiyari = r.hiyari || '特に無し。';
+      d.ank = String(r.ank ?? '');
+      d.bFp = r.b_fp || ['','','','']; d.bFc = r.b_fc || ['','','',''];
+      d.bPop = r.b_pop || ['','','','']; d.bTa = r.b_ta || ['','','',''];
+      d.bFuri = r.b_furi || ['','','',''];
+      d.ft = r.ft || ['','','','','']; d.ld = r.ld || ['',''];
+      d.other = r.other || '';
+      d.al = r.al || [['',''],['',''],['',''],['','']];
+      d.alEff = r.al_eff || '';
+      d.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
+      d.txtOv = r.txt_ov || ''; d.txtRs = r.txt_rs || '';
+      setDays([d]);
+      d.mikomiG = String(r.mikomiG ?? '');
+      d.mikomiD = String(r.mikomiD ?? '');
+      showToast('📋 日報をコピーしました');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copyId, mode, reports[copyId]]);
 
   // 下書き自動保存
   useEffect(() => {
@@ -177,7 +211,7 @@ export default function ReportForm() {
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
           ts: Date.now(),
-          data: { store, channel, channelAuto, director, targetA, targetB, days, activeIdx, sharedMikomiG, sharedMikomiD },
+          data: { store, channel, channelAuto, director, targetA, targetB, days, activeIdx },
         }));
       } catch (e) { /* ignore */ }
     }, 600);
@@ -384,13 +418,12 @@ ${blankText(d.hiyari)}
 ${jissekiLines}
 残　数：${nokoriA2}/${nokoriB2}
 
-■店舗様見込み獲得（${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組/${sharedMikomiD}台` : '○組/○台'}）
+■店舗様見込み獲得
 ※常勤様の当日獲得は除く
 ${allDayLines.map(day => {
-      if (day.isCurrent) {
-        return `${dowLabel(day.date)}獲得 : ${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組${sharedMikomiD}台` : '-'}`;
-      }
-      return `${dowLabel(day.date)}獲得 : ${sharedMikomiG && sharedMikomiD ? `${sharedMikomiG}組${sharedMikomiD}台` : '-'}`;
+      const mg = day.isCurrent ? d.mikomiG : (day.mikomiG ?? '');
+      const md = day.isCurrent ? d.mikomiD : (day.mikomiD ?? '');
+      return `${dowLabel(day.date)}獲得 : ${mg && md ? `${mg}組${md}台` : '○組/○台'}`;
     }).join('\n')}
 
 ■内訳（接客組/着座組/成約組/成約台数）
@@ -490,7 +523,7 @@ ${blankText(d.txtRs)}
       b_ta: d.bTa, b_furi: d.bFuri, ft: d.ft, ld: d.ld,
       other: d.other, al: d.al, al_eff: d.alEff, ot: d.ot,
       txt_ov: d.txtOv, txt_rs: d.txtRs,
-      mikomiG: +sharedMikomiG || 0, mikomiD: +sharedMikomiD || 0,
+      mikomiG: +d.mikomiG || 0, mikomiD: +d.mikomiD || 0,
       updatedAt: Date.now(),
     };
     try {
@@ -787,19 +820,18 @@ ${blankText(d.txtRs)}
         </div>
 
         <div className="card">
-          <div className="card-title">🏠 店舗様見込み獲得（土日共通）</div>
-          <FieldRow label="組数" value={sharedMikomiG} onChange={setSharedMikomiG} unit="組" />
-          <FieldRow label="台数" value={sharedMikomiD} onChange={setSharedMikomiD} unit="台" />
-          {days.length > 1 && (sharedMikomiG || sharedMikomiD) && (
-            <div style={{ marginTop: 8, background: 'var(--pl)', borderRadius: 8, padding: '7px 12px' }}>
-              {days.map(d => (
-                <div key={d.date} style={{ fontSize: '.74rem', color: 'var(--pd)', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{dowLabel(d.date)}</span>
-                  <span>{sharedMikomiG || '○'}組 / {sharedMikomiD || '○'}台</span>
+          <div className="card-title">🏠 店舗様見込み獲得</div>
+          {days.map((d, i) => (
+            <div key={i} style={{ marginBottom: i < days.length - 1 ? 12 : 0 }}>
+              {days.length > 1 && (
+                <div style={{ fontSize: '.72rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 5 }}>
+                  {dowLabel(d.date)}
                 </div>
-              ))}
+              )}
+              <FieldRow label="組数" value={d.mikomiG} onChange={v => setDays(prev => prev.map((dd, j) => j === i ? { ...dd, mikomiG: v } : dd))} unit="組" />
+              <FieldRow label="台数" value={d.mikomiD} onChange={v => setDays(prev => prev.map((dd, j) => j === i ? { ...dd, mikomiD: v } : dd))} unit="台" />
             </div>
-          )}
+          ))}
         </div>
 
         <div className="card">
@@ -850,7 +882,7 @@ ${blankText(d.txtRs)}
         </div>
 
         <div className="card">
-          <div className="card-title">🏢 他社実績（{curDow}）</div>
+          <div className="card-title">🏢 他社実績（{curDow}）<span style={{ fontSize: '.65rem', fontWeight: 500, color: 'var(--sub)', marginLeft: 6 }}>純新規 / MNP / 番号移行 / 機変</span></div>
           {['Softbank', 'docomo', 'Ymobile', '楽天'].map((lbl, i) => (
             <div key={lbl} style={{ marginBottom: 8 }}>
               <div className="ts" style={{ marginBottom: 3 }}>{lbl}</div>

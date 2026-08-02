@@ -120,7 +120,25 @@ export default function ReportList() {
               <span className={`badge ${achBadgeClass(p)}`}>{p}%</span>
               <span className="badge b-gray">{curReport.director || curReport.userName || '−'}</span>
             </div>
-            <div style={{ fontSize: '.7rem', color: 'var(--primary)', fontWeight: 700 }}>詳細</div>
+            {/* アクションボタン */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => navigate(`/reports/${curId}`)}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: '1.5px solid var(--border)', background: '#f9fafb', color: 'var(--sub)', fontSize: '.72rem', fontWeight: 700, cursor: 'pointer' }}
+              >詳細</button>
+              <button
+                onClick={() => navigate(`/report/edit/${curId}`)}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: '1.5px solid var(--primary)', background: 'var(--pl)', color: 'var(--pd)', fontSize: '.72rem', fontWeight: 700, cursor: 'pointer' }}
+              >編集</button>
+              <button
+                onClick={() => navigate(`/report/new?copyId=${curId}`)}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: '1.5px solid var(--border)', background: '#fff', color: 'var(--text)', fontSize: '.72rem', fontWeight: 700, cursor: 'pointer' }}
+              >コピー</button>
+              <button
+                onClick={() => navigate(`/report/new?copyId=${curId}&mode=add`)}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: '.72rem', fontWeight: 700, cursor: 'pointer' }}
+              >追加</button>
+            </div>
           </div>
         );
       })}
