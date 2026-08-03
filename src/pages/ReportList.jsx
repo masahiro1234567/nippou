@@ -17,15 +17,18 @@ function dowOf(dateStr) {
 function achBadgeClass(p) {
   return p >= 100 ? 'b-green' : p >= 70 ? 'b-orange' : 'b-red';
 }
-// 木曜始まりの週で「◯月◯週目」を算出（月内の1日が含まれる週を1週目とする）
+// 「その月の1回目の土日を含む週」を1週目とする（木曜始まり）
 function weekLabelOf(dateStr) {
   if (!dateStr) return '';
   const d = parseDateLocal(dateStr);
   const year = d.getFullYear();
   const month = d.getMonth(); // 0-indexed
   const firstDow = new Date(year, month, 1).getDay(); // 0=日〜6=土
-  const offset = (firstDow - 4 + 7) % 7; // 4=木曜
-  const week = Math.floor((d.getDate() - 1 + offset) / 7) + 1;
+  const daysToFirstSat = (6 - firstDow + 7) % 7;
+  const firstSatDate = 1 + daysToFirstSat; // その月最初の土曜（日付）
+  const week1ThuDate = firstSatDate - 2; // 1週目の木曜（日付、月をまたいでもOK）
+  let week = Math.floor((d.getDate() - week1ThuDate) / 7) + 1;
+  if (week < 1) week = 1; // 1週目の木曜より前の日は1週目にまとめる
   return `${year}年${month + 1}月${week}週目`;
 }
 function weekKey(dateStr, store) {
