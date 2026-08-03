@@ -49,6 +49,31 @@ function subOneDay(dateStr) {
   d.setDate(d.getDate() - 1);
   return fmt(d);
 }
+// 木曜始まりの週で「◯月◯週目」を算出（月内の1日が含まれる週を1週目とする）
+function weekLabelOf(dateStr) {
+  if (!dateStr) return '';
+  const d = parseDateLocal(dateStr);
+  const year = d.getFullYear();
+  const month = d.getMonth(); // 0-indexed
+  const firstDow = new Date(year, month, 1).getDay(); // 0=日〜6=土
+  const offset = (firstDow - 4 + 7) % 7; // 4=木曜
+  const week = Math.floor((d.getDate() - 1 + offset) / 7) + 1;
+  return `${year}年${month + 1}月${week}週目`;
+}
+// 一覧（[id,item]の配列、日付でソート済み想定）を週見出しでグルーピングする
+function groupByWeek(sortedEntries, getDate) {
+  const out = [];
+  let curLabel = null;
+  sortedEntries.forEach((entry) => {
+    const label = weekLabelOf(getDate(entry));
+    if (label !== curLabel) {
+      out.push({ label, items: [] });
+      curLabel = label;
+    }
+    out[out.length - 1].items.push(entry);
+  });
+  return out;
+}
 function getRoleOrder(grade) {
   if (grade === 'S' || grade === 'A') return ['ディレクター','クローザー','キャッチャー'];
   if (grade === 'B') return ['クローザー','ディレクター','キャッチャー'];
@@ -91,6 +116,7 @@ function ReportManageTab() {
   const [search, setSearch] = useState('');
   const [pickerVal, setPickerVal] = useState(null);
   const [channelFilter, setChannelFilter] = useState('');
+  const [openIds, setOpenIds] = useState({});
 
   const filtered = useMemo(() => {
     return Object.entries(reports).filter(([,r]) => {
@@ -103,6 +129,11 @@ function ReportManageTab() {
       return mOk && qOk && cOk;
     }).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   }, [reports, pickerVal, search, channelFilter]);
+
+  const weekGroups = useMemo(
+    () => groupByWeek(filtered, ([, r]) => r.date),
+    [filtered]
+  );
 
   async function handleDelete(id) {
     if (!confirm('この日報を削除しますか？')) return;
@@ -123,23 +154,49 @@ function ReportManageTab() {
           value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
       {filtered.length===0 && <div className="empty">データなし</div>}
-      {filtered.map(([id,r])=>(
-        <div key={id} className="report-card" style={{ cursor:'default' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <div className="fw8">{r.store||'−'}</div>
-            <span className="ts">{r.date}（{dowStr(r.date)}）</span>
-          </div>
-          <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
-            <span className="badge b-blue">{r.channel||'−'}</span>
-            <span className="badge b-gray">{r.director||r.userName||'−'}</span>
-            <span className="badge b-green">{r.ach||0}%</span>
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-outline" style={{ fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>navigate(`/report/edit/${id}`)}>編集</button>
-            <button className="btn" style={{ background:'#fee2e2', color:'#dc2626', fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>handleDelete(id)}>削除</button>
-          </div>
+      {weekGroups.map((grp) => (
+        <div key={grp.label}>
+          <WeekSectionHeader label={grp.label} />
+          {grp.items.map(([id,r])=>{
+            const isOpen = !!openIds[id];
+            return (
+              <div key={id} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
+                <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}
+                  onClick={()=>setOpenIds(prev=>({ ...prev, [id]: !prev[id] }))}>
+                  <div>
+                    <div className="fw8" style={{ fontSize:14 }}>{r.store||'−'}</div>
+                    <div style={{ display:'flex', gap:5, marginTop:5, flexWrap:'wrap' }}>
+                      <span className="badge b-blue">{r.channel||'−'}</span>
+                      <span className="badge b-gray">{r.director||r.userName||'−'}</span>
+                      <span className="badge b-green">{r.ach||0}%</span>
+                      <span className="ts">{r.date}（{dowStr(r.date)}）</span>
+                    </div>
+                  </div>
+                  <span style={{ color:'var(--sub)', fontSize:13 }}>{isOpen ? '▾' : '›'}</span>
+                </div>
+                {isOpen && (
+                  <div style={{ borderTop:'1px solid var(--border)', padding:'10px 14px 14px', display:'flex', gap:8 }}>
+                    <button className="btn btn-outline" style={{ flex:1, fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>navigate(`/report/edit/${id}`)}>編集</button>
+                    <button className="btn" style={{ flex:1, background:'#fee2e2', color:'#dc2626', fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>handleDelete(id)}>削除</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function WeekSectionHeader({ label }) {
+  return (
+    <div style={{
+      fontSize: 12, fontWeight: 700, color: 'var(--sub)',
+      background: '#f3f4f6', borderRadius: 7,
+      padding: '6px 10px', margin: '14px 0 8px',
+    }}>
+      {label}
     </div>
   );
 }
@@ -330,6 +387,11 @@ function AdminKpiTab() {
       return cOk && mOk;
     }).sort((a, b) => (b[1].dates?.[0] || b[1].date || '').localeCompare(a[1].dates?.[0] || a[1].date || ''));
   }, [kpiData, pickerVal, channelFilter]);
+
+  const weekGroups = useMemo(
+    () => groupByWeek(filtered, ([, k]) => k.dates?.[0] || k.date),
+    [filtered]
+  );
 
   return (
     <div>
@@ -595,7 +657,10 @@ function AdminKpiTab() {
 
       {/* KPI一覧 */}
       {filtered.length === 0 && <div className="empty">KPIデータなし</div>}
-      {filtered.map(([id, k]) => {
+      {weekGroups.map((grp) => (
+        <div key={grp.label}>
+          <WeekSectionHeader label={grp.label} />
+          {grp.items.map(([id, k]) => {
         const dates = k.dates || [k.date].filter(Boolean);
         const dm = k.dateMembers || {};
         return (
@@ -637,13 +702,15 @@ function AdminKpiTab() {
                 ))}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   <button className="btn btn-outline" style={{ flex: 1, fontSize: '.8rem', padding: '7px 12px' }} onClick={() => openEdit(id)}>編集</button>
-                  <button className="btn" style={{ background: '#fee2e2', color: '#dc2626', fontSize: '.8rem', padding: '7px 12px' }} onClick={() => handleDelete(id)}>削除</button>
+                  <button className="btn" style={{ flex: 1, background: '#fee2e2', color: '#dc2626', fontSize: '.8rem', padding: '7px 12px' }} onClick={() => handleDelete(id)}>削除</button>
                 </div>
               </div>
             )}
           </div>
         );
-      })}
+          })}
+        </div>
+      ))}
     </div>
   );
 }
