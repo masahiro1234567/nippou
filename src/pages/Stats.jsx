@@ -21,13 +21,14 @@ function achColor(p) {
 function achBadgeClass(p) {
   return p >= 100 ? 'b-green' : p >= 70 ? 'b-orange' : 'b-red';
 }
-// 同じ店舗×同じ週（月曜始まり）でグループ化
+// 同じ店舗×同じ週（木曜始まり・他画面と統一）でグループ化
 function weekKey(dateStr, store) {
   const d = parseDateLocal(dateStr);
-  const day = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  const ms = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+  const day = d.getDay(); // 0=日〜6=土
+  const offset = (day - 4 + 7) % 7; // 直近の木曜からの経過日数
+  const thu = new Date(d);
+  thu.setDate(d.getDate() - offset);
+  const ms = `${thu.getFullYear()}-${String(thu.getMonth()+1).padStart(2,'0')}-${String(thu.getDate()).padStart(2,'0')}`;
   return `${store||''}__${ms}`;
 }
 
@@ -76,7 +77,11 @@ export default function Stats() {
 
     return Object.values(storeMap)
       .map(sm => {
-        const avgAch = sm.achList.length > 0 ? Math.round(sm.achList.reduce((a, b) => a + b, 0) / sm.achList.length) : null;
+        // 平均達成率は「実績合計 ÷ 目標合計」で算出（週によって目標件数が異なるため単純平均は使わない）
+        const validWeeks = sm.weeks.filter(w => +w.target > 0);
+        const sumActual = validWeeks.reduce((s, w) => s + (w.totalActual || 0), 0);
+        const sumTarget = validWeeks.reduce((s, w) => s + (+w.target || 0), 0);
+        const avgAch = sumTarget > 0 ? Math.round((sumActual / sumTarget) * 100) : null;
         const cnt = sm.weeks.length; // 週単位の稼働回数
         return { ...sm, avgAch, cnt };
       })

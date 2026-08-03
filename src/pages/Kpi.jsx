@@ -27,6 +27,31 @@ function nextDay(str) {
   d.setDate(d.getDate()+1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// 「その月の1回目の土日を含む週」を1週目とする（木曜始まり）※日報確認・管理者画面と同一ロジック
+function weekLabelOf(dateStr) {
+  if (!dateStr) return '';
+  const d = parseDateLocal(dateStr);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysToFirstSat = (6 - firstDow + 7) % 7;
+  const firstSatDate = 1 + daysToFirstSat;
+  const week1ThuDate = firstSatDate - 2;
+  let week = Math.floor((d.getDate() - week1ThuDate) / 7) + 1;
+  if (week < 1) week = 1;
+  return `${year}年${month + 1}月${week}週目`;
+}
+function WeekSectionHeader({ label }) {
+  return (
+    <div style={{
+      fontSize: 12, fontWeight: 700, color: 'var(--sub)',
+      background: '#f3f4f6', borderRadius: 7,
+      padding: '6px 10px', margin: '14px 0 8px',
+    }}>
+      {label}
+    </div>
+  );
+}
 
 export default function Kpi() {
   const { data: kpiData } = useFirebaseList('fp_kpi');
@@ -62,6 +87,20 @@ export default function Kpi() {
       })
       .sort((a, b) => (b.dates[0]||'').localeCompare(a.dates[0]||''));
   }, [kpiData, pickerVal, channelFilter]);
+
+  const weekGroups = useMemo(() => {
+    const out = [];
+    let curLabel = null;
+    cards.forEach((card) => {
+      const label = weekLabelOf(card.dates[0]);
+      if (label !== curLabel) {
+        out.push({ label, cards: [] });
+        curLabel = label;
+      }
+      out[out.length - 1].cards.push(card);
+    });
+    return out;
+  }, [cards]);
 
   // 実績保存
   async function saveResult(kpiId, date, memberName, target, role) {
@@ -166,7 +205,10 @@ export default function Kpi() {
 
       {cards.length===0 && <div className="empty">KPIデータなし</div>}
 
-      {cards.map(({id,k,dates,dateMembers})=>(
+      {weekGroups.map((grp) => (
+        <div key={grp.label}>
+          <WeekSectionHeader label={grp.label} />
+          {grp.cards.map(({id,k,dates,dateMembers})=>(
         <div key={id} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${openIds[id]?'var(--primary)':'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
           {/* カードヘッダー */}
           <div style={{ padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
@@ -258,6 +300,8 @@ export default function Kpi() {
               )}
             </div>
           )}
+        </div>
+      ))}
         </div>
       ))}
 

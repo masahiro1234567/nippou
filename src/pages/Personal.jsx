@@ -42,28 +42,30 @@ export default function Personal() {
 
     const map = {};
     filtered.forEach(r => {
-      if (!map[r.memberName]) map[r.memberName] = { name: r.memberName, entries: [], achList: [] };
+      if (!map[r.memberName]) map[r.memberName] = { name: r.memberName, entries: [] };
       map[r.memberName].entries.push(r);
-      if (r.ach !== undefined && r.ach !== null) map[r.memberName].achList.push(r.ach);
     });
 
     return Object.values(map)
       .map((mg, idx) => {
-        const avgAch = mg.achList.length > 0
-          ? Math.round(mg.achList.reduce((a, b) => a + b, 0) / mg.achList.length)
-          : null;
+        // 平均達成率は「実績合計 ÷ 目標合計」で算出（案件ごとに目標件数が異なるため単純平均は使わない）
+        const validEntries = mg.entries.filter(e => +e.target > 0);
+        const sumActual = validEntries.reduce((s, e) => s + (+e.actual || 0), 0);
+        const sumTarget = validEntries.reduce((s, e) => s + (+e.target || 0), 0);
+        const avgAch = sumTarget > 0 ? Math.round((sumActual / sumTarget) * 100) : null;
         // 店舗ごとにまとめる
         const storeMap = {};
         mg.entries.forEach(e => {
           const s = e.store || '不明';
-          if (!storeMap[s]) storeMap[s] = { store: s, entries: [], achList: [] };
+          if (!storeMap[s]) storeMap[s] = { store: s, entries: [] };
           storeMap[s].entries.push(e);
-          if (e.ach !== undefined) storeMap[s].achList.push(e.ach);
         });
-        const storeList = Object.values(storeMap).map(sm => ({
-          ...sm,
-          avgAch: sm.achList.length > 0 ? Math.round(sm.achList.reduce((a, b) => a + b, 0) / sm.achList.length) : null,
-        }));
+        const storeList = Object.values(storeMap).map(sm => {
+          const validSm = sm.entries.filter(e => +e.target > 0);
+          const sA = validSm.reduce((s, e) => s + (+e.actual || 0), 0);
+          const sT = validSm.reduce((s, e) => s + (+e.target || 0), 0);
+          return { ...sm, avgAch: sT > 0 ? Math.round((sA / sT) * 100) : null };
+        });
         return { ...mg, avgAch, storeList, avatarBg: AVATAR_COLORS[idx % AVATAR_COLORS.length], avatarText: AVATAR_TEXT[idx % AVATAR_TEXT.length] };
       })
       .sort((a, b) => (b.avgAch || 0) - (a.avgAch || 0));
