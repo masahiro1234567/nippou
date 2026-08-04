@@ -122,9 +122,11 @@ export default function ReportForm() {
     setTargetA(r.r_ta || '');
     setTargetB(r.r_tb || '');
     const d = emptyDayData(r.date || todayStr());
-    d.au = r.au || Array(8).fill('');
-    d.uq = r.uq || Array(8).fill('');
-    d.fpA = r.fpA ?? ''; d.fpB = r.fpB ?? '';
+    // au/uqは新形式（フラット配列）と旧形式（au_by_day等）の両方に対応
+    d.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
+    d.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
+    d.fpA = String(r.fpA ?? r.fp_by_day?.[0]?.a ?? '');
+    d.fpB = String(r.fpB ?? r.fp_by_day?.[0]?.b ?? '');
     d.hiyari = r.hiyari || '';
     d.ank = r.ank ?? '';
     d.bFp = r.b_fp || ['','','','']; d.bFc = r.b_fc || ['','','',''];
@@ -136,7 +138,8 @@ export default function ReportForm() {
     d.alEff = r.al_eff || '';
     d.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
     d.txtOv = r.txt_ov || ''; d.txtRs = r.txt_rs || '';
-    d.mikomiG = r.mikomiG ?? ''; d.mikomiD = r.mikomiD ?? '';
+    d.mikomiG = String(r.mikomiG ?? r.v_mikomi?.[0]?.g ?? '');
+    d.mikomiD = String(r.mikomiD ?? r.v_mikomi?.[0]?.d ?? '');
     setDays([d]);
     setActiveIdx(0);
     setEditingId(id);
@@ -524,7 +527,7 @@ ${blankText(d.txtRs)}
   }
 
   // 全日程（土日タブ分すべて）を一括保存する
-  async function doSaveAll(existingIds = {}) {
+  async function doSaveAll(daysToSave, existingIds = {}) {
     try {
       if (editingId) {
         // 編集モードは常に1件のみ
@@ -534,14 +537,14 @@ ${blankText(d.txtRs)}
         navigate('/reports');
         return;
       }
-      for (const d of days) {
+      for (const d of daysToSave) {
         const exId = existingIds[d.date];
         if (exId) await remove(ref(db, `fp_reports/${exId}`));
         const payload = buildPayload(d);
         payload.createdAt = Date.now();
         await set(push(ref(db, 'fp_reports')), payload);
       }
-      showToast(days.length > 1 ? '✅ 日報を保存しました（全日程分）' : '✅ 日報を保存しました');
+      showToast(daysToSave.length > 1 ? '✅ 日報を保存しました（全日程分）' : '✅ 日報を保存しました');
       localStorage.removeItem(DRAFT_KEY);
       navigate('/reports');
     } catch (e) { showToast('保存エラー: ' + e.message); }
@@ -549,18 +552,21 @@ ${blankText(d.txtRs)}
 
   async function handleSaveClick() {
     if (!store) { showToast('店舗名は必須です'); return; }
-    for (const d of days) {
+    // 実績が何も入力されていないタブ（未入力のまま放置されたタブ）は保存対象から除外する
+    const filledDays = editingId ? days : days.filter(d => d.au.some(v => v !== '') || d.uq.some(v => v !== ''));
+    if (filledDays.length === 0) { showToast('実績が未入力です。数値を入力してから保存してください'); return; }
+    for (const d of filledDays) {
       if (!d.date) { showToast('日付は必須です'); return; }
     }
     if (!editingId) {
       const dupMap = {};
-      for (const d of days) {
+      for (const d of filledDays) {
         const exId = await findDuplicate(d.date);
         if (exId) dupMap[d.date] = exId;
       }
-      if (Object.keys(dupMap).length > 0) { setDupModal({ existingIds: dupMap }); return; }
+      if (Object.keys(dupMap).length > 0) { setDupModal({ existingIds: dupMap, daysToSave: filledDays }); return; }
     }
-    doSaveAll({});
+    doSaveAll(filledDays, {});
   }
 
   return (
@@ -950,7 +956,7 @@ ${blankText(d.txtRs)}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-gray" onClick={() => setDupModal(null)}>キャンセル</button>
               <button className="btn" style={{ background: '#dc2626', color: '#fff' }}
-                onClick={() => { const ids = dupModal.existingIds; setDupModal(null); doSaveAll(ids); }}>
+                onClick={() => { const { existingIds, daysToSave } = dupModal; setDupModal(null); doSaveAll(daysToSave, existingIds); }}>
                 上書きして保存
               </button>
             </div>
