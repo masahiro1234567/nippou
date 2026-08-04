@@ -10,7 +10,6 @@ import Stats from './pages/Stats';
 import Stores from './pages/Stores';
 import Kpi from './pages/Kpi';
 import Personal from './pages/Personal';
-import Weekly from './pages/Weekly';
 import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
 
@@ -34,7 +33,6 @@ function AppRoutes() {
       <Route path="/stores" element={<RequireAuth><Stores /></RequireAuth>} />
       <Route path="/kpi" element={<RequireAuth><Kpi /></RequireAuth>} />
       <Route path="/personal" element={<RequireAuth><Personal /></RequireAuth>} />
-      <Route path="/weekly" element={<RequireAuth><Weekly /></RequireAuth>} />
       <Route path="/admin-login" element={<RequireAuth><AdminLogin /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />

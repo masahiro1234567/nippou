@@ -10,7 +10,6 @@ function dowOf(s) { if(!s) return ''; const[y,m,d]=s.split('-').map(Number); ret
 const OTHER_MENU = [
   { to: '/reports', icon: '📂', label: '日報確認' },
   { to: '/stats', icon: '📊', label: '実績確認' },
-  { to: '/weekly', icon: '📅', label: '週次まとめ' },
   { to: '/stores', icon: '🏪', label: '店舗特徴' },
   { to: '/kpi', icon: '🎯', label: 'KPI' },
   { to: '/personal', icon: '📈', label: '個人実績' },
