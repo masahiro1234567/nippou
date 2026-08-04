@@ -77,6 +77,15 @@ function groupByWeek(sortedEntries, getDate) {
   });
   return out;
 }
+// 木曜始まりの週の開始日（Thu）を返す（同一現場・同一週のレコードをまとめるためのキー用）
+function thuWeekStart(dateStr) {
+  const d = parseDateLocal(dateStr);
+  const day = d.getDay(); // 0=日〜6=土
+  const offset = (day - 4 + 7) % 7;
+  const thu = new Date(d);
+  thu.setDate(d.getDate() - offset);
+  return `${thu.getFullYear()}-${String(thu.getMonth()+1).padStart(2,'0')}-${String(thu.getDate()).padStart(2,'0')}`;
+}
 function getRoleOrder(grade) {
   if (grade === 'S' || grade === 'A') return ['ディレクター','クローザー','キャッチャー'];
   if (grade === 'B') return ['クローザー','ディレクター','キャッチャー'];
@@ -168,9 +177,29 @@ function ReportManageTab() {
     }).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
   }, [reports, pickerVal, search, channelFilter]);
 
+  // 同一現場（店舗×木曜始まりの週）の日報を1カードにまとめる
+  const siteGroups = useMemo(() => {
+    const map = {};
+    filtered.forEach(([id, r]) => {
+      if (!r.date || !r.store) return;
+      const key = `${r.store}__${thuWeekStart(r.date)}`;
+      if (!map[key]) map[key] = { key, items: [] };
+      map[key].items.push([id, r]);
+    });
+    return Object.values(map).map(g => {
+      const items = g.items.sort((a,b) => (a[1].date||'').localeCompare(b[1].date||''));
+      const first = items[0][1];
+      const target = +first.r_ta || 0;
+      const totalActual = items.reduce((s,[,r]) => s + (r.auto_souhan||0), 0);
+      const ach = target > 0 ? Math.round((totalActual/target)*100) : null;
+      const directors = [...new Set(items.map(([,r]) => r.director || r.userName).filter(Boolean))];
+      return { ...g, items, store: first.store, channel: first.channel, directors, target, totalActual, ach, repDate: first.date };
+    }).sort((a,b) => (b.repDate||'').localeCompare(a.repDate||''));
+  }, [filtered]);
+
   const weekGroups = useMemo(
-    () => groupByWeek(filtered, ([, r]) => r.date),
-    [filtered]
+    () => groupByWeek(siteGroups, (g) => g.repDate),
+    [siteGroups]
   );
 
   async function handleDelete(id) {
@@ -198,27 +227,45 @@ function ReportManageTab() {
       {weekGroups.map((grp) => (
         <div key={grp.label}>
           <WeekSectionHeader label={grp.label} />
-          {grp.items.map(([id,r])=>{
-            const isOpen = !!openIds[id];
+          {grp.items.map((sg) => {
+            const isOpen = !!openIds[sg.key];
+            const idsCsv = sg.items.map(([id]) => id).join(',');
+            const editHref = sg.items.length > 1 ? `/report/edit-group?groupIds=${idsCsv}` : `/report/edit/${sg.items[0][0]}`;
+            const dateLabel = sg.items.map(([, r]) => `${r.date}（${dowStr(r.date)}）`).join('・');
             return (
-              <div key={id} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
+              <div key={sg.key} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
                 <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}
-                  onClick={()=>setOpenIds(prev=>({ ...prev, [id]: !prev[id] }))}>
+                  onClick={()=>setOpenIds(prev=>({ ...prev, [sg.key]: !prev[sg.key] }))}>
                   <div>
-                    <div className="fw8" style={{ fontSize:14 }}>{r.store||'−'}</div>
-                    <div style={{ display:'flex', gap:5, marginTop:5, flexWrap:'wrap' }}>
-                      <span className="badge b-blue">{r.channel||'−'}</span>
-                      <span className="badge b-gray">{r.director||r.userName||'−'}</span>
-                      <span className="badge b-green">{r.ach||0}%</span>
-                      <span className="ts">{r.date}（{dowStr(r.date)}）</span>
+                    <div className="fw8" style={{ fontSize:14 }}>{sg.store||'−'}</div>
+                    <div style={{ display:'flex', gap:5, marginTop:5, flexWrap:'wrap', alignItems:'center' }}>
+                      <span className="badge b-blue">{sg.channel||'−'}</span>
+                      <span className="badge b-gray">{sg.directors.join('・')||'−'}</span>
+                      <span className="ts">{dateLabel}</span>
                     </div>
                   </div>
-                  <span style={{ color:'var(--sub)', fontSize:13 }}>{isOpen ? '▾' : '›'}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:18, fontWeight:800, color:'var(--green)' }}>{sg.ach!=null ? `${sg.ach}%` : '−'}</div>
+                      <div style={{ fontSize:9, color:'var(--sub)' }}>{sg.items.length>1 ? '合算達成率' : '達成率'}</div>
+                    </div>
+                    <span style={{ color:'var(--sub)', fontSize:13 }}>{isOpen ? '▾' : '›'}</span>
+                  </div>
                 </div>
                 {isOpen && (
-                  <div style={{ borderTop:'1px solid var(--border)', padding:'10px 14px 14px', display:'flex', gap:8 }}>
-                    <button className="btn btn-outline" style={{ flex:1, fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>navigate(`/report/edit/${id}`)}>編集</button>
-                    <button className="btn" style={{ flex:1, background:'#fee2e2', color:'#dc2626', fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>handleDelete(id)}>削除</button>
+                  <div style={{ borderTop:'1px solid var(--border)', padding:'10px 14px 14px' }}>
+                    {sg.items.map(([id, r]) => (
+                      <div key={id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f9fafb', borderRadius:8, padding:'8px 10px', marginBottom:6 }}>
+                        <div style={{ fontSize:12 }}>
+                          <div style={{ color:'var(--sub)' }}>{r.date}（{dowStr(r.date)}）</div>
+                          <div className="fw8" style={{ marginTop:2 }}>目標{r.r_ta||0} → 実績{r.auto_souhan||0}</div>
+                        </div>
+                        <button onClick={(e)=>{e.stopPropagation(); handleDelete(id);}} style={{ fontSize:11, color:'#dc2626', background:'none', border:'none', cursor:'pointer', fontWeight:700 }}>削除</button>
+                      </div>
+                    ))}
+                    <button className="btn btn-p" style={{ marginTop:4, fontSize:'.8rem', padding:'8px 12px' }} onClick={()=>navigate(editHref)}>
+                      編集{sg.items.length>1 ? '（まとめて開く）' : ''}
+                    </button>
                   </div>
                 )}
               </div>

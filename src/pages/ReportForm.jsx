@@ -49,6 +49,7 @@ function blankText(v) {
 function emptyDayData(date = '') {
   return {
     date,
+    sourceId: null, // 既存レコードを編集している場合のfp_reports側ID
     au: Array(8).fill(''),
     uq: Array(8).fill(''),
     fpA: '', fpB: '',
@@ -73,6 +74,7 @@ export default function ReportForm() {
   const [searchParams] = useSearchParams();
   const copyId = searchParams.get('copyId');
   const mode = searchParams.get('mode'); // 'continue' or null
+  const groupIds = searchParams.get('groupIds'); // 管理者画面などから複数日報をまとめて編集する場合（カンマ区切りID）
   const navigate = useNavigate();
   const { user, canEditReport } = useAuth();
   const showToast = useToast();
@@ -89,6 +91,7 @@ export default function ReportForm() {
   const [activeIdx, setActiveIdx] = useState(0);
 
   const [editingId, setEditingId] = useState(id || null);
+  const [isGroupEdit, setIsGroupEdit] = useState(false);
   const [lineText, setLineText] = useState('');
   const [showLineBox, setShowLineBox] = useState(false);
   const [lineParsed, setLineParsed] = useState(null);
@@ -122,6 +125,7 @@ export default function ReportForm() {
     setTargetA(r.r_ta || '');
     setTargetB(r.r_tb || '');
     const d = emptyDayData(r.date || todayStr());
+    d.sourceId = id;
     // au/uqは新形式（フラット配列）と旧形式（au_by_day等）の両方に対応
     d.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
     d.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
@@ -144,6 +148,55 @@ export default function ReportForm() {
     setActiveIdx(0);
     setEditingId(id);
   }, [id, reports]);
+
+  // グループ編集モード（管理者画面などから同一現場・複数日程の日報をまとめて編集）
+  useEffect(() => {
+    if (id || !groupIds) return;
+    const ids = groupIds.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    if (ids.some(gid => !reports[gid])) return; // 全件のデータ取得を待つ
+    const recs = ids.map(gid => ({ gid, r: reports[gid] }));
+    if (!recs.every(({ r }) => canEditReport(r))) {
+      showToast('この日報を編集する権限がありません');
+      navigate('/reports');
+      return;
+    }
+    const first = recs[0].r;
+    setStore(first.store || '');
+    setChannel(first.channel || '');
+    setChannelAuto(false);
+    setDirector(first.director || first.userName || '');
+    setTargetA(first.r_ta || '');
+    setTargetB(first.r_tb || '');
+    const newDays = recs
+      .sort((a, b) => (a.r.date || '').localeCompare(b.r.date || ''))
+      .map(({ gid, r }) => {
+        const d = emptyDayData(r.date || todayStr());
+        d.sourceId = gid;
+        d.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
+        d.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
+        d.fpA = String(r.fpA ?? r.fp_by_day?.[0]?.a ?? '');
+        d.fpB = String(r.fpB ?? r.fp_by_day?.[0]?.b ?? '');
+        d.hiyari = r.hiyari || '';
+        d.ank = r.ank ?? '';
+        d.bFp = r.b_fp || ['','','','']; d.bFc = r.b_fc || ['','','',''];
+        d.bPop = r.b_pop || ['','','','']; d.bTa = r.b_ta || ['','','',''];
+        d.bFuri = r.b_furi || ['','','',''];
+        d.ft = r.ft || ['','','','','']; d.ld = r.ld || ['',''];
+        d.other = r.other || '';
+        d.al = r.al || [['',''],['',''],['',''],['','']];
+        d.alEff = r.al_eff || '';
+        d.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
+        d.txtOv = r.txt_ov || ''; d.txtRs = r.txt_rs || '';
+        d.mikomiG = String(r.mikomiG ?? r.v_mikomi?.[0]?.g ?? '');
+        d.mikomiD = String(r.mikomiD ?? r.v_mikomi?.[0]?.d ?? '');
+        return d;
+      });
+    setDays(newDays);
+    setActiveIdx(0);
+    setIsGroupEdit(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, groupIds, reports]);
 
   // copyId/continueモード：前の日報データを引き継ぐ
   useEffect(() => {
@@ -205,7 +258,7 @@ export default function ReportForm() {
 
   // 下書き自動保存
   useEffect(() => {
-    if (editingId) return;
+    if (editingId || isGroupEdit) return;
     const t = setTimeout(() => {
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
@@ -215,7 +268,7 @@ export default function ReportForm() {
       } catch (e) { /* ignore */ }
     }, 600);
     return () => clearTimeout(t);
-  }, [store, channel, channelAuto, director, targetA, targetB, days, activeIdx, editingId]);
+  }, [store, channel, channelAuto, director, targetA, targetB, days, activeIdx, editingId, isGroupEdit]);
 
   // 販路自動判定
   useEffect(() => {
@@ -498,7 +551,7 @@ ${blankText(d.txtRs)}
 
   async function findDuplicate(date) {
     const matches = Object.entries(reports).filter(([rid, r]) =>
-      rid !== editingId &&
+      !days.some(d => d.sourceId === rid) &&
       r.date === date &&
       r.store === store &&
       r.userName === user?.name &&
@@ -526,25 +579,23 @@ ${blankText(d.txtRs)}
     };
   }
 
-  // 全日程（土日タブ分すべて）を一括保存する
+  // 日程（土日タブ分すべて／グループ編集の場合は全レコード）を一括保存する
   async function doSaveAll(daysToSave, existingIds = {}) {
     try {
-      if (editingId) {
-        // 編集モードは常に1件のみ
-        const payload = buildPayload(days[0]);
-        await set(ref(db, `fp_reports/${editingId}`), { ...reports[editingId], ...payload });
-        showToast('✅ 日報を更新しました');
-        navigate('/reports');
-        return;
-      }
       for (const d of daysToSave) {
-        const exId = existingIds[d.date];
-        if (exId) await remove(ref(db, `fp_reports/${exId}`));
         const payload = buildPayload(d);
-        payload.createdAt = Date.now();
-        await set(push(ref(db, 'fp_reports')), payload);
+        if (d.sourceId) {
+          // 既存レコードの更新（単体編集・グループ編集共通）
+          await set(ref(db, `fp_reports/${d.sourceId}`), { ...reports[d.sourceId], ...payload });
+        } else {
+          const exId = existingIds[d.date];
+          if (exId) await remove(ref(db, `fp_reports/${exId}`));
+          payload.createdAt = Date.now();
+          await set(push(ref(db, 'fp_reports')), payload);
+        }
       }
-      showToast(daysToSave.length > 1 ? '✅ 日報を保存しました（全日程分）' : '✅ 日報を保存しました');
+      const isEdit = editingId || isGroupEdit;
+      showToast(isEdit ? '✅ 日報を更新しました' : (daysToSave.length > 1 ? '✅ 日報を保存しました（全日程分）' : '✅ 日報を保存しました'));
       localStorage.removeItem(DRAFT_KEY);
       navigate('/reports');
     } catch (e) { showToast('保存エラー: ' + e.message); }
@@ -552,15 +603,17 @@ ${blankText(d.txtRs)}
 
   async function handleSaveClick() {
     if (!store) { showToast('店舗名は必須です'); return; }
-    // 実績が何も入力されていないタブ（未入力のまま放置されたタブ）は保存対象から除外する
-    const filledDays = editingId ? days : days.filter(d => d.au.some(v => v !== '') || d.uq.some(v => v !== ''));
+    // 編集モード（単体・グループとも）は全タブを保存対象にする。新規登録時のみ、実績未入力のタブは除外する
+    const filledDays = (editingId || isGroupEdit) ? days : days.filter(d => d.au.some(v => v !== '') || d.uq.some(v => v !== ''));
     if (filledDays.length === 0) { showToast('実績が未入力です。数値を入力してから保存してください'); return; }
     for (const d of filledDays) {
       if (!d.date) { showToast('日付は必須です'); return; }
     }
-    if (!editingId) {
+    // 既存レコードに紐付いていない（＝新規に追加された）タブだけ重複チェックする
+    const newDays = filledDays.filter(d => !d.sourceId);
+    if (newDays.length > 0) {
       const dupMap = {};
-      for (const d of filledDays) {
+      for (const d of newDays) {
         const exId = await findDuplicate(d.date);
         if (exId) dupMap[d.date] = exId;
       }
@@ -570,7 +623,7 @@ ${blankText(d.txtRs)}
   }
 
   return (
-    <Layout title={editingId ? '日報編集' : '日報入力'} showBack>
+    <Layout title={(editingId || isGroupEdit) ? '日報編集' : '日報入力'} showBack>
 
       {/* ===== 上部：店舗名＋日付（sticky固定） ===== */}
       <div style={{

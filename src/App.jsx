@@ -27,6 +27,7 @@ function AppRoutes() {
       <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
       <Route path="/report/new" element={<RequireAuth><ReportForm /></RequireAuth>} />
       <Route path="/report/edit/:id" element={<RequireAuth><ReportForm /></RequireAuth>} />
+      <Route path="/report/edit-group" element={<RequireAuth><ReportForm /></RequireAuth>} />
       <Route path="/reports" element={<RequireAuth><ReportList /></RequireAuth>} />
       <Route path="/reports/:id" element={<RequireAuth><ReportDetail /></RequireAuth>} />
       <Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} />
