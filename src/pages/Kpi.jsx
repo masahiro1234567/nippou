@@ -249,10 +249,10 @@ export default function Kpi() {
                       const curActual=actuals[akey]??savedResult?.actual??'';
                       const pct=+target>0&&curActual!==''?Math.round((+curActual/+target)*100):null;
                       return (
-                        <div key={mi} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:mi<ms.length-1?'1px solid #f3f4f6':'none' }}>
+                        <div key={mi} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:mi<ms.length-1?'1px solid #f3f4f6':'none' }}>
                           <div>
-                            <div style={{ fontSize:13, fontWeight:600, color:m.member==='他社'?'var(--sub)':'var(--text)' }}>{m.member||'−'}</div>
-                            <div style={{ fontSize:11, color:'var(--sub)' }}>
+                            <div style={{ fontSize:14, fontWeight:700, color:m.member==='他社'?'var(--sub)':'var(--text)' }}>{m.member||'−'}</div>
+                            <div style={{ fontSize:14, fontWeight:800, color:'var(--text)', marginTop:2 }}>
                               {m.role} / 目標：{target||'−'}{isCatcher?'組':'件'}
                             </div>
                           </div>
@@ -281,25 +281,31 @@ export default function Kpi() {
                         </div>
                       );
                     })}
-                    <button
-                      className="btn btn-p"
-                      style={{ marginTop:10, fontSize:'.82rem', padding:'9px' }}
-                      onClick={async()=>{
-                        for(const m of ms){
-                          if(m.member&&m.member!=='他社'&&m.role!=='キャッチャー'){
-                            const akey=`${id}_${dt}_${m.member}`;
-                            if(actuals[akey]!==undefined){
-                              await saveResult(id,dt,m.member,m.target,m.role);
-                            }
-                          }
-                        }
-                      }}
-                    >
-                      {dt}（{dowLabel(dt)}）の実績を保存
-                    </button>
                   </div>
                 );
               })}
+              <div style={{ padding:'10px 14px' }}>
+                <button
+                  className="btn btn-p"
+                  style={{ fontSize:'.86rem', padding:'11px' }}
+                  onClick={async()=>{
+                    for(const dt of dates){
+                      const ms=dateMembers[dt]||[];
+                      for(const m of ms){
+                        if(m.member&&m.member!=='他社'&&m.role!=='キャッチャー'){
+                          const akey=`${id}_${dt}_${m.member}`;
+                          if(actuals[akey]!==undefined){
+                            await saveResult(id,dt,m.member,m.target,m.role);
+                          }
+                        }
+                      }
+                    }
+                    showToast('✅ 実績を保存しました');
+                  }}
+                >
+                  実績を保存
+                </button>
+              </div>
               {isAdmin && (
                 <div style={{ display:'flex', gap:8, padding:'10px 14px' }}>
                   <button className="btn btn-outline" style={{ fontSize:'.8rem', padding:'7px 12px' }} onClick={()=>openEdit(id)}>編集</button>
