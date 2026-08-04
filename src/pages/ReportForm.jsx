@@ -504,10 +504,9 @@ ${blankText(d.txtRs)}
     return matches.length ? matches[0][0] : null;
   }
 
-  async function doSave(deleteExistingId) {
-    const d = days[activeIdx];
+  function buildPayload(d) {
     const calc = calcSouhanRiku(d.au, d.uq);
-    const payload = {
+    return {
       date: d.date, store, channel, director,
       userName: user?.name || '', userEmail: user?.email || '',
       hiyari: d.hiyari, r_ta: targetA, r_tb: targetB,
@@ -522,37 +521,46 @@ ${blankText(d.txtRs)}
       mikomiG: +d.mikomiG || 0, mikomiD: +d.mikomiD || 0,
       updatedAt: Date.now(),
     };
+  }
+
+  // 全日程（土日タブ分すべて）を一括保存する
+  async function doSaveAll(existingIds = {}) {
     try {
-      if (deleteExistingId) await remove(ref(db, `fp_reports/${deleteExistingId}`));
       if (editingId) {
+        // 編集モードは常に1件のみ
+        const payload = buildPayload(days[0]);
         await set(ref(db, `fp_reports/${editingId}`), { ...reports[editingId], ...payload });
         showToast('✅ 日報を更新しました');
         navigate('/reports');
-      } else {
+        return;
+      }
+      for (const d of days) {
+        const exId = existingIds[d.date];
+        if (exId) await remove(ref(db, `fp_reports/${exId}`));
+        const payload = buildPayload(d);
         payload.createdAt = Date.now();
         await set(push(ref(db, 'fp_reports')), payload);
-        showToast(`✅ ${curDow}の日報を保存しました`);
-        localStorage.removeItem(DRAFT_KEY);
-        const remaining = days.filter((_,i) => i !== activeIdx);
-        if (remaining.length > 0) {
-          setDays(remaining);
-          setActiveIdx(Math.min(activeIdx, remaining.length - 1));
-          setShowPreview(false);
-        } else {
-          navigate('/reports');
-        }
       }
+      showToast(days.length > 1 ? '✅ 日報を保存しました（全日程分）' : '✅ 日報を保存しました');
+      localStorage.removeItem(DRAFT_KEY);
+      navigate('/reports');
     } catch (e) { showToast('保存エラー: ' + e.message); }
   }
 
   async function handleSaveClick() {
-    const d = days[activeIdx];
-    if (!store || !d.date) { showToast('店舗名と日付は必須です'); return; }
-    if (!editingId) {
-      const dupId = await findDuplicate(d.date);
-      if (dupId) { setDupModal({ existingId: dupId }); return; }
+    if (!store) { showToast('店舗名は必須です'); return; }
+    for (const d of days) {
+      if (!d.date) { showToast('日付は必須です'); return; }
     }
-    doSave(null);
+    if (!editingId) {
+      const dupMap = {};
+      for (const d of days) {
+        const exId = await findDuplicate(d.date);
+        if (exId) dupMap[d.date] = exId;
+      }
+      if (Object.keys(dupMap).length > 0) { setDupModal({ existingIds: dupMap }); return; }
+    }
+    doSaveAll({});
   }
 
   return (
@@ -924,7 +932,7 @@ ${blankText(d.txtRs)}
               📋 コピー
             </button>
             <button className="btn btn-p" onClick={handleSaveClick}>
-              💾 {curDow}の日報を保存
+              💾 保存
             </button>
             <button className="btn btn-gray" onClick={() => setShowPreview(false)}>閉じる</button>
           </div>
@@ -936,12 +944,14 @@ ${blankText(d.txtRs)}
           <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.6rem', marginBottom: 8 }}>⚠️</div>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>すでに日報データが存在します</div>
-            <div className="ts" style={{ marginBottom: 14 }}>同じ日付・店舗・ユーザーの日報が見つかりました。</div>
+            <div className="ts" style={{ marginBottom: 14 }}>
+              同じ日付・店舗・ユーザーの日報が見つかりました。{Object.keys(dupModal.existingIds).length > 1 ? '（' + Object.keys(dupModal.existingIds).join('・') + '）' : ''}上書きしてよろしいですか？
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-gray" onClick={() => setDupModal(null)}>キャンセル</button>
               <button className="btn" style={{ background: '#dc2626', color: '#fff' }}
-                onClick={() => { const exId = dupModal.existingId; setDupModal(null); doSave(exId); }}>
-                上書き
+                onClick={() => { const ids = dupModal.existingIds; setDupModal(null); doSaveAll(ids); }}>
+                上書きして保存
               </button>
             </div>
           </div>
