@@ -120,6 +120,41 @@ function ReportManageTab() {
   const [pickerVal, setPickerVal] = useState(null);
   const [channelFilter, setChannelFilter] = useState('');
   const [openIds, setOpenIds] = useState({});
+  const [recalculating, setRecalculating] = useState(false);
+
+  // 保存済みの au/uq（新旧両形式に対応）から実績・達成率を再計算して書き戻す
+  async function handleRecalcAll() {
+    if (!confirm('全日報の実績・達成率を、現在のau/uq入力値から再計算して上書きします。よろしいですか？')) return;
+    setRecalculating(true);
+    let fixedCount = 0;
+    try {
+      const entries = Object.entries(reports);
+      for (const [id, r] of entries) {
+        const au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(v => +v || 0);
+        const uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(v => +v || 0);
+        const n = (v) => +v || 0;
+        const auTotal = au.reduce((a, b) => a + n(b), 0);
+        const uqTotal = uq.reduce((a, b) => a + n(b), 0) - n(uq[1]);
+        const souhan = auTotal + uqTotal;
+        const riku = souhan - (n(au[1]) + n(au[7]) + n(uq[7]));
+        const target = +r.r_ta || 0;
+        const ach = target > 0 ? Math.round((souhan / target) * 100) : 0;
+        if (r.auto_souhan !== souhan || r.auto_2b !== riku || r.ach !== ach) {
+          await set(ref(db, `fp_reports/${id}/au`), au);
+          await set(ref(db, `fp_reports/${id}/uq`), uq);
+          await set(ref(db, `fp_reports/${id}/auto_souhan`), souhan);
+          await set(ref(db, `fp_reports/${id}/auto_2b`), riku);
+          await set(ref(db, `fp_reports/${id}/ach`), ach);
+          fixedCount++;
+        }
+      }
+      showToast(fixedCount > 0 ? `✅ ${fixedCount}件のズレを修正しました` : '✅ ズレはありませんでした');
+    } catch (e) {
+      showToast('再計算エラー: ' + e.message);
+    } finally {
+      setRecalculating(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     return Object.entries(reports).filter(([,r]) => {
@@ -156,6 +191,9 @@ function ReportManageTab() {
         <input className="inp" placeholder="🔍 店舗名・ディレクター名"
           value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
+      <button className="btn btn-outline" disabled={recalculating} style={{ marginBottom:12, fontSize:'.78rem', padding:'8px 12px' }} onClick={handleRecalcAll}>
+        {recalculating ? '再計算中...' : '🔄 全日報の実績・達成率を再計算'}
+      </button>
       {filtered.length===0 && <div className="empty">データなし</div>}
       {weekGroups.map((grp) => (
         <div key={grp.label}>
