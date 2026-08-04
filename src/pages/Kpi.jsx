@@ -41,14 +41,16 @@ function weekLabelOf(dateStr) {
   if (week < 1) week = 1;
   return `${year}年${month + 1}月${week}週目`;
 }
-function WeekSectionHeader({ label }) {
+function WeekSectionHeader({ label, count, isOpen, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       fontSize: 12, fontWeight: 700, color: 'var(--sub)',
       background: '#f3f4f6', borderRadius: 7,
-      padding: '6px 10px', margin: '14px 0 8px',
+      padding: '9px 12px', margin: '14px 0 8px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
     }}>
-      {label}
+      <span>{label}<span style={{ fontWeight: 500, marginLeft: 6 }}>（{count}現場）</span></span>
+      <span style={{ fontSize: 13 }}>{isOpen ? '▾' : '›'}</span>
     </div>
   );
 }
@@ -63,6 +65,7 @@ export default function Kpi() {
   const [pickerVal, setPickerVal] = useState(null);
   const [channelFilter, setChannelFilter] = useState('');
   const [openIds, setOpenIds] = useState({});
+  const [openWeeks, setOpenWeeks] = useState({});
   // 実績入力 state: { [kpiId_date_memberName]: actual }
   const [actuals, setActuals] = useState({});
 
@@ -207,8 +210,13 @@ export default function Kpi() {
 
       {weekGroups.map((grp) => (
         <div key={grp.label}>
-          <WeekSectionHeader label={grp.label} />
-          {grp.cards.map(({id,k,dates,dateMembers})=>(
+          <WeekSectionHeader
+            label={grp.label}
+            count={grp.cards.length}
+            isOpen={!!openWeeks[grp.label]}
+            onClick={() => setOpenWeeks(prev => ({ ...prev, [grp.label]: !prev[grp.label] }))}
+          />
+          {openWeeks[grp.label] && grp.cards.map(({id,k,dates,dateMembers})=>(
         <div key={id} style={{ background:'#fff', borderRadius:'var(--r)', border:`1.5px solid ${openIds[id]?'var(--primary)':'var(--border)'}`, marginBottom:8, overflow:'hidden', boxShadow:'var(--sh-sm)' }}>
           {/* カードヘッダー */}
           <div style={{ padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
