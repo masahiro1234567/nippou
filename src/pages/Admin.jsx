@@ -129,6 +129,7 @@ function ReportManageTab() {
   const [pickerVal, setPickerVal] = useState(null);
   const [channelFilter, setChannelFilter] = useState('');
   const [openIds, setOpenIds] = useState({});
+  const [openWeeks, setOpenWeeks] = useState({});
   const [recalculating, setRecalculating] = useState(false);
 
   // 保存済みの au/uq（新旧両形式に対応）から実績・達成率を再計算して書き戻す
@@ -226,8 +227,13 @@ function ReportManageTab() {
       {filtered.length===0 && <div className="empty">データなし</div>}
       {weekGroups.map((grp) => (
         <div key={grp.label}>
-          <WeekSectionHeader label={grp.label} />
-          {grp.items.map((sg) => {
+          <WeekSectionHeader
+            label={grp.label}
+            count={grp.items.length}
+            isOpen={!!openWeeks[grp.label]}
+            onClick={() => setOpenWeeks(prev => ({ ...prev, [grp.label]: !prev[grp.label] }))}
+          />
+          {openWeeks[grp.label] && grp.items.map((sg) => {
             const isOpen = !!openIds[sg.key];
             const idsCsv = sg.items.map(([id]) => id).join(',');
             const editHref = sg.items.length > 1 ? `/report/edit-group?groupIds=${idsCsv}` : `/report/edit/${sg.items[0][0]}`;
@@ -277,14 +283,16 @@ function ReportManageTab() {
   );
 }
 
-function WeekSectionHeader({ label }) {
+function WeekSectionHeader({ label, count, isOpen, onClick }) {
   return (
-    <div style={{
-      fontSize: 12, fontWeight: 700, color: 'var(--sub)',
-      background: '#f3f4f6', borderRadius: 7,
-      padding: '6px 10px', margin: '14px 0 8px',
+    <div onClick={onClick} style={{
+      fontSize: 14, fontWeight: 800, color: 'var(--pd)',
+      background: 'var(--pl)', border: '1px solid #fed7aa', borderRadius: 10,
+      padding: '12px 14px', margin: '16px 0 10px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
     }}>
-      {label}
+      <span>{label}{count != null && <span style={{ fontWeight: 600, marginLeft: 6, fontSize: 12, opacity: .85 }}>（{count}件）</span>}</span>
+      <span style={{ fontSize: 15 }}>{isOpen ? '▾' : '›'}</span>
     </div>
   );
 }
@@ -309,6 +317,7 @@ function AdminKpiTab() {
   const [channelFilter, setChannelFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [openIds, setOpenIds] = useState({});
+  const [openWeeks, setOpenWeeks] = useState({});
   const [editing, setEditing] = useState(null);
   const [wizardStep, setWizardStep] = useState(0); // モバイルウィザード用
 
@@ -747,8 +756,13 @@ function AdminKpiTab() {
       {filtered.length === 0 && <div className="empty">KPIデータなし</div>}
       {weekGroups.map((grp) => (
         <div key={grp.label}>
-          <WeekSectionHeader label={grp.label} />
-          {grp.items.map(([id, k]) => {
+          <WeekSectionHeader
+            label={grp.label}
+            count={grp.items.length}
+            isOpen={!!openWeeks[grp.label]}
+            onClick={() => setOpenWeeks(prev => ({ ...prev, [grp.label]: !prev[grp.label] }))}
+          />
+          {openWeeks[grp.label] && grp.items.map(([id, k]) => {
         const dates = k.dates || [k.date].filter(Boolean);
         const dm = k.dateMembers || {};
         return (

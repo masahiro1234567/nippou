@@ -44,13 +44,13 @@ function weekLabelOf(dateStr) {
 function WeekSectionHeader({ label, count, isOpen, onClick }) {
   return (
     <div onClick={onClick} style={{
-      fontSize: 12, fontWeight: 700, color: 'var(--sub)',
-      background: '#f3f4f6', borderRadius: 7,
-      padding: '9px 12px', margin: '14px 0 8px',
+      fontSize: 14, fontWeight: 800, color: 'var(--pd)',
+      background: 'var(--pl)', border: '1px solid #fed7aa', borderRadius: 10,
+      padding: '12px 14px', margin: '16px 0 10px',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
     }}>
-      <span>{label}<span style={{ fontWeight: 500, marginLeft: 6 }}>（{count}現場）</span></span>
-      <span style={{ fontSize: 13 }}>{isOpen ? '▾' : '›'}</span>
+      <span>{label}<span style={{ fontWeight: 600, marginLeft: 6, fontSize: 12, opacity: .85 }}>（{count}現場）</span></span>
+      <span style={{ fontSize: 15 }}>{isOpen ? '▾' : '›'}</span>
     </div>
   );
 }

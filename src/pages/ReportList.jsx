@@ -118,9 +118,9 @@ export default function ReportList() {
       {weekSections.map((section) => (
         <div key={section.label}>
           <div style={{
-            fontSize: 12, fontWeight: 700, color: 'var(--sub)',
-            background: '#f3f4f6', borderRadius: 7,
-            padding: '6px 10px', margin: '14px 0 8px',
+            fontSize: 14, fontWeight: 800, color: 'var(--pd)',
+            background: 'var(--pl)', border: '1px solid #fed7aa', borderRadius: 10,
+            padding: '12px 14px', margin: '16px 0 10px',
           }}>
             {section.label}
           </div>
