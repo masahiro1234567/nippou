@@ -528,7 +528,8 @@ function AdminKpiTab() {
           userList={userList} calcTotalAssigned={calcTotalAssigned}
           calcDayTotal={calcDayTotal} getRoleOpts={getRoleOpts}
           updateSatDate={updateSatDate} updateSunDate={updateSunDate}
-          addDate={addDate} addMember={addMember} removeMember={removeMember} updateMember={updateMember}
+          addDate={addDate} toggleSingleDay={toggleSingleDay}
+          addMember={addMember} removeMember={removeMember} updateMember={updateMember}
           handleSave={handleSave} onClose={() => { setShowForm(false); setEditing(null); }}
         />
       )}
@@ -856,7 +857,7 @@ function AdminKpiTab() {
 }
 
 /* ===== モバイル向けKPIウィザード ===== */
-function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userList, calcTotalAssigned, calcDayTotal, getRoleOpts, updateSatDate, updateSunDate, addDate, addMember, removeMember, updateMember, handleSave, onClose }) {
+function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userList, calcTotalAssigned, calcDayTotal, getRoleOpts, updateSatDate, updateSunDate, addDate, toggleSingleDay, addMember, removeMember, updateMember, handleSave, onClose }) {
   const totalSteps = 1 + editing.dates.length + 1;
   const lastStep = totalSteps - 1;
   const isDayStep = wizardStep >= 1 && wizardStep <= editing.dates.length;

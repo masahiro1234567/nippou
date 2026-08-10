@@ -39,6 +39,36 @@ function calcSouhanRiku(au, uq) {
   const riku = souhan - (n(au[1]) + n(au[7]) + n(uq[7]));
   return { souhan, riku };
 }
+function thuWeekStart(dateStr) {
+  const d = parseDateLocal(dateStr);
+  const day = d.getDay(); // 0=日〜6=土
+  const offset = (day - 4 + 7) % 7;
+  const thu = new Date(d);
+  thu.setDate(d.getDate() - offset);
+  return `${thu.getFullYear()}-${String(thu.getMonth()+1).padStart(2,'0')}-${String(thu.getDate()).padStart(2,'0')}`;
+}
+function mapReportToDay(id, r) {
+  const d = emptyDayData(r.date || todayStr());
+  d.sourceId = id;
+  d.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
+  d.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
+  d.fpA = String(r.fpA ?? r.fp_by_day?.[0]?.a ?? '');
+  d.fpB = String(r.fpB ?? r.fp_by_day?.[0]?.b ?? '');
+  d.hiyari = r.hiyari || '';
+  d.ank = r.ank ?? '';
+  d.bFp = r.b_fp || ['','','','']; d.bFc = r.b_fc || ['','','',''];
+  d.bPop = r.b_pop || ['','','','']; d.bTa = r.b_ta || ['','','',''];
+  d.bFuri = r.b_furi || ['','','',''];
+  d.ft = r.ft || ['','','','','']; d.ld = r.ld || ['',''];
+  d.other = r.other || '';
+  d.al = r.al || [['',''],['',''],['',''],['','']];
+  d.alEff = r.al_eff || '';
+  d.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
+  d.txtOv = r.txt_ov || ''; d.txtRs = r.txt_rs || '';
+  d.mikomiG = String(r.mikomiG ?? r.v_mikomi?.[0]?.g ?? '');
+  d.mikomiD = String(r.mikomiD ?? r.v_mikomi?.[0]?.d ?? '');
+  return d;
+}
 function blank(v, mark = '○') {
   return v === '' || v === null || v === undefined ? mark : v;
 }
@@ -229,37 +259,24 @@ export default function ReportForm() {
       d.mikomiD = String(r.mikomiD ?? '');
       showToast('🔄 前回の日報を引き継ぎました');
     } else if (mode === 'add') {
-      // 追加モード：前回日（例：土曜）はそのまま編集可能な状態で残し、翌日（例：日曜）は空タブとして追加する
-      // 「累計」ではなく、その日その日の実績を別々に記入してもらうための挙動
-      const prevDay = emptyDayData(r.date || todayStr());
-      prevDay.sourceId = copyId;
-      prevDay.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
-      prevDay.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
-      prevDay.fpA = String(r.fpA ?? r.fp_by_day?.[0]?.a ?? '');
-      prevDay.fpB = String(r.fpB ?? r.fp_by_day?.[0]?.b ?? '');
-      prevDay.hiyari = r.hiyari || '';
-      prevDay.ank = r.ank ?? '';
-      prevDay.bFp = r.b_fp || ['','','','']; prevDay.bFc = r.b_fc || ['','','',''];
-      prevDay.bPop = r.b_pop || ['','','','']; prevDay.bTa = r.b_ta || ['','','',''];
-      prevDay.bFuri = r.b_furi || ['','','',''];
-      prevDay.ft = r.ft || ['','','','','']; prevDay.ld = r.ld || ['',''];
-      prevDay.other = r.other || '';
-      prevDay.al = r.al || [['',''],['',''],['',''],['','']];
-      prevDay.alEff = r.al_eff || '';
-      prevDay.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
-      prevDay.txtOv = r.txt_ov || ''; prevDay.txtRs = r.txt_rs || '';
-      prevDay.mikomiG = String(r.mikomiG ?? r.v_mikomi?.[0]?.g ?? '');
-      prevDay.mikomiD = String(r.mikomiD ?? r.v_mikomi?.[0]?.d ?? '');
+      // 追加モード：同じ現場（店舗×木曜始まりの週）に含まれる既存の日報は全部タブとして残し、
+      // その翌日は空タブとして追加する。「累計」ではなく、その日その日の実績を別々に記入してもらうための挙動
+      const wk = thuWeekStart(r.date || todayStr());
+      const sameGroup = Object.entries(reports)
+        .filter(([, rr]) => rr.store === r.store && rr.date && thuWeekStart(rr.date) === wk)
+        .sort((a, b) => (a[1].date || '').localeCompare(b[1].date || ''));
+      const existingDays = sameGroup.length ? sameGroup.map(([id, rr]) => mapReportToDay(id, rr)) : [mapReportToDay(copyId, r)];
 
-      const pd = parseDateLocal(r.date || todayStr());
+      const lastDate = existingDays[existingDays.length - 1].date || todayStr();
+      const pd = parseDateLocal(lastDate);
       pd.setDate(pd.getDate() + 1);
       const nextDateStr = `${pd.getFullYear()}-${String(pd.getMonth()+1).padStart(2,'0')}-${String(pd.getDate()).padStart(2,'0')}`;
       const newDay = emptyDayData(nextDateStr); // 実績はまっさらな空タブ（累計や前日の数値は引き継がない）
 
-      setDays([prevDay, newDay]);
-      setActiveIdx(1); // 開いたら空タブ（翌日分）が見えるように
+      setDays([...existingDays, newDay]);
+      setActiveIdx(existingDays.length); // 開いたら空タブ（新しい日）が見えるように
       setIsGroupEdit(true);
-      showToast(`➕ ${dowLabel(r.date)}の内容を確認しつつ、${dowLabel(nextDateStr)}分を追加入力できます`);
+      showToast(`➕ 既存${existingDays.length}日分を確認しつつ、${dowLabel(nextDateStr)}分を追加入力できます`);
     } else {
       // コピーモード：全フィールドを引き継ぎ
       const d = emptyDayData(todayStr());
