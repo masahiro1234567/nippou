@@ -85,12 +85,12 @@ export default function Home() {
               <div style={{ fontSize: 12, opacity: .85 }}>ゼロから新しく入力する</div>
             </button>
 
-            {/* 続きの入力 */}
+            {/* 前回の続き（土日追加など） */}
             <button
               onClick={() => {
                 setShowModal(false);
                 if (lastReport) {
-                  navigate(`/report/new?mode=continue&copyId=${lastReport[0]}`);
+                  navigate(`/report/new?mode=add&copyId=${lastReport[0]}`);
                 } else {
                   navigate('/report/new');
                 }
@@ -101,10 +101,10 @@ export default function Home() {
                 marginBottom: 10, cursor: 'pointer', textAlign: 'left',
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 3 }}>🔄 続きの入力</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 3 }}>🔄 続きの入力（土日追加など）</div>
               {lastReport ? (
                 <div style={{ fontSize: 12, color: 'var(--sub)' }}>
-                  前回：{lastReport[1].store} / {lastReport[1].date}（{dowOf(lastReport[1].date)}）を引き継ぐ
+                  前回：{lastReport[1].store} / {lastReport[1].date}（{dowOf(lastReport[1].date)}）＋翌日分を追加入力
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: 'var(--sub)' }}>前回の日報が見つかりません</div>
