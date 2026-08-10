@@ -378,8 +378,6 @@ export default function ReportForm() {
 
   function handleTouchStart(e) {
     if (transitioning) return;
-    const tgt = e.target;
-    if (['INPUT','TEXTAREA','SELECT','BUTTON'].includes(tgt.tagName)) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     isHoriz.current = false;
@@ -671,9 +669,8 @@ ${blankText(d.txtRs)}
   return (
     <Layout title={(editingId || isGroupEdit) ? '日報編集' : '日報入力'} showBack>
 
-      {/* ===== 上部：店舗名＋日付（sticky固定） ===== */}
+      {/* ===== 上部：店舗名＋日付 ===== */}
       <div style={{
-        position: 'sticky', top: 0, zIndex: 20,
         background: 'var(--bg)',
         paddingBottom: 4,
       }}>
@@ -719,17 +716,13 @@ ${blankText(d.txtRs)}
           )}
         </div>
       </div>
-      </div>{/* sticky wrapper end */}
+      </div>{/* 店舗名wrapper end */}
 
       {/* ===== スワイプコンテナ（店舗名以下全部） ===== */}
       <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         style={{
           transform: `translateX(${dragX}px)`,
           transition: transitioning ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
-          touchAction: 'pan-y',
           willChange: 'transform',
         }}
       >
@@ -768,8 +761,17 @@ ${blankText(d.txtRs)}
         )}
       </div>
 
-      {/* ===== 稼働日タブ（スライダー型） ===== */}
-      <div style={{ background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 12, boxShadow: 'var(--sh-sm)', overflow: 'hidden' }}>
+      {/* ===== 稼働日タブ（スライダー型・sticky固定） ===== */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          position: 'sticky', top: 0, zIndex: 20,
+          background: '#fff', borderRadius: 'var(--r)', border: '1px solid var(--border)', marginBottom: 12, boxShadow: 'var(--sh-sm)', overflow: 'hidden',
+          touchAction: 'pan-y',
+        }}
+      >
 
         {/* スライダータブ＋＋ボタン */}
         <div style={{ padding: '8px 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
