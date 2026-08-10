@@ -229,8 +229,37 @@ export default function ReportForm() {
       d.mikomiD = String(r.mikomiD ?? '');
       showToast('🔄 前回の日報を引き継ぎました');
     } else if (mode === 'add') {
-      // 追加モード：店舗・目標だけ引き継ぎ、数値はリセット
-      showToast('➕ 同じ店舗で新規日報を追加します');
+      // 追加モード：前回日（例：土曜）はそのまま編集可能な状態で残し、翌日（例：日曜）は空タブとして追加する
+      // 「累計」ではなく、その日その日の実績を別々に記入してもらうための挙動
+      const prevDay = emptyDayData(r.date || todayStr());
+      prevDay.sourceId = copyId;
+      prevDay.au = (r.au || (r.au_by_day && r.au_by_day[0]) || Array(8).fill(0)).map(String);
+      prevDay.uq = (r.uq || (r.uq_by_day && r.uq_by_day[0]) || Array(8).fill(0)).map(String);
+      prevDay.fpA = String(r.fpA ?? r.fp_by_day?.[0]?.a ?? '');
+      prevDay.fpB = String(r.fpB ?? r.fp_by_day?.[0]?.b ?? '');
+      prevDay.hiyari = r.hiyari || '';
+      prevDay.ank = r.ank ?? '';
+      prevDay.bFp = r.b_fp || ['','','','']; prevDay.bFc = r.b_fc || ['','','',''];
+      prevDay.bPop = r.b_pop || ['','','','']; prevDay.bTa = r.b_ta || ['','','',''];
+      prevDay.bFuri = r.b_furi || ['','','',''];
+      prevDay.ft = r.ft || ['','','','','']; prevDay.ld = r.ld || ['',''];
+      prevDay.other = r.other || '';
+      prevDay.al = r.al || [['',''],['',''],['',''],['','']];
+      prevDay.alEff = r.al_eff || '';
+      prevDay.ot = r.ot || [['0','0','0','0'],['0','0','0','0'],['0','0','0','0'],['0','0','0','0']];
+      prevDay.txtOv = r.txt_ov || ''; prevDay.txtRs = r.txt_rs || '';
+      prevDay.mikomiG = String(r.mikomiG ?? r.v_mikomi?.[0]?.g ?? '');
+      prevDay.mikomiD = String(r.mikomiD ?? r.v_mikomi?.[0]?.d ?? '');
+
+      const pd = parseDateLocal(r.date || todayStr());
+      pd.setDate(pd.getDate() + 1);
+      const nextDateStr = `${pd.getFullYear()}-${String(pd.getMonth()+1).padStart(2,'0')}-${String(pd.getDate()).padStart(2,'0')}`;
+      const newDay = emptyDayData(nextDateStr); // 実績はまっさらな空タブ（累計や前日の数値は引き継がない）
+
+      setDays([prevDay, newDay]);
+      setActiveIdx(1); // 開いたら空タブ（翌日分）が見えるように
+      setIsGroupEdit(true);
+      showToast(`➕ ${dowLabel(r.date)}の内容を確認しつつ、${dowLabel(nextDateStr)}分を追加入力できます`);
     } else {
       // コピーモード：全フィールドを引き継ぎ
       const d = emptyDayData(todayStr());
@@ -603,8 +632,8 @@ ${blankText(d.txtRs)}
 
   async function handleSaveClick() {
     if (!store) { showToast('店舗名は必須です'); return; }
-    // 編集モード（単体・グループとも）は全タブを保存対象にする。新規登録時のみ、実績未入力のタブは除外する
-    const filledDays = (editingId || isGroupEdit) ? days : days.filter(d => d.au.some(v => v !== '') || d.uq.some(v => v !== ''));
+    // 保存対象：既存レコードに紐付くタブ（sourceIdあり）は常に保存し、新規タブは実績が入力されている場合のみ保存する
+    const filledDays = days.filter(d => d.sourceId || d.au.some(v => v !== '') || d.uq.some(v => v !== ''));
     if (filledDays.length === 0) { showToast('実績が未入力です。数値を入力してから保存してください'); return; }
     for (const d of filledDays) {
       if (!d.date) { showToast('日付は必須です'); return; }

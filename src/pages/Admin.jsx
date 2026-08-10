@@ -398,6 +398,24 @@ function AdminKpiTab() {
       };
     });
   }
+  // 単日⇔2日（デフォルト）を切り替える
+  function toggleSingleDay() {
+    setEditing(prev => {
+      if (prev.dates.length <= 1) {
+        // 単日 → 2日に戻す：翌日を追加
+        const first = prev.dates[0];
+        const nd = addOneDay(first);
+        return {
+          ...prev,
+          dates: [first, nd],
+          dateMembers: { ...prev.dateMembers, [nd]: prev.dateMembers[nd] || [{ member: '', role: 'クローザー', target: '', catcherCount: '' }] },
+        };
+      }
+      // 2日以上 → 単日にする：最初の日だけ残す
+      const first = prev.dates[0];
+      return { ...prev, dates: [first], dateMembers: { [first]: prev.dateMembers[first] || [] } };
+    });
+  }
   function addMember(date) {
     setEditing(prev => {
       const dm = { ...prev.dateMembers };
@@ -564,18 +582,29 @@ function AdminKpiTab() {
                   <label className="ts" style={{ margin: 0 }}>稼働日</label>
                   <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>変更すると連動</span>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 12px' }}>土</span>
-                  <input className="inp" type="date" value={editing.dates[0] || ''}
-                    onChange={e => updateSatDate(e.target.value)}
-                    style={{ flex: 1, padding: '7px 9px', fontSize: '.84rem' }} />
-                </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 12px' }}>日</span>
-                  <input className="inp" type="date" value={editing.dates[1] || ''}
-                    onChange={e => updateSunDate(e.target.value)}
-                    style={{ flex: 1, padding: '7px 9px', fontSize: '.84rem' }} />
-                </div>
+                {editing.dates.length === 1 ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 24px' }}>日付</span>
+                    <input className="inp" type="date" value={editing.dates[0] || ''}
+                      onChange={e => updateSatDate(e.target.value)}
+                      style={{ flex: 1, padding: '7px 9px', fontSize: '.84rem' }} />
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 12px' }}>土</span>
+                      <input className="inp" type="date" value={editing.dates[0] || ''}
+                        onChange={e => updateSatDate(e.target.value)}
+                        style={{ flex: 1, padding: '7px 9px', fontSize: '.84rem' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 12px' }}>日</span>
+                      <input className="inp" type="date" value={editing.dates[1] || ''}
+                        onChange={e => updateSunDate(e.target.value)}
+                        style={{ flex: 1, padding: '7px 9px', fontSize: '.84rem' }} />
+                    </div>
+                  </>
+                )}
                 {editing.dates.slice(2).map((dt, i) => (
                   <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: 'var(--sub)', flex: '0 0 12px' }}>{i + 3}</span>
@@ -595,9 +624,18 @@ function AdminKpiTab() {
                     })} style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '6px 8px', color: '#dc2626', cursor: 'pointer', fontSize: 11 }}>×</button>
                   </div>
                 ))}
-                <button className="btn btn-gray" style={{ width: '100%', fontSize: '.8rem', padding: '7px 12px', marginTop: 2 }} onClick={addDate}>
-                  ＋ 日程を追加
-                </button>
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <button className="btn btn-gray" style={{ flex: 1, fontSize: '.8rem', padding: '7px 12px' }} onClick={addDate}>
+                    ＋ 日程を追加
+                  </button>
+                  <button
+                    className={editing.dates.length === 1 ? 'btn btn-p' : 'btn btn-outline'}
+                    style={{ flex: 1, fontSize: '.8rem', padding: '7px 12px' }}
+                    onClick={toggleSingleDay}
+                  >
+                    {editing.dates.length === 1 ? '2日に戻す' : '単日'}
+                  </button>
+                </div>
               </div>
 
               {/* 現場全体目標 */}
@@ -881,16 +919,23 @@ function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userL
               <label className="ts" style={{ margin: 0 }}>稼働日</label>
               <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>変更すると連動</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <div style={{ flex: 1 }}>
-                <div className="ts" style={{ marginBottom: 3 }}>土</div>
+            {editing.dates.length === 1 ? (
+              <div style={{ marginBottom: 8 }}>
+                <div className="ts" style={{ marginBottom: 3 }}>日付</div>
                 <input className="inp" type="date" value={editing.dates[0] || ''} onChange={e => updateSatDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div className="ts" style={{ marginBottom: 3 }}>日</div>
-                <input className="inp" type="date" value={editing.dates[1] || ''} onChange={e => updateSunDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+            ) : (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div className="ts" style={{ marginBottom: 3 }}>土</div>
+                  <input className="inp" type="date" value={editing.dates[0] || ''} onChange={e => updateSatDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="ts" style={{ marginBottom: 3 }}>日</div>
+                  <input className="inp" type="date" value={editing.dates[1] || ''} onChange={e => updateSunDate(e.target.value)} style={{ padding: '9px 10px', fontSize: '.9rem' }} />
+                </div>
               </div>
-            </div>
+            )}
             {editing.dates.slice(2).map((dt, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
@@ -905,7 +950,16 @@ function MobileKpiWizard({ editing, setEditing, wizardStep, setWizardStep, userL
                   style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '9px 11px', color: '#dc2626', cursor: 'pointer' }}>×</button>
               </div>
             ))}
-            <button className="btn btn-gray" style={{ fontSize: '.82rem', padding: '8px 12px', width: 'auto' }} onClick={addDate}>＋ 日程を追加</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-gray" style={{ flex: 1, fontSize: '.82rem', padding: '8px 12px' }} onClick={addDate}>＋ 日程を追加</button>
+              <button
+                className={editing.dates.length === 1 ? 'btn btn-p' : 'btn btn-outline'}
+                style={{ flex: 1, fontSize: '.82rem', padding: '8px 12px' }}
+                onClick={toggleSingleDay}
+              >
+                {editing.dates.length === 1 ? '2日に戻す' : '単日'}
+              </button>
+            </div>
           </div>
         )}
 
